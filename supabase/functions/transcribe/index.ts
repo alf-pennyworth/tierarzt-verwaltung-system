@@ -5,11 +5,15 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
 }
 
 serve(async (req) => {
+  console.log('Function invoked with method:', req.method)
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS request')
     return new Response(null, {
       status: 204,
       headers: corsHeaders
@@ -17,34 +21,49 @@ serve(async (req) => {
   }
 
   try {
-    const { audio } = await req.json()
-    
-    if (!audio) {
+    if (req.method !== 'POST') {
+      throw new Error(`Method ${req.method} not allowed`)
+    }
+
+    console.log('Processing POST request')
+    const contentType = req.headers.get('content-type')
+    console.log('Content-Type:', contentType)
+
+    const body = await req.json()
+    console.log('Request body received')
+
+    if (!body.audio) {
       throw new Error('No audio data provided')
     }
 
     // Convert base64 to binary
-    const binaryAudio = Uint8Array.from(atob(audio.split(',')[1]), c => c.charCodeAt(0))
+    console.log('Converting audio data')
+    const audioData = body.audio.split(',')[1] || body.audio
+    const binaryAudio = Uint8Array.from(atob(audioData), c => c.charCodeAt(0))
     
     // Create upload URL
+    console.log('Uploading to AssemblyAI')
     const uploadResponse = await fetch('https://api.assemblyai.com/v2/upload', {
       method: 'POST',
       headers: {
         'Authorization': Deno.env.get('ASSEMBLY_AI_API_KEY') || '',
         'Content-Type': 'application/octet-stream',
+        'Transfer-Encoding': 'chunked'
       },
       body: binaryAudio,
     })
 
     if (!uploadResponse.ok) {
-      console.error('Upload failed:', await uploadResponse.text())
-      throw new Error('Failed to upload audio')
+      const errorText = await uploadResponse.text()
+      console.error('Upload failed:', errorText)
+      throw new Error(`Failed to upload audio: ${errorText}`)
     }
 
     const { upload_url } = await uploadResponse.json()
     console.log('Upload successful, URL:', upload_url)
 
     // Start transcription
+    console.log('Starting transcription')
     const transcriptResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
       method: 'POST',
       headers: {
@@ -58,8 +77,9 @@ serve(async (req) => {
     })
 
     if (!transcriptResponse.ok) {
-      console.error('Transcription request failed:', await transcriptResponse.text())
-      throw new Error('Failed to start transcription')
+      const errorText = await transcriptResponse.text()
+      console.error('Transcription request failed:', errorText)
+      throw new Error(`Failed to start transcription: ${errorText}`)
     }
 
     const { id: transcriptId } = await transcriptResponse.json()
@@ -68,6 +88,7 @@ serve(async (req) => {
     // Poll for completion
     let transcript
     while (true) {
+      console.log('Polling transcription status')
       const pollResponse = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
         headers: {
           'Authorization': Deno.env.get('ASSEMBLY_AI_API_KEY') || '',
@@ -75,8 +96,9 @@ serve(async (req) => {
       })
 
       if (!pollResponse.ok) {
-        console.error('Polling failed:', await pollResponse.text())
-        throw new Error('Failed to poll transcription status')
+        const errorText = await pollResponse.text()
+        console.error('Polling failed:', errorText)
+        throw new Error(`Failed to poll transcription status: ${errorText}`)
       }
 
       transcript = await pollResponse.json()
@@ -94,6 +116,7 @@ serve(async (req) => {
       throw new Error('Transcription failed: ' + transcript.error)
     }
 
+    console.log('Transcription completed successfully')
     return new Response(
       JSON.stringify({ text: transcript.text }),
       { 
@@ -109,7 +132,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        details: error.stack
+        details: error.stack,
+        type: error.constructor.name
       }),
       { 
         status: 500,
