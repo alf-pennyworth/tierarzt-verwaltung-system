@@ -14,6 +14,8 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           diagnose_id: string
+          diagnose_path: string[] | null
+          diagnose_path_ids: string[] | null
           id: string
           medikament_id: string | null
           medikament_menge: number | null
@@ -27,6 +29,8 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           diagnose_id: string
+          diagnose_path?: string[] | null
+          diagnose_path_ids?: string[] | null
           id?: string
           medikament_id?: string | null
           medikament_menge?: number | null
@@ -40,6 +44,8 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           diagnose_id?: string
+          diagnose_path?: string[] | null
+          diagnose_path_ids?: string[] | null
           id?: string
           medikament_id?: string | null
           medikament_menge?: number | null
@@ -368,7 +374,18 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      diagnose_hierarchy: {
+        Row: {
+          diagnose: string | null
+          id: string | null
+          level: number | null
+          nummer: string | null
+          parent_id: string | null
+          path: string[] | null
+          path_ids: string[] | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never

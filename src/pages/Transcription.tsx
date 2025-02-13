@@ -1,18 +1,107 @@
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mic, MicOff } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useLocation } from "react-router-dom";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { format } from "date-fns";
+
+interface PatientData {
+  name: string;
+  spezies: string;
+  rasse: string | null;
+  besitzer: {
+    name: string;
+  };
+}
+
+interface LocationState {
+  patientId?: string;
+}
 
 const Transcription = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcription, setTranscription] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [patientData, setPatientData] = useState<PatientData | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
+  const location = useLocation();
+  const state = location.state as LocationState;
+
+  // Form state
+  const [formData, setFormData] = useState({
+    patientName: "",
+    besitzerName: "",
+    spezies: "",
+    rasse: "",
+    diagnose: "",
+    medikamentTyp: "",
+    medikament: "",
+    medikamentMenge: "",
+    untersuchungsDatum: format(new Date(), "yyyy-MM-dd"),
+  });
+
+  useEffect(() => {
+    const fetchPatientData = async () => {
+      if (state?.patientId) {
+        const { data, error } = await supabase
+          .from("patient")
+          .select(`
+            name,
+            spezies,
+            rasse,
+            besitzer (
+              name
+            )
+          `)
+          .eq("id", state.patientId)
+          .single();
+
+        if (error) {
+          console.error("Error fetching patient data:", error);
+          toast({
+            variant: "destructive",
+            title: "Fehler",
+            description: "Patientendaten konnten nicht geladen werden.",
+          });
+          return;
+        }
+
+        if (data) {
+          setPatientData(data);
+          setFormData(prev => ({
+            ...prev,
+            patientName: data.name,
+            besitzerName: data.besitzer.name,
+            spezies: data.spezies,
+            rasse: data.rasse || "",
+          }));
+        }
+      }
+    };
+
+    fetchPatientData();
+  }, [state?.patientId, toast]);
+
+  const extractMedicalInfo = (text: string) => {
+    // This is a simple example. In a real application, you'd want to use
+    // more sophisticated NLP techniques or a dedicated medical text processing service
+    const diagnosisMatch = text.match(/Diagnose[:\s]+([^\n.]+)/i);
+    const medicationMatch = text.match(/Medikament[:\s]+([^\n.]+)/i);
+    const dosageMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:mg|ml|g|tabletten)/i);
+
+    return {
+      diagnose: diagnosisMatch?.[1]?.trim() || "",
+      medikament: medicationMatch?.[1]?.trim() || "",
+      menge: dosageMatch?.[1] || "",
+    };
+  };
 
   const startRecording = async () => {
     try {
@@ -79,6 +168,15 @@ const Transcription = () => {
 
       if (data.text) {
         setTranscription(data.text);
+        const extractedInfo = extractMedicalInfo(data.text);
+        
+        setFormData(prev => ({
+          ...prev,
+          diagnose: extractedInfo.diagnose,
+          medikament: extractedInfo.medikament,
+          medikamentMenge: extractedInfo.menge,
+        }));
+
         toast({
           title: "Transkription erfolgreich",
           description: "Der Text wurde erfolgreich erstellt.",
@@ -96,8 +194,57 @@ const Transcription = () => {
     }
   };
 
+  const handleSave = async () => {
+    try {
+      // First, find the diagnose ID based on the extracted diagnosis
+      const { data: diagnoseData, error: diagnoseError } = await supabase
+        .from("diagnose")
+        .select("id")
+        .ilike("diagnose", `%${formData.diagnose}%`)
+        .single();
+
+      if (diagnoseError) throw diagnoseError;
+
+      // Find the medication ID
+      const { data: medikamentData, error: medikamentError } = await supabase
+        .from("medikamente")
+        .select("id, masseinheit")
+        .ilike("name", `%${formData.medikament}%`)
+        .single();
+
+      if (medikamentError && formData.medikament) throw medikamentError;
+
+      // Create the behandlung record
+      const { error: behandlungError } = await supabase
+        .from("behandlungen")
+        .insert({
+          patient_id: state?.patientId,
+          diagnose_id: diagnoseData.id,
+          medikament_id: medikamentData?.id,
+          medikament_typ: formData.medikamentTyp,
+          medikament_menge: parseFloat(formData.medikamentMenge),
+          untersuchung_datum: formData.untersuchungsDatum,
+          praxis_id: patientData?.praxis_id, // This should come from the authenticated user's context
+        });
+
+      if (behandlungError) throw behandlungError;
+
+      toast({
+        title: "Gespeichert",
+        description: "Die Behandlung wurde erfolgreich gespeichert.",
+      });
+    } catch (error) {
+      console.error("Save error:", error);
+      toast({
+        variant: "destructive",
+        title: "Fehler",
+        description: "Die Behandlung konnte nicht gespeichert werden.",
+      });
+    }
+  };
+
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto p-4 space-y-4">
       <Card>
         <CardHeader>
           <CardTitle>Sprachaufnahme</CardTitle>
@@ -130,16 +277,120 @@ const Transcription = () => {
                 Transkription wird erstellt...
               </div>
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Behandlungsdetails</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="patientName">Patientenname</Label>
+                <Input
+                  id="patientName"
+                  value={formData.patientName}
+                  readOnly
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="besitzerName">Besitzername</Label>
+                <Input
+                  id="besitzerName"
+                  value={formData.besitzerName}
+                  readOnly
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="spezies">Spezies</Label>
+                <Input
+                  id="spezies"
+                  value={formData.spezies}
+                  readOnly
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="rasse">Rasse</Label>
+                <Input
+                  id="rasse"
+                  value={formData.rasse}
+                  readOnly
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="diagnose">Diagnose</Label>
+                <Input
+                  id="diagnose"
+                  value={formData.diagnose}
+                  onChange={(e) => setFormData(prev => ({ ...prev, diagnose: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="medikamentTyp">Medikamententyp</Label>
+                <Input
+                  id="medikamentTyp"
+                  value={formData.medikamentTyp}
+                  onChange={(e) => setFormData(prev => ({ ...prev, medikamentTyp: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="medikament">Medikament</Label>
+                <Input
+                  id="medikament"
+                  value={formData.medikament}
+                  onChange={(e) => setFormData(prev => ({ ...prev, medikament: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="medikamentMenge">Medikamentenmenge</Label>
+                <Input
+                  id="medikamentMenge"
+                  type="number"
+                  value={formData.medikamentMenge}
+                  onChange={(e) => setFormData(prev => ({ ...prev, medikamentMenge: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="untersuchungsDatum">Untersuchungsdatum</Label>
+                <Input
+                  id="untersuchungsDatum"
+                  type="date"
+                  value={formData.untersuchungsDatum}
+                  onChange={(e) => setFormData(prev => ({ ...prev, untersuchungsDatum: e.target.value }))}
+                />
+              </div>
+            </div>
 
             {transcription && (
               <div className="mt-4">
-                <h3 className="text-lg font-semibold mb-2">Transkription:</h3>
-                <div className="bg-gray-50 p-4 rounded-lg whitespace-pre-wrap">
+                <Label htmlFor="transcription">Transkription</Label>
+                <div className="bg-gray-50 p-4 rounded-lg whitespace-pre-wrap mt-2">
                   {transcription}
                 </div>
               </div>
             )}
-          </div>
+
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                onClick={handleSave}
+                disabled={isProcessing}
+              >
+                Speichern
+              </Button>
+            </div>
+          </form>
         </CardContent>
       </Card>
     </div>
