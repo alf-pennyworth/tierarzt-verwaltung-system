@@ -9,7 +9,363 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      behandlungen: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          diagnose_id: string
+          id: string
+          medikament_id: string | null
+          medikament_menge: number | null
+          medikament_typ: string | null
+          patient_id: string
+          praxis_id: string
+          untersuchung_datum: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          diagnose_id: string
+          id?: string
+          medikament_id?: string | null
+          medikament_menge?: number | null
+          medikament_typ?: string | null
+          patient_id: string
+          praxis_id: string
+          untersuchung_datum: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          diagnose_id?: string
+          id?: string
+          medikament_id?: string | null
+          medikament_menge?: number | null
+          medikament_typ?: string | null
+          patient_id?: string
+          praxis_id?: string
+          untersuchung_datum?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "behandlungen_diagnose_id_fkey"
+            columns: ["diagnose_id"]
+            isOneToOne: false
+            referencedRelation: "diagnose"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "behandlungen_medikament_id_fkey"
+            columns: ["medikament_id"]
+            isOneToOne: false
+            referencedRelation: "medikamente"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "behandlungen_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "behandlungen_praxis_id_fkey"
+            columns: ["praxis_id"]
+            isOneToOne: false
+            referencedRelation: "praxis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      besitzer: {
+        Row: {
+          betriebsnummer: string | null
+          created_at: string
+          deleted_at: string | null
+          email: string | null
+          id: string
+          name: string
+          postleitzahl: string | null
+          praxis_id: string
+          stadt: string | null
+          strasse: string | null
+          telefonnummer: string | null
+          updated_at: string
+        }
+        Insert: {
+          betriebsnummer?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          postleitzahl?: string | null
+          praxis_id: string
+          stadt?: string | null
+          strasse?: string | null
+          telefonnummer?: string | null
+          updated_at?: string
+        }
+        Update: {
+          betriebsnummer?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          postleitzahl?: string | null
+          praxis_id?: string
+          stadt?: string | null
+          strasse?: string | null
+          telefonnummer?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "besitzer_praxis_id_fkey"
+            columns: ["praxis_id"]
+            isOneToOne: false
+            referencedRelation: "praxis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diagnose: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          diagnose: string
+          id: string
+          nummer: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          diagnose: string
+          id?: string
+          nummer: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          diagnose?: string
+          id?: string
+          nummer?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnose_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "diagnose"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medikamente: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          masseinheit: string
+          name: string
+          packungs_id: string | null
+          updated_at: string
+          zulassungsnummer: string | null
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          masseinheit: string
+          name: string
+          packungs_id?: string | null
+          updated_at?: string
+          zulassungsnummer?: string | null
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          masseinheit?: string
+          name?: string
+          packungs_id?: string | null
+          updated_at?: string
+          zulassungsnummer?: string | null
+        }
+        Relationships: []
+      }
+      patient: {
+        Row: {
+          besitzer_id: string
+          bild_url: string | null
+          created_at: string
+          deleted_at: string | null
+          geburtsdatum: string | null
+          id: string
+          name: string
+          praxis_id: string
+          rasse: string | null
+          spezies: string
+          updated_at: string
+        }
+        Insert: {
+          besitzer_id: string
+          bild_url?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          geburtsdatum?: string | null
+          id?: string
+          name: string
+          praxis_id: string
+          rasse?: string | null
+          spezies: string
+          updated_at?: string
+        }
+        Update: {
+          besitzer_id?: string
+          bild_url?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          geburtsdatum?: string | null
+          id?: string
+          name?: string
+          praxis_id?: string
+          rasse?: string | null
+          spezies?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_besitzer_id_fkey"
+            columns: ["besitzer_id"]
+            isOneToOne: false
+            referencedRelation: "besitzer"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_praxis_id_fkey"
+            columns: ["praxis_id"]
+            isOneToOne: false
+            referencedRelation: "praxis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      praxis: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rollen: {
+        Row: {
+          created_at: string
+          id: string
+          name: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      veterinaere: {
+        Row: {
+          auth_id: string | null
+          created_at: string
+          deleted_at: string | null
+          email: string
+          id: string
+          nachname: string
+          praxis_id: string
+          rolle_id: string
+          telefonnummer: string | null
+          updated_at: string
+          username: string
+          vorname: string
+        }
+        Insert: {
+          auth_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          email: string
+          id?: string
+          nachname: string
+          praxis_id: string
+          rolle_id: string
+          telefonnummer?: string | null
+          updated_at?: string
+          username: string
+          vorname: string
+        }
+        Update: {
+          auth_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          email?: string
+          id?: string
+          nachname?: string
+          praxis_id?: string
+          rolle_id?: string
+          telefonnummer?: string | null
+          updated_at?: string
+          username?: string
+          vorname?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "veterinaere_praxis_id_fkey"
+            columns: ["praxis_id"]
+            isOneToOne: false
+            referencedRelation: "praxis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "veterinaere_rolle_id_fkey"
+            columns: ["rolle_id"]
+            isOneToOne: false
+            referencedRelation: "rollen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +374,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      user_role: "admin" | "vet"
     }
     CompositeTypes: {
       [_ in never]: never
