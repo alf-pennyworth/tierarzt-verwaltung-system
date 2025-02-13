@@ -291,6 +291,60 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          email: string
+          id: string
+          nachname: string
+          praxis_id: string | null
+          rolle_id: string | null
+          telefonnummer: string | null
+          updated_at: string
+          vorname: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          email: string
+          id: string
+          nachname: string
+          praxis_id?: string | null
+          rolle_id?: string | null
+          telefonnummer?: string | null
+          updated_at?: string
+          vorname: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          email?: string
+          id?: string
+          nachname?: string
+          praxis_id?: string | null
+          rolle_id?: string | null
+          telefonnummer?: string | null
+          updated_at?: string
+          vorname?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_praxis_id_fkey"
+            columns: ["praxis_id"]
+            isOneToOne: false
+            referencedRelation: "praxis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_rolle_id_fkey"
+            columns: ["rolle_id"]
+            isOneToOne: false
+            referencedRelation: "rollen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rollen: {
         Row: {
           created_at: string
@@ -311,66 +365,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      veterinaere: {
-        Row: {
-          auth_id: string | null
-          created_at: string
-          deleted_at: string | null
-          email: string
-          id: string
-          nachname: string
-          praxis_id: string
-          rolle_id: string
-          telefonnummer: string | null
-          updated_at: string
-          username: string
-          vorname: string
-        }
-        Insert: {
-          auth_id?: string | null
-          created_at?: string
-          deleted_at?: string | null
-          email: string
-          id?: string
-          nachname: string
-          praxis_id: string
-          rolle_id: string
-          telefonnummer?: string | null
-          updated_at?: string
-          username: string
-          vorname: string
-        }
-        Update: {
-          auth_id?: string | null
-          created_at?: string
-          deleted_at?: string | null
-          email?: string
-          id?: string
-          nachname?: string
-          praxis_id?: string
-          rolle_id?: string
-          telefonnummer?: string | null
-          updated_at?: string
-          username?: string
-          vorname?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "veterinaere_praxis_id_fkey"
-            columns: ["praxis_id"]
-            isOneToOne: false
-            referencedRelation: "praxis"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "veterinaere_rolle_id_fkey"
-            columns: ["rolle_id"]
-            isOneToOne: false
-            referencedRelation: "rollen"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Views: {
