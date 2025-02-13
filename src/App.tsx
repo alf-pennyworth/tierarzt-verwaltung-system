@@ -8,6 +8,7 @@ import { useAuth } from "./hooks/useAuth";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import Transcription from "./pages/Transcription";
 
 const queryClient = new QueryClient();
 
@@ -32,11 +33,12 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<Index />} />
           <Route
-            path="/"
+            path="/transcription"
             element={
               <ProtectedRoute>
-                <Index />
+                <Transcription />
               </ProtectedRoute>
             }
           />
