@@ -14,6 +14,7 @@ interface PatientData {
   name: string;
   spezies: string;
   rasse: string | null;
+  praxis_id: string;  // Added this line
   besitzer: {
     name: string;
   };
@@ -56,6 +57,7 @@ const Transcription = () => {
             name,
             spezies,
             rasse,
+            praxis_id,
             besitzer (
               name
             )
