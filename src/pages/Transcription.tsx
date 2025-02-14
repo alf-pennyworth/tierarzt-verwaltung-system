@@ -121,118 +121,28 @@ const Transcription = () => {
     fetchPatientData();
   }, [state?.patientId, toast]);
 
-  // Extract medical information from transcribed text
   const extractMedicalInfo = (text: string) => {
     console.log("Extracting medical info from:", text);
-    let diagnose = "";
-    let medikament = "";
-    let menge = "";
+    
+    // Find diagnosis using database entries
+    const diagnosisMatch = findDatabaseMatches(text, diagnoseOptions.map(d => ({ 
+      id: d.id, 
+      name: d.diagnose 
+    })));
+    
+    // Find medication and amount using database entries
+    const medicationMatch = findDatabaseMatches(text, medikamentOptions.map(m => ({ 
+      id: m.id, 
+      name: m.name 
+    })), true);
 
-    // Try to extract medication and amount first (expanded patterns)
-    const medPatterns = [
-      /(?:wird mit|bekommt|verschreibe|gebe|erh[äa]lt|verordne|behandelt mit)\s+([^.]+?)(?:\s+(?:behandelt|gegen|für|zum|zur|und|,|\.|$))/i,
-      /([^.]+?)\s+(\d+(?:[,.]\d+)?)\s*(?:mg|ml|g|tabletten)(?:\s+|\.|$)/i,
-    ];
-
-    for (const pattern of medPatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        if (match[1]) {
-          medikament = match[1].trim();
-          
-          // Try to extract amount if present in the medication text
-          const amountMatch = text.match(/(\d+(?:[,.]\d+)?)\s*(?:mg|ml|g|tabletten)/i);
-          if (amountMatch) {
-            menge = amountMatch[1];
-            // Remove the amount from the medication name if it's part of it
-            medikament = medikament.replace(/\d+(?:[,.]\d+)?\s*(?:mg|ml|g|tabletten)/i, '').trim();
-          }
-        }
-        console.log("Found medication:", medikament, "amount:", menge);
-        break;
-      }
-    }
-
-    // Try to extract diagnosis (expanded patterns)
-    const diagnosePatterns = [
-      /(?:hat|leidet an|zeigt|diagnose ist|befund ist|stellt|festgestellt|diagnostiziert)\s+(?:eine[r]?|ein[e]?|den|die|der)?\s*([^.]+?)\s*(?:und|aber|,|\.|$)/i,
-      /(?:eine[r]?|ein[e]?|den|die|der)?\s*([^.]+?)\s*(?:wurde festgestellt|wurde diagnostiziert)/i,
-      /(?:die diagnose lautet)\s+([^.]+)/i,
-    ];
-
-    for (const pattern of diagnosePatterns) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        diagnose = match[1].trim();
-        console.log("Found diagnosis:", diagnose);
-        break;
-      }
-    }
-
-    // Clean up extracted values
-    diagnose = diagnose.trim();
-    medikament = medikament.trim();
-    menge = menge.trim();
-
-    // Try to match diagnosis and medication with database entries
-    if (diagnose) {
-      console.log("Trying to match diagnosis:", diagnose);
-      const diagnosisMatch = findBestMatch(diagnose, diagnoseOptions.map(d => ({ id: d.id, name: d.diagnose })));
-      if (diagnosisMatch) {
-        const matchedDiagnosis = diagnoseOptions.find(d => d.id === diagnosisMatch);
-        if (matchedDiagnosis) {
-          console.log("Matched diagnosis:", matchedDiagnosis.diagnose);
-          diagnose = matchedDiagnosis.diagnose;
-        }
-      }
-    }
-
-    if (medikament) {
-      console.log("Trying to match medication:", medikament);
-      const medicationMatch = findBestMatch(medikament, medikamentOptions.map(m => ({ id: m.id, name: m.name })));
-      if (medicationMatch) {
-        const matchedMedication = medikamentOptions.find(m => m.id === medicationMatch);
-        if (matchedMedication) {
-          console.log("Matched medication:", matchedMedication.name);
-          medikament = matchedMedication.name;
-        }
-      }
-    }
-
-    // Convert German number words to digits (for cases like "fünf und dreißig")
-    if (menge === "") {
-      const numberWords = text.match(/(\w+(?:\s+und\s+\w+)?)\s*(?:mg|ml|g|tabletten)/i);
-      if (numberWords) {
-        const germanNumberMap: { [key: string]: number } = {
-          'null': 0, 'ein': 1, 'eins': 1, 'zwei': 2, 'drei': 3, 'vier': 4,
-          'fünf': 5, 'sechs': 6, 'sieben': 7, 'acht': 8, 'neun': 9,
-          'zehn': 10, 'elf': 11, 'zwölf': 12, 'dreizehn': 13, 'vierzehn': 14,
-          'fünfzehn': 15, 'sechzehn': 16, 'siebzehn': 17, 'achtzehn': 18,
-          'neunzehn': 19, 'zwanzig': 20, 'dreißig': 30, 'vierzig': 40,
-          'fünfzig': 50, 'sechzig': 60, 'siebzig': 70, 'achtzig': 80,
-          'neunzig': 90
-        };
-
-        const words = numberWords[1].toLowerCase().split(/\s+und\s+/);
-        let number = 0;
-        
-        if (words.length === 2) {
-          // Handle cases like "fünf und dreißig"
-          number = (germanNumberMap[words[0]] || 0) + (germanNumberMap[words[1]] || 0);
-        } else {
-          number = germanNumberMap[words[0]] || 0;
-        }
-
-        if (number > 0) {
-          menge = number.toString();
-        }
-      }
-    }
+    console.log("Found diagnosis:", diagnosisMatch);
+    console.log("Found medication:", medicationMatch);
 
     return {
-      diagnose,
-      medikament,
-      menge,
+      diagnose: diagnosisMatch?.name || "",
+      medikament: medicationMatch?.name || "",
+      menge: medicationMatch?.amount || "",
     };
   };
 
@@ -533,3 +443,25 @@ const Transcription = () => {
 };
 
 export default Transcription;
+
+function findDatabaseMatches(text: string, options: { id: string, name: string }[], extractAmount: boolean = false): { name: string, amount?: string } | null {
+  const match = findBestMatch(text, options.map(o => ({ id: o.id, name: o.name })));
+  if (!match) return null;
+
+  const option = options.find(o => o.id === match.id);
+  if (!option) return null;
+
+  if (extractAmount) {
+    const amountMatch = text.match(/(\d+(?:[,.]\d+)?)\s*(?:mg|ml|g|tabletten)/i);
+    if (amountMatch) {
+      return {
+        name: option.name,
+        amount: amountMatch[1],
+      };
+    }
+  }
+
+  return {
+    name: option.name,
+  };
+}

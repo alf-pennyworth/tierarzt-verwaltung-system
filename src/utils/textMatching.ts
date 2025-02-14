@@ -10,22 +10,50 @@ export const normalizeText = (text: string): string => {
     .replace(/ß/g, 'ss');
 };
 
-// Function to find the best matching text from an array of options
-export const findBestMatch = (text: string, options: { id: string; name: string }[]): string | null => {
-  const normalizedText = normalizeText(text);
+// Function to escape special characters in regex
+const escapeRegExp = (string: string): string => {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+// Function to find matches based on database entries
+export const findDatabaseMatches = (
+  text: string,
+  options: { id: string; name: string }[],
+  extractAmount: boolean = false
+) => {
+  const matches: { id: string; name: string; amount?: string }[] = [];
   
-  // First try exact match after normalization
-  const exactMatch = options.find(option => 
-    normalizeText(option.name) === normalizedText
-  );
-  if (exactMatch) return exactMatch.id;
+  options.forEach(option => {
+    // Create regex from database entry
+    const escapedName = escapeRegExp(option.name);
+    let regex: RegExp;
+    
+    if (extractAmount) {
+      // For medications, look for amounts
+      regex = new RegExp(`${escapedName}\\s*(?:von|mit)?\\s*(\\d+(?:[.,]\\d+)?\\s*(?:mg|ml|g|tabletten))?`, 'gi');
+    } else {
+      // For diagnoses, just look for the term
+      regex = new RegExp(`${escapedName}`, 'gi');
+    }
 
-  // Then try contains match
-  const containsMatch = options.find(option =>
-    normalizeText(option.name).includes(normalizedText) ||
-    normalizedText.includes(normalizeText(option.name))
-  );
-  if (containsMatch) return containsMatch.id;
+    const match = text.match(regex);
+    if (match) {
+      const result: { id: string; name: string; amount?: string } = {
+        id: option.id,
+        name: option.name
+      };
 
-  return null;
+      if (extractAmount) {
+        // Try to find amount near the medication name
+        const amountMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(?:mg|ml|g|tabletten)/i);
+        if (amountMatch) {
+          result.amount = amountMatch[1];
+        }
+      }
+
+      matches.push(result);
+    }
+  });
+
+  return matches.length > 0 ? matches[0] : null;
 };
