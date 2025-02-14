@@ -128,10 +128,36 @@ const Transcription = () => {
     let medikament = "";
     let menge = "";
 
-    // Try to extract diagnosis (more flexible pattern matching)
+    // Try to extract medication and amount first (expanded patterns)
+    const medPatterns = [
+      /(?:wird mit|bekommt|verschreibe|gebe|erh[äa]lt|verordne|behandelt mit)\s+([^.]+?)(?:\s+(?:behandelt|gegen|für|zum|zur|und|,|\.|$))/i,
+      /([^.]+?)\s+(\d+(?:[,.]\d+)?)\s*(?:mg|ml|g|tabletten)(?:\s+|\.|$)/i,
+    ];
+
+    for (const pattern of medPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        if (match[1]) {
+          medikament = match[1].trim();
+          
+          // Try to extract amount if present in the medication text
+          const amountMatch = text.match(/(\d+(?:[,.]\d+)?)\s*(?:mg|ml|g|tabletten)/i);
+          if (amountMatch) {
+            menge = amountMatch[1];
+            // Remove the amount from the medication name if it's part of it
+            medikament = medikament.replace(/\d+(?:[,.]\d+)?\s*(?:mg|ml|g|tabletten)/i, '').trim();
+          }
+        }
+        console.log("Found medication:", medikament, "amount:", menge);
+        break;
+      }
+    }
+
+    // Try to extract diagnosis (expanded patterns)
     const diagnosePatterns = [
       /(?:hat|leidet an|zeigt|diagnose ist|befund ist|stellt|festgestellt|diagnostiziert)\s+(?:eine[r]?|ein[e]?|den|die|der)?\s*([^.]+?)\s*(?:und|aber|,|\.|$)/i,
       /(?:eine[r]?|ein[e]?|den|die|der)?\s*([^.]+?)\s*(?:wurde festgestellt|wurde diagnostiziert)/i,
+      /(?:die diagnose lautet)\s+([^.]+)/i,
     ];
 
     for (const pattern of diagnosePatterns) {
@@ -139,29 +165,6 @@ const Transcription = () => {
       if (match && match[1]) {
         diagnose = match[1].trim();
         console.log("Found diagnosis:", diagnose);
-        break;
-      }
-    }
-
-    // Try to extract medication and amount
-    const medPatterns = [
-      /(?:bekommt|verschreibe|gebe|erh[äa]lt|verordne)\s+(?:(\d+(?:[,.]\d+)?)\s*(?:mg|ml|g|tabletten))?\s*([^.]+?)(?:\s+(?:gegen|für|zum|zur|,|\.|$))/i,
-      /([^.]+?)\s+(\d+(?:[,.]\d+)?)\s*(?:mg|ml|g|tabletten)(?:\s+|\.|$)/i,
-    ];
-
-    for (const pattern of medPatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        if (match[1] && match[1].match(/\d/)) {
-          // If the first group contains numbers, it's the amount
-          menge = match[1];
-          medikament = match[2] || "";
-        } else {
-          // Otherwise, the amount might be in the second group
-          medikament = match[1] || "";
-          menge = match[2] || "";
-        }
-        console.log("Found medication:", medikament, "amount:", menge);
         break;
       }
     }
@@ -192,6 +195,36 @@ const Transcription = () => {
         if (matchedMedication) {
           console.log("Matched medication:", matchedMedication.name);
           medikament = matchedMedication.name;
+        }
+      }
+    }
+
+    // Convert German number words to digits (for cases like "fünf und dreißig")
+    if (menge === "") {
+      const numberWords = text.match(/(\w+(?:\s+und\s+\w+)?)\s*(?:mg|ml|g|tabletten)/i);
+      if (numberWords) {
+        const germanNumberMap: { [key: string]: number } = {
+          'null': 0, 'ein': 1, 'eins': 1, 'zwei': 2, 'drei': 3, 'vier': 4,
+          'fünf': 5, 'sechs': 6, 'sieben': 7, 'acht': 8, 'neun': 9,
+          'zehn': 10, 'elf': 11, 'zwölf': 12, 'dreizehn': 13, 'vierzehn': 14,
+          'fünfzehn': 15, 'sechzehn': 16, 'siebzehn': 17, 'achtzehn': 18,
+          'neunzehn': 19, 'zwanzig': 20, 'dreißig': 30, 'vierzig': 40,
+          'fünfzig': 50, 'sechzig': 60, 'siebzig': 70, 'achtzig': 80,
+          'neunzig': 90
+        };
+
+        const words = numberWords[1].toLowerCase().split(/\s+und\s+/);
+        let number = 0;
+        
+        if (words.length === 2) {
+          // Handle cases like "fünf und dreißig"
+          number = (germanNumberMap[words[0]] || 0) + (germanNumberMap[words[1]] || 0);
+        } else {
+          number = germanNumberMap[words[0]] || 0;
+        }
+
+        if (number > 0) {
+          menge = number.toString();
         }
       }
     }
