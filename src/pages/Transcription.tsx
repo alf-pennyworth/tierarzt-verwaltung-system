@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,6 +76,50 @@ const Transcription = () => {
 
     fetchOptions();
   }, []);
+
+  // Fetch patient data when component mounts
+  useEffect(() => {
+    const fetchPatientData = async () => {
+      if (!state?.patientId) return;
+
+      const { data, error } = await supabase
+        .from('patient')
+        .select(`
+          name,
+          spezies,
+          rasse,
+          praxis_id,
+          besitzer (
+            name
+          )
+        `)
+        .eq('id', state.patientId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching patient data:', error);
+        toast({
+          variant: "destructive",
+          title: "Fehler",
+          description: "Patientendaten konnten nicht geladen werden.",
+        });
+        return;
+      }
+
+      if (data) {
+        setPatientData(data);
+        setFormData(prev => ({
+          ...prev,
+          patientName: data.name,
+          besitzerName: data.besitzer.name,
+          spezies: data.spezies,
+          rasse: data.rasse || '',
+        }));
+      }
+    };
+
+    fetchPatientData();
+  }, [state?.patientId, toast]);
 
   // Extract medical information from transcribed text
   const extractMedicalInfo = (text: string) => {
