@@ -123,56 +123,74 @@ const Transcription = () => {
 
   // Extract medical information from transcribed text
   const extractMedicalInfo = (text: string) => {
-    const sentences = text.split(/[.!?]+/);
+    console.log("Extracting medical info from:", text);
     let diagnose = "";
     let medikament = "";
     let menge = "";
 
-    // Look for diagnosis-related words
-    const diagnoseKeywords = ["diagnose", "krankheit", "befund", "leidet an"];
-    for (const sentence of sentences) {
-      const lowerSentence = sentence.toLowerCase();
-      if (diagnoseKeywords.some(keyword => lowerSentence.includes(keyword))) {
-        // Remove the keywords and common words
-        diagnose = sentence.replace(/^.*?(diagnose|krankheit|befund|leidet an):?\s*/i, '').trim();
-        if (diagnose) break;
+    // Try to extract diagnosis (more flexible pattern matching)
+    const diagnosePatterns = [
+      /(?:hat|leidet an|zeigt|diagnose ist|befund ist|stellt|festgestellt|diagnostiziert)\s+(?:eine[r]?|ein[e]?|den|die|der)?\s*([^.]+?)\s*(?:und|aber|,|\.|$)/i,
+      /(?:eine[r]?|ein[e]?|den|die|der)?\s*([^.]+?)\s*(?:wurde festgestellt|wurde diagnostiziert)/i,
+    ];
+
+    for (const pattern of diagnosePatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        diagnose = match[1].trim();
+        console.log("Found diagnosis:", diagnose);
+        break;
       }
     }
 
-    // Look for medication-related words
-    const medKeywords = ["medikament", "verschreibe", "behandlung mit", "gebe"];
-    for (const sentence of sentences) {
-      const lowerSentence = sentence.toLowerCase();
-      if (medKeywords.some(keyword => lowerSentence.includes(keyword))) {
-        medikament = sentence.replace(/^.*?(medikament|verschreibe|behandlung mit|gebe):?\s*/i, '').trim();
-        
-        // Try to extract amount if present
-        const amountMatch = medikament.match(/(\d+(?:[,.]\d+)?)\s*(mg|ml|g|tabletten)/i);
-        if (amountMatch) {
-          menge = amountMatch[1];
-          medikament = medikament.replace(amountMatch[0], '').trim();
+    // Try to extract medication and amount
+    const medPatterns = [
+      /(?:bekommt|verschreibe|gebe|erh[äa]lt|verordne)\s+(?:(\d+(?:[,.]\d+)?)\s*(?:mg|ml|g|tabletten))?\s*([^.]+?)(?:\s+(?:gegen|für|zum|zur|,|\.|$))/i,
+      /([^.]+?)\s+(\d+(?:[,.]\d+)?)\s*(?:mg|ml|g|tabletten)(?:\s+|\.|$)/i,
+    ];
+
+    for (const pattern of medPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        if (match[1] && match[1].match(/\d/)) {
+          // If the first group contains numbers, it's the amount
+          menge = match[1];
+          medikament = match[2] || "";
+        } else {
+          // Otherwise, the amount might be in the second group
+          medikament = match[1] || "";
+          menge = match[2] || "";
         }
-        
-        if (medikament) break;
+        console.log("Found medication:", medikament, "amount:", menge);
+        break;
       }
     }
+
+    // Clean up extracted values
+    diagnose = diagnose.trim();
+    medikament = medikament.trim();
+    menge = menge.trim();
 
     // Try to match diagnosis and medication with database entries
     if (diagnose) {
+      console.log("Trying to match diagnosis:", diagnose);
       const diagnosisMatch = findBestMatch(diagnose, diagnoseOptions.map(d => ({ id: d.id, name: d.diagnose })));
       if (diagnosisMatch) {
         const matchedDiagnosis = diagnoseOptions.find(d => d.id === diagnosisMatch);
         if (matchedDiagnosis) {
+          console.log("Matched diagnosis:", matchedDiagnosis.diagnose);
           diagnose = matchedDiagnosis.diagnose;
         }
       }
     }
 
     if (medikament) {
+      console.log("Trying to match medication:", medikament);
       const medicationMatch = findBestMatch(medikament, medikamentOptions.map(m => ({ id: m.id, name: m.name })));
       if (medicationMatch) {
         const matchedMedication = medikamentOptions.find(m => m.id === medicationMatch);
         if (matchedMedication) {
+          console.log("Matched medication:", matchedMedication.name);
           medikament = matchedMedication.name;
         }
       }
@@ -252,6 +270,8 @@ const Transcription = () => {
         setTranscription(data.text);
         const extractedInfo = extractMedicalInfo(data.text);
         
+        console.log("Extracted info:", extractedInfo);
+        
         setFormData(prev => ({
           ...prev,
           diagnose: extractedInfo.diagnose,
@@ -261,7 +281,7 @@ const Transcription = () => {
 
         toast({
           title: "Transkription erfolgreich",
-          description: "Der Text wurde erfolgreich erstellt.",
+          description: "Der Text wurde erfolgreich erstellt und analysiert.",
         });
       }
     } catch (error) {
