@@ -22,7 +22,7 @@ interface PatientDetails {
     untersuchung_datum: string;
     diagnose: {
       diagnose: string;
-    };
+    } | null;
     medikamente: {
       name: string;
     } | null;
@@ -161,12 +161,14 @@ const PatientDetails = () => {
                 <div className="font-semibold">
                   {format(new Date(behandlung.untersuchung_datum), "dd.MM.yyyy")}
                 </div>
-                <div>Diagnose: {behandlung.diagnose.diagnose}</div>
+                {behandlung.diagnose && (
+                  <div>Diagnose: {behandlung.diagnose.diagnose}</div>
+                )}
                 {behandlung.medikamente && (
                   <div>
-                    Medikament: {behandlung.medikamente.name}{" "}
+                    Medikament: {behandlung.medikamente.name}
                     {behandlung.medikament_menge && behandlung.medikament_typ
-                      ? `(${behandlung.medikament_menge} - ${behandlung.medikament_typ})`
+                      ? ` (${behandlung.medikament_menge} - ${behandlung.medikament_typ})`
                       : ""}
                   </div>
                 )}
