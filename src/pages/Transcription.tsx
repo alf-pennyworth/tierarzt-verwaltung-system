@@ -9,12 +9,13 @@ import { useLocation } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
+import { findBestMatch } from "@/utils/textMatching";
 
 interface PatientData {
   name: string;
   spezies: string;
   rasse: string | null;
-  praxis_id: string;  // Added this line
+  praxis_id: string;
   besitzer: {
     name: string;
   };
@@ -24,18 +25,29 @@ interface LocationState {
   patientId?: string;
 }
 
+interface DiagnoseOption {
+  id: string;
+  diagnose: string;
+}
+
+interface MedikamentOption {
+  id: string;
+  name: string;
+}
+
 const Transcription = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcription, setTranscription] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [patientData, setPatientData] = useState<PatientData | null>(null);
+  const [diagnoseOptions, setDiagnoseOptions] = useState<DiagnoseOption[]>([]);
+  const [medikamentOptions, setMedikamentOptions] = useState<MedikamentOption[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
   const location = useLocation();
   const state = location.state as LocationState;
 
-  // Form state
   const [formData, setFormData] = useState({
     patientName: "",
     besitzerName: "",
@@ -48,60 +60,85 @@ const Transcription = () => {
     untersuchungsDatum: format(new Date(), "yyyy-MM-dd"),
   });
 
+  // Fetch diagnoses and medications on component mount
   useEffect(() => {
-    const fetchPatientData = async () => {
-      if (state?.patientId) {
-        const { data, error } = await supabase
-          .from("patient")
-          .select(`
-            name,
-            spezies,
-            rasse,
-            praxis_id,
-            besitzer (
-              name
-            )
-          `)
-          .eq("id", state.patientId)
-          .single();
+    const fetchOptions = async () => {
+      const { data: diagnoseData } = await supabase
+        .from('diagnose')
+        .select('id, diagnose');
+      
+      const { data: medikamentData } = await supabase
+        .from('medikamente')
+        .select('id, name');
 
-        if (error) {
-          console.error("Error fetching patient data:", error);
-          toast({
-            variant: "destructive",
-            title: "Fehler",
-            description: "Patientendaten konnten nicht geladen werden.",
-          });
-          return;
-        }
-
-        if (data) {
-          setPatientData(data);
-          setFormData(prev => ({
-            ...prev,
-            patientName: data.name,
-            besitzerName: data.besitzer.name,
-            spezies: data.spezies,
-            rasse: data.rasse || "",
-          }));
-        }
-      }
+      if (diagnoseData) setDiagnoseOptions(diagnoseData);
+      if (medikamentData) setMedikamentOptions(medikamentData);
     };
 
-    fetchPatientData();
-  }, [state?.patientId, toast]);
+    fetchOptions();
+  }, []);
 
+  // Extract medical information from transcribed text
   const extractMedicalInfo = (text: string) => {
-    // This is a simple example. In a real application, you'd want to use
-    // more sophisticated NLP techniques or a dedicated medical text processing service
-    const diagnosisMatch = text.match(/Diagnose[:\s]+([^\n.]+)/i);
-    const medicationMatch = text.match(/Medikament[:\s]+([^\n.]+)/i);
-    const dosageMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:mg|ml|g|tabletten)/i);
+    const sentences = text.split(/[.!?]+/);
+    let diagnose = "";
+    let medikament = "";
+    let menge = "";
+
+    // Look for diagnosis-related words
+    const diagnoseKeywords = ["diagnose", "krankheit", "befund", "leidet an"];
+    for (const sentence of sentences) {
+      const lowerSentence = sentence.toLowerCase();
+      if (diagnoseKeywords.some(keyword => lowerSentence.includes(keyword))) {
+        // Remove the keywords and common words
+        diagnose = sentence.replace(/^.*?(diagnose|krankheit|befund|leidet an):?\s*/i, '').trim();
+        if (diagnose) break;
+      }
+    }
+
+    // Look for medication-related words
+    const medKeywords = ["medikament", "verschreibe", "behandlung mit", "gebe"];
+    for (const sentence of sentences) {
+      const lowerSentence = sentence.toLowerCase();
+      if (medKeywords.some(keyword => lowerSentence.includes(keyword))) {
+        medikament = sentence.replace(/^.*?(medikament|verschreibe|behandlung mit|gebe):?\s*/i, '').trim();
+        
+        // Try to extract amount if present
+        const amountMatch = medikament.match(/(\d+(?:[,.]\d+)?)\s*(mg|ml|g|tabletten)/i);
+        if (amountMatch) {
+          menge = amountMatch[1];
+          medikament = medikament.replace(amountMatch[0], '').trim();
+        }
+        
+        if (medikament) break;
+      }
+    }
+
+    // Try to match diagnosis and medication with database entries
+    if (diagnose) {
+      const diagnosisMatch = findBestMatch(diagnose, diagnoseOptions.map(d => ({ id: d.id, name: d.diagnose })));
+      if (diagnosisMatch) {
+        const matchedDiagnosis = diagnoseOptions.find(d => d.id === diagnosisMatch);
+        if (matchedDiagnosis) {
+          diagnose = matchedDiagnosis.diagnose;
+        }
+      }
+    }
+
+    if (medikament) {
+      const medicationMatch = findBestMatch(medikament, medikamentOptions.map(m => ({ id: m.id, name: m.name })));
+      if (medicationMatch) {
+        const matchedMedication = medikamentOptions.find(m => m.id === medicationMatch);
+        if (matchedMedication) {
+          medikament = matchedMedication.name;
+        }
+      }
+    }
 
     return {
-      diagnose: diagnosisMatch?.[1]?.trim() || "",
-      medikament: medicationMatch?.[1]?.trim() || "",
-      menge: dosageMatch?.[1] || "",
+      diagnose,
+      medikament,
+      menge,
     };
   };
 
