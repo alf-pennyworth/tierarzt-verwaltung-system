@@ -120,7 +120,7 @@ const Transcription = () => {
   }, [state?.patientId, toast]);
 
   const extractMedicalInfo = (text: string) => {
-    console.log("Extracting medical info from:", text);
+    console.log("Processing transcription:", text);
     
     const diagnosisMatch = findDatabaseMatches(text, diagnoseOptions.map(d => ({ 
       id: d.id, 
