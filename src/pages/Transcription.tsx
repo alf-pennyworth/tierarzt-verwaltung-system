@@ -219,18 +219,10 @@ const Transcription = () => {
       if (error) throw error;
 
       if (data.text) {
+        console.log("New transcription received:", data.text); // Debug log
         setTranscription(data.text);
-        const extractedInfo = extractMedicalInfo(data.text);
+        const extractedInfo = extractMedicalInfo(data.text); // Pass the new text directly
         
-        console.log("Extracted info:", extractedInfo);
-        
-        setFormData(prev => ({
-          ...prev,
-          diagnose: extractedInfo.diagnose,
-          medikament: extractedInfo.medikament,
-          medikamentMenge: extractedInfo.menge,
-        }));
-
         toast({
           title: "Transkription erfolgreich",
           description: "Der Text wurde erfolgreich erstellt und analysiert.",
