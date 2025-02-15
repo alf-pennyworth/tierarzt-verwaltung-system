@@ -4,8 +4,9 @@ export const normalizeText = (text: string): string => {
   return text
     .toLowerCase()
     .trim()
-    .replace(/strep/i, 'streptococcus')  // Handle common variations
-    .replace(/kokken/i, 'coccus');
+    .replace(/streptokokken(infektion)?/i, 'streptococcus') // Handle German variation
+    .replace(/kokken/i, 'coccus')
+    .replace(/amoxicillin/i, 'amoxicillin'); // Keep Amoxicillin consistent
 };
 
 // Function to find matches based on database entries
@@ -23,14 +24,12 @@ export const findDatabaseMatches = (
   // Find any matching entries from the database
   options.forEach(option => {
     const normalizedName = normalizeText(option.name);
-    console.log(`Comparing normalized name "${normalizedName}" with text`);
+    console.log(`Comparing with database entry: ${option.name} (normalized: ${normalizedName})`);
     
-    // Check both ways - if text contains name or name contains part of text
     if (normalizedText.includes(normalizedName) || 
-        // Split text into words and check if any word matches
         normalizedText.split(/\s+/).some(word => 
           normalizedName.includes(word) && word.length > 3)) {
-      console.log(`Found match with: ${option.name}`);
+      console.log(`Found match: ${option.name}`);
       
       const result: { id: string; name: string; amount?: string } = {
         id: option.id,
@@ -38,7 +37,6 @@ export const findDatabaseMatches = (
       };
 
       if (extractAmount) {
-        // Extract amount if present (more flexible pattern)
         const amountMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(?:mg|ml|g|tabletten)/i);
         if (amountMatch) {
           result.amount = amountMatch[1];

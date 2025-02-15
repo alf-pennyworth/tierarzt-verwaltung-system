@@ -61,16 +61,45 @@ const Transcription = () => {
 
   useEffect(() => {
     const fetchOptions = async () => {
-      const { data: diagnoseData } = await supabase
-        .from('diagnose')
-        .select('id, diagnose');
-      
-      const { data: medikamentData } = await supabase
-        .from('medikamente')
-        .select('id, name');
+      try {
+        const { data: diagnoseData, error: diagnoseError } = await supabase
+          .from('diagnose')
+          .select('id, diagnose')
+          .is('deleted_at', null);
+        
+        if (diagnoseError) {
+          console.error('Error fetching diagnoses:', diagnoseError);
+          toast({
+            variant: "destructive",
+            title: "Fehler",
+            description: "Diagnosen konnten nicht geladen werden.",
+          });
+          return;
+        }
+        
+        const { data: medikamentData, error: medikamentError } = await supabase
+          .from('medikamente')
+          .select('id, name')
+          .is('deleted_at', null);
 
-      if (diagnoseData) setDiagnoseOptions(diagnoseData);
-      if (medikamentData) setMedikamentOptions(medikamentData);
+        if (medikamentError) {
+          console.error('Error fetching medications:', medikamentError);
+          toast({
+            variant: "destructive",
+            title: "Fehler",
+            description: "Medikamente konnten nicht geladen werden.",
+          });
+          return;
+        }
+
+        console.log('Loaded diagnoses:', diagnoseData);
+        console.log('Loaded medications:', medikamentData);
+
+        if (diagnoseData) setDiagnoseOptions(diagnoseData);
+        if (medikamentData) setMedikamentOptions(medikamentData);
+      } catch (error) {
+        console.error('Error in fetchOptions:', error);
+      }
     };
 
     fetchOptions();
