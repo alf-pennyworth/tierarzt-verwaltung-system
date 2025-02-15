@@ -121,6 +121,8 @@ const Transcription = () => {
 
   const extractMedicalInfo = (text: string) => {
     console.log("Processing transcription:", text);
+    console.log("Available diagnose options:", diagnoseOptions);
+    console.log("Available medication options:", medikamentOptions);
     
     const diagnosisMatch = findDatabaseMatches(text, diagnoseOptions.map(d => ({ 
       id: d.id, 
@@ -135,11 +137,22 @@ const Transcription = () => {
     console.log("Found diagnosis:", diagnosisMatch);
     console.log("Found medication:", medicationMatch);
 
-    return {
+    const extractedInfo = {
       diagnose: diagnosisMatch?.name || "",
       medikament: medicationMatch?.name || "",
       menge: medicationMatch?.amount || "",
     };
+
+    console.log("Setting form data with:", extractedInfo);
+    
+    setFormData(prev => ({
+      ...prev,
+      diagnose: extractedInfo.diagnose,
+      medikament: extractedInfo.medikament,
+      medikamentMenge: extractedInfo.menge,
+    }));
+
+    return extractedInfo;
   };
 
   const startRecording = async () => {
