@@ -8,7 +8,7 @@ import { useLocation } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
-import { findBestMatch } from "@/utils/textMatching";
+import { findDatabaseMatches } from "@/utils/textMatching";
 
 interface PatientData {
   name: string;
@@ -59,7 +59,6 @@ const Transcription = () => {
     untersuchungsDatum: format(new Date(), "yyyy-MM-dd"),
   });
 
-  // Fetch diagnoses and medications on component mount
   useEffect(() => {
     const fetchOptions = async () => {
       const { data: diagnoseData } = await supabase
@@ -77,7 +76,6 @@ const Transcription = () => {
     fetchOptions();
   }, []);
 
-  // Fetch patient data when component mounts
   useEffect(() => {
     const fetchPatientData = async () => {
       if (!state?.patientId) return;
@@ -124,13 +122,11 @@ const Transcription = () => {
   const extractMedicalInfo = (text: string) => {
     console.log("Extracting medical info from:", text);
     
-    // Find diagnosis using database entries
     const diagnosisMatch = findDatabaseMatches(text, diagnoseOptions.map(d => ({ 
       id: d.id, 
       name: d.diagnose 
     })));
     
-    // Find medication and amount using database entries
     const medicationMatch = findDatabaseMatches(text, medikamentOptions.map(m => ({ 
       id: m.id, 
       name: m.name 
@@ -241,7 +237,6 @@ const Transcription = () => {
 
   const handleSave = async () => {
     try {
-      // First, find the diagnose ID based on the extracted diagnosis
       const { data: diagnoseData, error: diagnoseError } = await supabase
         .from("diagnose")
         .select("id")
@@ -250,7 +245,6 @@ const Transcription = () => {
 
       if (diagnoseError) throw diagnoseError;
 
-      // Find the medication ID
       const { data: medikamentData, error: medikamentError } = await supabase
         .from("medikamente")
         .select("id, masseinheit")
@@ -259,7 +253,6 @@ const Transcription = () => {
 
       if (medikamentError && formData.medikament) throw medikamentError;
 
-      // Create the behandlung record
       const { error: behandlungError } = await supabase
         .from("behandlungen")
         .insert({
@@ -443,25 +436,3 @@ const Transcription = () => {
 };
 
 export default Transcription;
-
-function findDatabaseMatches(text: string, options: { id: string, name: string }[], extractAmount: boolean = false): { name: string, amount?: string } | null {
-  const match = findBestMatch(text, options.map(o => ({ id: o.id, name: o.name })));
-  if (!match) return null;
-
-  const option = options.find(o => o.id === match.id);
-  if (!option) return null;
-
-  if (extractAmount) {
-    const amountMatch = text.match(/(\d+(?:[,.]\d+)?)\s*(?:mg|ml|g|tabletten)/i);
-    if (amountMatch) {
-      return {
-        name: option.name,
-        amount: amountMatch[1],
-      };
-    }
-  }
-
-  return {
-    name: option.name,
-  };
-}
