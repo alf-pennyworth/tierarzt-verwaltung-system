@@ -103,7 +103,7 @@ const Transcription = () => {
     };
 
     fetchOptions();
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     const fetchPatientData = async () => {
@@ -153,23 +153,23 @@ const Transcription = () => {
     console.log("Available diagnose options:", diagnoseOptions);
     console.log("Available medication options:", medikamentOptions);
     
-    const diagnosisMatch = findDatabaseMatches(text, diagnoseOptions.map(d => ({ 
+    const diagnosisMatches = findDatabaseMatches(text, diagnoseOptions.map(d => ({ 
       id: d.id, 
       name: d.diagnose 
     })));
     
-    const medicationMatch = findDatabaseMatches(text, medikamentOptions.map(m => ({ 
+    const medicationMatches = findDatabaseMatches(text, medikamentOptions.map(m => ({ 
       id: m.id, 
       name: m.name 
     })), true);
 
-    console.log("Found diagnosis:", diagnosisMatch);
-    console.log("Found medication:", medicationMatch);
+    console.log("Found diagnoses:", diagnosisMatches);
+    console.log("Found medications:", medicationMatches);
 
     const extractedInfo = {
-      diagnose: diagnosisMatch?.name || "",
-      medikament: medicationMatch?.name || "",
-      menge: medicationMatch?.amount || "",
+      diagnose: diagnosisMatches.map(m => m.name).join(', '),
+      medikament: medicationMatches.map(m => m.name).join(', '),
+      menge: medicationMatches[0]?.amount || "",
     };
 
     console.log("Setting form data with:", extractedInfo);
@@ -248,9 +248,9 @@ const Transcription = () => {
       if (error) throw error;
 
       if (data.text) {
-        console.log("New transcription received:", data.text); // Debug log
+        console.log("New transcription received:", data.text);
         setTranscription(data.text);
-        const extractedInfo = extractMedicalInfo(data.text); // Pass the new text directly
+        const extractedInfo = extractMedicalInfo(data.text);
         
         toast({
           title: "Transkription erfolgreich",
@@ -296,7 +296,7 @@ const Transcription = () => {
           medikament_typ: formData.medikamentTyp,
           medikament_menge: parseFloat(formData.medikamentMenge),
           untersuchung_datum: formData.untersuchungsDatum,
-          praxis_id: patientData?.praxis_id, // This should come from the authenticated user's context
+          praxis_id: patientData?.praxis_id,
         });
 
       if (behandlungError) throw behandlungError;

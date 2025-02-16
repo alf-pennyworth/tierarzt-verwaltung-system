@@ -1,12 +1,7 @@
 
 // Function to normalize text for comparison
 export const normalizeText = (text: string): string => {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/streptokokken(infektion)?/i, 'streptococcus') // Handle German variation
-    .replace(/kokken/i, 'coccus')
-    .replace(/amoxicillin/i, 'amoxicillin'); // Keep Amoxicillin consistent
+  return text.toLowerCase().trim();
 };
 
 // Function to find matches based on database entries
@@ -21,14 +16,12 @@ export const findDatabaseMatches = (
   console.log("Normalized input text:", normalizedText);
   console.log("Available options:", options);
   
-  // Find any matching entries from the database
+  // Find all matching entries from the database
   options.forEach(option => {
     const normalizedName = normalizeText(option.name);
     console.log(`Comparing with database entry: ${option.name} (normalized: ${normalizedName})`);
     
-    if (normalizedText.includes(normalizedName) || 
-        normalizedText.split(/\s+/).some(word => 
-          normalizedName.includes(word) && word.length > 3)) {
+    if (normalizedText.includes(normalizedName)) {
       console.log(`Found match: ${option.name}`);
       
       const result: { id: string; name: string; amount?: string } = {
@@ -48,6 +41,6 @@ export const findDatabaseMatches = (
     }
   });
 
-  console.log("Final matches:", matches);
-  return matches.length > 0 ? matches[0] : null;
+  console.log("All matches found:", matches);
+  return matches;
 };
