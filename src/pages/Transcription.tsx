@@ -115,7 +115,10 @@ const Transcription = () => {
         ...prev,
         diagnose: data.diagnoses.map((m: any) => m.name).join(', '),
         medikament: data.medications.map((m: any) => m.name).join(', '),
-        medikamentMenge: data.medications[0]?.amount || "",
+        medikamentTyp: data.medications[0]?.medication_type?.name || "",
+        medikamentMenge: data.medications[0]?.amount ? 
+          `${data.medications[0].amount}${data.medications[0].unit ? ` ${data.medications[0].unit}` : ''}` : 
+          "",
       }));
 
       toast({

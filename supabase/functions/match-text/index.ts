@@ -9,19 +9,17 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 }
 
-// Function to normalize text for comparison (copied from textMatching.ts)
 const normalizeText = (text: string): string => {
   return text.toLowerCase().trim();
 };
 
-// Function to find matches (adapted from textMatching.ts)
 const findDatabaseMatches = (
   text: string,
-  options: { id: string; name: string }[],
+  options: { id: string; name: string; medication_type?: { name: string } },
   extractAmount: boolean = false
 ) => {
   const normalizedText = normalizeText(text);
-  const matches: { id: string; name: string; amount?: string }[] = [];
+  const matches: { id: string; name: string; medication_type?: { name: string }; amount?: string; unit?: string }[] = [];
   
   console.log("Normalized input text:", normalizedText);
   console.log("Available options:", options);
@@ -33,16 +31,18 @@ const findDatabaseMatches = (
     if (normalizedText.includes(normalizedName)) {
       console.log(`Found match: ${option.name}`);
       
-      const result: { id: string; name: string; amount?: string } = {
+      const result: { id: string; name: string; medication_type?: { name: string }; amount?: string; unit?: string } = {
         id: option.id,
-        name: option.name
+        name: option.name,
+        medication_type: option.medication_type
       };
 
       if (extractAmount) {
-        const amountMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(?:mg|ml|g|tabletten)/i);
+        const amountMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(mg|ml|g|tabletten|kapseln|stück)/i);
         if (amountMatch) {
           result.amount = amountMatch[1];
-          console.log(`Found amount: ${amountMatch[1]}`);
+          result.unit = amountMatch[2].toLowerCase();
+          console.log(`Found amount: ${amountMatch[1]} ${amountMatch[2]}`);
         }
       }
 
@@ -55,7 +55,6 @@ const findDatabaseMatches = (
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
@@ -68,7 +67,6 @@ serve(async (req) => {
       throw new Error(`Method ${req.method} not allowed`)
     }
 
-    // Get the request body
     const body = await req.json()
     const { transcription } = body
 
@@ -78,13 +76,11 @@ serve(async (req) => {
 
     console.log('Processing transcription:', transcription)
 
-    // Initialize Supabase client
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     )
 
-    // Fetch diagnoses
     const { data: diagnoseData, error: diagnoseError } = await supabase
       .from('diagnose')
       .select('id, diagnose')
@@ -92,10 +88,15 @@ serve(async (req) => {
 
     if (diagnoseError) throw diagnoseError
 
-    // Fetch medications
     const { data: medikamentData, error: medikamentError } = await supabase
       .from('medikamente')
-      .select('id, name')
+      .select(`
+        id,
+        name,
+        medication_type:medication_type_id (
+          name
+        )
+      `)
       .is('deleted_at', null)
 
     if (medikamentError) throw medikamentError
@@ -103,13 +104,12 @@ serve(async (req) => {
     console.log('Loaded diagnoses:', diagnoseData)
     console.log('Loaded medications:', medikamentData)
 
-    // Process the matches
     const diagnosisMatches = findDatabaseMatches(transcription, 
       (diagnoseData || []).map(d => ({ id: d.id, name: d.diagnose }))
     )
     
     const medicationMatches = findDatabaseMatches(transcription, 
-      (medikamentData || []).map(m => ({ id: m.id, name: m.name })), 
+      medikamentData || [],
       true
     )
 

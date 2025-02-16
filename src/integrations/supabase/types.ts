@@ -177,12 +177,37 @@ export type Database = {
           },
         ]
       }
+      medication_types: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       medikamente: {
         Row: {
           created_at: string
           deleted_at: string | null
           id: string
           masseinheit: string
+          medication_type_id: string | null
           name: string
           packungs_id: string | null
           updated_at: string
@@ -193,6 +218,7 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           masseinheit: string
+          medication_type_id?: string | null
           name: string
           packungs_id?: string | null
           updated_at?: string
@@ -203,12 +229,21 @@ export type Database = {
           deleted_at?: string | null
           id?: string
           masseinheit?: string
+          medication_type_id?: string | null
           name?: string
           packungs_id?: string | null
           updated_at?: string
           zulassungsnummer?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "medikamente_medication_type_id_fkey"
+            columns: ["medication_type_id"]
+            isOneToOne: false
+            referencedRelation: "medication_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       patient: {
         Row: {
