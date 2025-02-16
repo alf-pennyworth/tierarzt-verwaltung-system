@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,6 @@ import { useLocation } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
-import { findDatabaseMatches } from "@/utils/textMatching";
 
 interface PatientData {
   name: string;
@@ -22,16 +22,6 @@ interface PatientData {
 
 interface LocationState {
   patientId?: string;
-}
-
-interface DiagnoseOption {
-  id: string;
-  diagnose: string;
-}
-
-interface MedikamentOption {
-  id: string;
-  name: string;
 }
 
 const Transcription = () => {
@@ -117,7 +107,7 @@ const Transcription = () => {
         medikament: data.medications.map((m: any) => m.name).join(', '),
         medikamentTyp: data.medications[0]?.medication_type?.name || "",
         medikamentMenge: data.medications[0]?.amount ? 
-          `${data.medications[0].amount}${data.medications[0].unit ? ` ${data.medications[0].unit}` : ''}` : 
+          `${data.medications[0].amount} ${data.medications[0].unit}` : 
           "",
       }));
 
@@ -379,7 +369,6 @@ const Transcription = () => {
                 <Label htmlFor="medikamentMenge">Medikamentenmenge</Label>
                 <Input
                   id="medikamentMenge"
-                  type="number"
                   value={formData.medikamentMenge}
                   onChange={(e) => setFormData(prev => ({ ...prev, medikamentMenge: e.target.value }))}
                 />
