@@ -4,3 +4,6 @@ project_id = "hwdzrrhjjrnruyfyydmu"
 [functions.transcribe]
 verify_jwt = false
 import_map = "functions/transcribe/import_map.json"
+
+[functions.match-text]
+verify_jwt = false

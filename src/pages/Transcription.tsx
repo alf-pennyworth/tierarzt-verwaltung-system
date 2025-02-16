@@ -101,43 +101,27 @@ const Transcription = () => {
   }, [state?.patientId, toast]);
 
   const fetchOptionsAndProcess = async (transcriptionText: string) => {
-    console.log("Fetching options for text:", transcriptionText);
+    console.log("Processing text:", transcriptionText);
     try {
-      const { data: diagnoseData, error: diagnoseError } = await supabase
-        .from('diagnose')
-        .select('id, diagnose')
-        .is('deleted_at', null);
-      
-      if (diagnoseError) throw diagnoseError;
+      const { data, error } = await supabase.functions.invoke('match-text', {
+        body: { transcription: transcriptionText }
+      });
 
-      const { data: medikamentData, error: medikamentError } = await supabase
-        .from('medikamente')
-        .select('id, name')
-        .is('deleted_at', null);
+      if (error) throw error;
 
-      if (medikamentError) throw medikamentError;
-
-      console.log('Loaded diagnoses:', diagnoseData);
-      console.log('Loaded medications:', medikamentData);
-
-      const diagnosisMatches = findDatabaseMatches(transcriptionText, 
-        (diagnoseData || []).map(d => ({ id: d.id, name: d.diagnose }))
-      );
-      
-      const medicationMatches = findDatabaseMatches(transcriptionText, 
-        (medikamentData || []).map(m => ({ id: m.id, name: m.name })), 
-        true
-      );
-
-      console.log("Found diagnoses:", diagnosisMatches);
-      console.log("Found medications:", medicationMatches);
+      console.log("Matching results:", data);
 
       setFormData(prev => ({
         ...prev,
-        diagnose: diagnosisMatches.map(m => m.name).join(', '),
-        medikament: medicationMatches.map(m => m.name).join(', '),
-        medikamentMenge: medicationMatches[0]?.amount || "",
+        diagnose: data.diagnoses.map((m: any) => m.name).join(', '),
+        medikament: data.medications.map((m: any) => m.name).join(', '),
+        medikamentMenge: data.medications[0]?.amount || "",
       }));
+
+      toast({
+        title: "Analyse erfolgreich",
+        description: "Der Text wurde erfolgreich analysiert.",
+      });
 
     } catch (error) {
       console.error('Error processing transcription:', error);
