@@ -39,8 +39,6 @@ const Transcription = () => {
   const [transcription, setTranscription] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [patientData, setPatientData] = useState<PatientData | null>(null);
-  const [diagnoseOptions, setDiagnoseOptions] = useState<DiagnoseOption[]>([]);
-  const [medikamentOptions, setMedikamentOptions] = useState<MedikamentOption[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
@@ -58,52 +56,6 @@ const Transcription = () => {
     medikamentMenge: "",
     untersuchungsDatum: format(new Date(), "yyyy-MM-dd"),
   });
-
-  useEffect(() => {
-    const fetchOptions = async () => {
-      try {
-        const { data: diagnoseData, error: diagnoseError } = await supabase
-          .from('diagnose')
-          .select('id, diagnose')
-          .is('deleted_at', null);
-        
-        if (diagnoseError) {
-          console.error('Error fetching diagnoses:', diagnoseError);
-          toast({
-            variant: "destructive",
-            title: "Fehler",
-            description: "Diagnosen konnten nicht geladen werden.",
-          });
-          return;
-        }
-        
-        const { data: medikamentData, error: medikamentError } = await supabase
-          .from('medikamente')
-          .select('id, name')
-          .is('deleted_at', null);
-
-        if (medikamentError) {
-          console.error('Error fetching medications:', medikamentError);
-          toast({
-            variant: "destructive",
-            title: "Fehler",
-            description: "Medikamente konnten nicht geladen werden.",
-          });
-          return;
-        }
-
-        console.log('Loaded diagnoses:', diagnoseData);
-        console.log('Loaded medications:', medikamentData);
-
-        if (diagnoseData) setDiagnoseOptions(diagnoseData);
-        if (medikamentData) setMedikamentOptions(medikamentData);
-      } catch (error) {
-        console.error('Error in fetchOptions:', error);
-      }
-    };
-
-    fetchOptions();
-  }, [toast]);
 
   useEffect(() => {
     const fetchPatientData = async () => {
@@ -148,40 +100,53 @@ const Transcription = () => {
     fetchPatientData();
   }, [state?.patientId, toast]);
 
-  const extractMedicalInfo = (text: string) => {
-    console.log("Processing transcription:", text);
-    console.log("Available diagnose options:", diagnoseOptions);
-    console.log("Available medication options:", medikamentOptions);
-    
-    const diagnosisMatches = findDatabaseMatches(text, diagnoseOptions.map(d => ({ 
-      id: d.id, 
-      name: d.diagnose 
-    })));
-    
-    const medicationMatches = findDatabaseMatches(text, medikamentOptions.map(m => ({ 
-      id: m.id, 
-      name: m.name 
-    })), true);
+  const fetchOptionsAndProcess = async (transcriptionText: string) => {
+    console.log("Fetching options for text:", transcriptionText);
+    try {
+      const { data: diagnoseData, error: diagnoseError } = await supabase
+        .from('diagnose')
+        .select('id, diagnose')
+        .is('deleted_at', null);
+      
+      if (diagnoseError) throw diagnoseError;
 
-    console.log("Found diagnoses:", diagnosisMatches);
-    console.log("Found medications:", medicationMatches);
+      const { data: medikamentData, error: medikamentError } = await supabase
+        .from('medikamente')
+        .select('id, name')
+        .is('deleted_at', null);
 
-    const extractedInfo = {
-      diagnose: diagnosisMatches.map(m => m.name).join(', '),
-      medikament: medicationMatches.map(m => m.name).join(', '),
-      menge: medicationMatches[0]?.amount || "",
-    };
+      if (medikamentError) throw medikamentError;
 
-    console.log("Setting form data with:", extractedInfo);
-    
-    setFormData(prev => ({
-      ...prev,
-      diagnose: extractedInfo.diagnose,
-      medikament: extractedInfo.medikament,
-      medikamentMenge: extractedInfo.menge,
-    }));
+      console.log('Loaded diagnoses:', diagnoseData);
+      console.log('Loaded medications:', medikamentData);
 
-    return extractedInfo;
+      const diagnosisMatches = findDatabaseMatches(transcriptionText, 
+        (diagnoseData || []).map(d => ({ id: d.id, name: d.diagnose }))
+      );
+      
+      const medicationMatches = findDatabaseMatches(transcriptionText, 
+        (medikamentData || []).map(m => ({ id: m.id, name: m.name })), 
+        true
+      );
+
+      console.log("Found diagnoses:", diagnosisMatches);
+      console.log("Found medications:", medicationMatches);
+
+      setFormData(prev => ({
+        ...prev,
+        diagnose: diagnosisMatches.map(m => m.name).join(', '),
+        medikament: medicationMatches.map(m => m.name).join(', '),
+        medikamentMenge: medicationMatches[0]?.amount || "",
+      }));
+
+    } catch (error) {
+      console.error('Error processing transcription:', error);
+      toast({
+        variant: "destructive",
+        title: "Fehler",
+        description: "Fehler bei der Verarbeitung der Transkription.",
+      });
+    }
   };
 
   const startRecording = async () => {
@@ -250,7 +215,7 @@ const Transcription = () => {
       if (data.text) {
         console.log("New transcription received:", data.text);
         setTranscription(data.text);
-        const extractedInfo = extractMedicalInfo(data.text);
+        await fetchOptionsAndProcess(data.text);
         
         toast({
           title: "Transkription erfolgreich",
