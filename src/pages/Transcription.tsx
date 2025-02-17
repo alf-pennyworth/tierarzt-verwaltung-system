@@ -219,38 +219,53 @@ const Transcription = () => {
       // First, let's get all diagnoses to debug
       const { data: allDiagnoses, error: debugError } = await supabase
         .from("diagnose")
-        .select("diagnose");
+        .select("*");
       
       console.log("All diagnoses:", allDiagnoses);
 
       // Then find the specific diagnose, using let instead of const
       let diagnoseData;
-      const { data, error: diagnoseError } = await supabase
-        .from("diagnose")
-        .select("*")
-        .eq("diagnose", formData.diagnose)
-        .maybeSingle();
-
-      if (diagnoseError) throw diagnoseError;
       
-      if (data) {
-        diagnoseData = data;
-      } else {
-        // Try with case-insensitive search as fallback
-        const { data: fallbackData, error: fallbackError } = await supabase
+      // Try with both exact match and case-insensitive search
+      const queries = [
+        supabase
           .from("diagnose")
           .select("*")
-          .ilike("diagnose", formData.diagnose)
-          .maybeSingle();
-          
-        if (fallbackError) throw fallbackError;
-        if (!fallbackData) {
-          throw new Error(`Keine Diagnose mit dem Namen "${formData.diagnose}" gefunden.`);
+          .eq("diagnose", formData.diagnose)
+          .maybeSingle(),
+        supabase
+          .from("diagnose")
+          .select("*")
+          .ilike("diagnose", `%${formData.diagnose}%`)
+          .maybeSingle(),
+        supabase
+          .from("diagnose")
+          .select("*")
+          .eq("diagnose", formData.diagnose.trim())
+          .maybeSingle()
+      ];
+
+      for (const query of queries) {
+        const { data, error } = await query;
+        if (error) throw error;
+        if (data) {
+          diagnoseData = data;
+          break;
         }
-        diagnoseData = fallbackData;
       }
 
-      console.log("Final diagnose data:", diagnoseData);
+      if (!diagnoseData) {
+        // If we still haven't found it, log matching issue
+        console.log("Available diagnoses:", allDiagnoses?.map(d => ({
+          diagnose: d.diagnose,
+          exact_match: d.diagnose === formData.diagnose,
+          case_insensitive_match: d.diagnose.toLowerCase() === formData.diagnose.toLowerCase(),
+          includes_match: d.diagnose.toLowerCase().includes(formData.diagnose.toLowerCase())
+        })));
+        throw new Error(`Keine Diagnose mit dem Namen "${formData.diagnose}" gefunden.`);
+      }
+
+      console.log("Found diagnose data:", diagnoseData);
 
       // Then find the medication ID if medication was specified
       let medikamentData = null;
