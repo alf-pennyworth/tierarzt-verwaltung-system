@@ -36,48 +36,48 @@ const PatientDetails = () => {
   const navigate = useNavigate();
   const [patient, setPatient] = useState<PatientDetails | null>(null);
 
-  useEffect(() => {
-    const fetchPatientDetails = async () => {
-      if (!id) return;
+  const fetchPatientDetails = async () => {
+    if (!id) return;
 
-      const { data, error } = await supabase
-        .from("patient")
-        .select(`
-          id,
+    const { data, error } = await supabase
+      .from("patient")
+      .select(`
+        id,
+        name,
+        spezies,
+        rasse,
+        geburtsdatum,
+        besitzer (
           name,
-          spezies,
-          rasse,
-          geburtsdatum,
-          besitzer (
-            name,
-            telefonnummer,
-            email
+          telefonnummer,
+          email
+        ),
+        behandlungen (
+          untersuchung_datum,
+          diagnose (
+            diagnose
           ),
-          behandlungen (
-            untersuchung_datum,
-            diagnose (
-              diagnose
-            ),
-            medikamente (
-              name
-            ),
-            medikament_typ,
-            medikament_menge
-          )
-        `)
-        .eq("id", id)
-        .single();
+          medikamente (
+            name
+          ),
+          medikament_typ,
+          medikament_menge
+        )
+      `)
+      .eq("id", id)
+      .single();
 
-      if (error) {
-        console.error("Error fetching patient details:", error);
-        return;
-      }
+    if (error) {
+      console.error("Error fetching patient details:", error);
+      return;
+    }
 
-      if (data) {
-        setPatient(data);
-      }
-    };
+    if (data) {
+      setPatient(data);
+    }
+  };
 
+  useEffect(() => {
     fetchPatientDetails();
   }, [id]);
 
@@ -167,7 +167,7 @@ const PatientDetails = () => {
                 {behandlung.medikamente && (
                   <div>
                     Medikament: {behandlung.medikamente.name}
-                    {behandlung.medikament_menge && behandlung.medikament_typ
+                    {behandlung.medikament_menge !== null && behandlung.medikament_typ
                       ? ` (${behandlung.medikament_menge} - ${behandlung.medikament_typ})`
                       : ""}
                   </div>

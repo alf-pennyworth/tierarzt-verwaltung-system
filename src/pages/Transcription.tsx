@@ -1,5 +1,4 @@
-
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useNavigate } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mic, MicOff } from "lucide-react";
@@ -34,6 +33,7 @@ const Transcription = () => {
   const { toast } = useToast();
   const location = useLocation();
   const state = location.state as LocationState;
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     patientName: "",
@@ -223,11 +223,14 @@ const Transcription = () => {
 
       const { data: medikamentData, error: medikamentError } = await supabase
         .from("medikamente")
-        .select("id, masseinheit")
+        .select("id")
         .ilike("name", `%${formData.medikament}%`)
         .single();
 
       if (medikamentError && formData.medikament) throw medikamentError;
+
+      const amountMatch = formData.medikamentMenge.match(/(\d+(?:[.,]\d+)?)/);
+      const amount = amountMatch ? parseFloat(amountMatch[1]) : null;
 
       const { error: behandlungError } = await supabase
         .from("behandlungen")
@@ -236,8 +239,8 @@ const Transcription = () => {
           diagnose_id: diagnoseData.id,
           medikament_id: medikamentData?.id,
           medikament_typ: formData.medikamentTyp,
-          medikament_menge: parseFloat(formData.medikamentMenge),
-          untersuchung_datum: formData.untersuchungsDatum,
+          medikament_menge: amount,
+          untersuchung_datum: new Date(formData.untersuchungsDatum).toISOString(),
           praxis_id: patientData?.praxis_id,
         });
 
@@ -247,6 +250,9 @@ const Transcription = () => {
         title: "Gespeichert",
         description: "Die Behandlung wurde erfolgreich gespeichert.",
       });
+
+      navigate(`/patient/${state.patientId}`);
+      
     } catch (error) {
       console.error("Save error:", error);
       toast({
