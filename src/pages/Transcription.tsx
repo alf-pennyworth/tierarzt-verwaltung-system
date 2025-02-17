@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
+import { getAllDiagnoses, findDiagnoseByName } from "@/services/diagnoseService";
 
 interface PatientData {
   name: string;
@@ -216,46 +216,12 @@ const Transcription = () => {
     try {
       console.log("Searching for diagnosis:", formData.diagnose);
       
-      // First, let's get all diagnoses to debug
-      const { data: allDiagnoses, error: debugError } = await supabase
-        .from("diagnose")
-        .select("*");
-      
+      const allDiagnoses = await getAllDiagnoses();
       console.log("All diagnoses:", allDiagnoses);
 
-      // Then find the specific diagnose, using let instead of const
-      let diagnoseData;
+      const diagnoseData = await findDiagnoseByName(formData.diagnose);
       
-      // Try with both exact match and case-insensitive search
-      const queries = [
-        supabase
-          .from("diagnose")
-          .select("*")
-          .eq("diagnose", formData.diagnose)
-          .maybeSingle(),
-        supabase
-          .from("diagnose")
-          .select("*")
-          .ilike("diagnose", `%${formData.diagnose}%`)
-          .maybeSingle(),
-        supabase
-          .from("diagnose")
-          .select("*")
-          .eq("diagnose", formData.diagnose.trim())
-          .maybeSingle()
-      ];
-
-      for (const query of queries) {
-        const { data, error } = await query;
-        if (error) throw error;
-        if (data) {
-          diagnoseData = data;
-          break;
-        }
-      }
-
       if (!diagnoseData) {
-        // If we still haven't found it, log matching issue
         console.log("Available diagnoses:", allDiagnoses?.map(d => ({
           diagnose: d.diagnose,
           exact_match: d.diagnose === formData.diagnose,
@@ -267,7 +233,6 @@ const Transcription = () => {
 
       console.log("Found diagnose data:", diagnoseData);
 
-      // Then find the medication ID if medication was specified
       let medikamentData = null;
       if (formData.medikament) {
         const { data, error: medikamentError } = await supabase
@@ -286,7 +251,6 @@ const Transcription = () => {
       const amountMatch = formData.medikamentMenge.match(/(\d+(?:[.,]\d+)?)/);
       const amount = amountMatch ? parseFloat(amountMatch[1]) : null;
 
-      // Save the behandlung
       const { error: behandlungError } = await supabase
         .from("behandlungen")
         .insert({
@@ -306,7 +270,6 @@ const Transcription = () => {
         description: "Die Behandlung wurde erfolgreich gespeichert.",
       });
 
-      // Navigate back to the patient details page
       navigate(`/patient/${state.patientId}`);
       
     } catch (error) {
