@@ -223,17 +223,19 @@ const Transcription = () => {
       
       console.log("All diagnoses:", allDiagnoses);
 
-      // Then find the specific diagnose
-      const { data: diagnoseData, error: diagnoseError } = await supabase
+      // Then find the specific diagnose, using let instead of const
+      let diagnoseData;
+      const { data, error: diagnoseError } = await supabase
         .from("diagnose")
         .select("*")
         .eq("diagnose", formData.diagnose)
         .maybeSingle();
 
-      console.log("Search result:", diagnoseData, "Error:", diagnoseError);
-
       if (diagnoseError) throw diagnoseError;
-      if (!diagnoseData) {
+      
+      if (data) {
+        diagnoseData = data;
+      } else {
         // Try with case-insensitive search as fallback
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("diagnose")
@@ -247,6 +249,8 @@ const Transcription = () => {
         }
         diagnoseData = fallbackData;
       }
+
+      console.log("Final diagnose data:", diagnoseData);
 
       // Then find the medication ID if medication was specified
       let medikamentData = null;
