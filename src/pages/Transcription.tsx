@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -213,17 +214,41 @@ const Transcription = () => {
 
   const handleSave = async () => {
     try {
+      console.log("Searching for diagnosis:", formData.diagnose);
+      
+      // First, let's get all diagnoses to debug
+      const { data: allDiagnoses, error: debugError } = await supabase
+        .from("diagnose")
+        .select("diagnose");
+      
+      console.log("All diagnoses:", allDiagnoses);
+
+      // Then find the specific diagnose
       const { data: diagnoseData, error: diagnoseError } = await supabase
         .from("diagnose")
-        .select("id")
-        .ilike("diagnose", `%${formData.diagnose}%`)
+        .select("*")
+        .eq("diagnose", formData.diagnose)
         .maybeSingle();
+
+      console.log("Search result:", diagnoseData, "Error:", diagnoseError);
 
       if (diagnoseError) throw diagnoseError;
       if (!diagnoseData) {
-        throw new Error(`Keine Diagnose mit dem Namen "${formData.diagnose}" gefunden.`);
+        // Try with case-insensitive search as fallback
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from("diagnose")
+          .select("*")
+          .ilike("diagnose", formData.diagnose)
+          .maybeSingle();
+          
+        if (fallbackError) throw fallbackError;
+        if (!fallbackData) {
+          throw new Error(`Keine Diagnose mit dem Namen "${formData.diagnose}" gefunden.`);
+        }
+        diagnoseData = fallbackData;
       }
 
+      // Then find the medication ID if medication was specified
       let medikamentData = null;
       if (formData.medikament) {
         const { data, error: medikamentError } = await supabase
@@ -242,6 +267,7 @@ const Transcription = () => {
       const amountMatch = formData.medikamentMenge.match(/(\d+(?:[.,]\d+)?)/);
       const amount = amountMatch ? parseFloat(amountMatch[1]) : null;
 
+      // Save the behandlung
       const { error: behandlungError } = await supabase
         .from("behandlungen")
         .insert({
@@ -261,6 +287,7 @@ const Transcription = () => {
         description: "Die Behandlung wurde erfolgreich gespeichert.",
       });
 
+      // Navigate back to the patient details page
       navigate(`/patient/${state.patientId}`);
       
     } catch (error) {
