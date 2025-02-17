@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import Transcription from "./pages/Transcription";
 import PatientList from "./pages/PatientList";
 import PatientDetails from "./pages/PatientDetails";
+import TreatmentDetails from "./pages/TreatmentDetails";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <PatientDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/treatment/:id"
+            element={
+              <ProtectedRoute>
+                <TreatmentDetails />
               </ProtectedRoute>
             }
           />

@@ -19,6 +19,7 @@ interface PatientDetails {
     email: string | null;
   };
   behandlungen: {
+    id: string;
     untersuchung_datum: string;
     diagnose: {
       diagnose: string;
@@ -53,6 +54,7 @@ const PatientDetails = () => {
           email
         ),
         behandlungen (
+          id,
           untersuchung_datum,
           diagnose (
             diagnose
@@ -153,10 +155,11 @@ const PatientDetails = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {patient.behandlungen.map((behandlung, index) => (
+            {patient.behandlungen.map((behandlung) => (
               <div
-                key={index}
-                className="p-4 border rounded-lg"
+                key={behandlung.id}
+                className="p-4 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => navigate(`/treatment/${behandlung.id}`)}
               >
                 <div className="font-semibold">
                   {format(new Date(behandlung.untersuchung_datum), "dd.MM.yyyy")}
