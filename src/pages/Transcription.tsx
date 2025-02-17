@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -218,17 +217,27 @@ const Transcription = () => {
         .from("diagnose")
         .select("id")
         .ilike("diagnose", `%${formData.diagnose}%`)
-        .single();
+        .maybeSingle();
 
       if (diagnoseError) throw diagnoseError;
+      if (!diagnoseData) {
+        throw new Error(`Keine Diagnose mit dem Namen "${formData.diagnose}" gefunden.`);
+      }
 
-      const { data: medikamentData, error: medikamentError } = await supabase
-        .from("medikamente")
-        .select("id")
-        .ilike("name", `%${formData.medikament}%`)
-        .single();
+      let medikamentData = null;
+      if (formData.medikament) {
+        const { data, error: medikamentError } = await supabase
+          .from("medikamente")
+          .select("id")
+          .ilike("name", `%${formData.medikament}%`)
+          .maybeSingle();
 
-      if (medikamentError && formData.medikament) throw medikamentError;
+        if (medikamentError) throw medikamentError;
+        if (!data) {
+          throw new Error(`Kein Medikament mit dem Namen "${formData.medikament}" gefunden.`);
+        }
+        medikamentData = data;
+      }
 
       const amountMatch = formData.medikamentMenge.match(/(\d+(?:[.,]\d+)?)/);
       const amount = amountMatch ? parseFloat(amountMatch[1]) : null;
@@ -259,7 +268,7 @@ const Transcription = () => {
       toast({
         variant: "destructive",
         title: "Fehler",
-        description: "Die Behandlung konnte nicht gespeichert werden.",
+        description: error.message || "Die Behandlung konnte nicht gespeichert werden.",
       });
     }
   };
