@@ -18,7 +18,7 @@ export type Database = {
           diagnose_path_ids: string[] | null
           id: string
           medikament_id: string | null
-          medikament_menge: string | null
+          medikament_menge: number | null
           medikament_typ: string | null
           patient_id: string
           praxis_id: string
@@ -33,7 +33,7 @@ export type Database = {
           diagnose_path_ids?: string[] | null
           id?: string
           medikament_id?: string | null
-          medikament_menge?: string | null
+          medikament_menge?: number | null
           medikament_typ?: string | null
           patient_id: string
           praxis_id: string
@@ -48,7 +48,7 @@ export type Database = {
           diagnose_path_ids?: string[] | null
           id?: string
           medikament_id?: string | null
-          medikament_menge?: string | null
+          medikament_menge?: number | null
           medikament_typ?: string | null
           patient_id?: string
           praxis_id?: string

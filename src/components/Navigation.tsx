@@ -42,7 +42,14 @@ const Navigation = () => {
     return (
       <>
         <div className="h-16" /> {/* Spacer for content */}
-        <nav className="fixed bottom-0 left-0 right-0 bg-background border-t z-50">
+        <nav className="fixed bottom-0 left-0 right-0 bg-background border-t z-40">
+          <div className="absolute left-1/2 -translate-x-1/2 -top-8 h-16 w-16 bg-[hsl(var(--background))] rounded-full" />
+          <Button
+            className="absolute left-1/2 -translate-x-1/2 -top-6 rounded-full w-12 h-12 p-0 shadow-lg z-50"
+            onClick={() => navigate("/dashboard")}
+          >
+            <LayoutDashboard className="h-5 w-5" />
+          </Button>
           <div className="container relative flex items-center justify-between px-4 py-2">
             <div className="flex gap-2">
               {navigationItems.slice(0, 2).map((item) => (
@@ -57,13 +64,6 @@ const Navigation = () => {
                 </Button>
               ))}
             </div>
-            <div className="absolute left-1/2 -translate-x-1/2 -top-6 bg-background w-32 h-8 rounded-t-full border-t border-l border-r" />
-            <Button
-              className="absolute left-1/2 -translate-x-1/2 -top-6 rounded-full w-12 h-12 p-0 shadow-lg"
-              onClick={() => navigate("/dashboard")}
-            >
-              <LayoutDashboard className="h-5 w-5" />
-            </Button>
             <div className="flex gap-2">
               {navigationItems.slice(2).map((item) => (
                 <Button
