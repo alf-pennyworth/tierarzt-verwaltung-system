@@ -18,11 +18,12 @@ const Reports = () => {
         .from('behandlungen')
         .select(`
           untersuchung_datum,
-          medikament_menge,
+          formatted_menge:medikament_menge(replace(to_char("medikament_menge", 'FM999999.99'), '.', ',')),
           medikamente (
             zulassungsnummer,
             packungs_id,
-            masseinheit
+            masseinheit,
+            eingangs_nr
           ),
           patient:patient_id (
             tamb_form,
@@ -59,8 +60,8 @@ const Reports = () => {
           behandlung.patient?.tamb_form || '',
           behandlung.medikamente?.zulassungsnummer || '',
           behandlung.medikamente?.packungs_id || '',
-          '', // Empty string for TAMA_ENR since column doesn't exist yet
-          String(behandlung.medikament_menge || ''),
+          behandlung.medikamente?.eingangs_nr || '',
+          behandlung.formatted_menge || '',
           behandlung.medikamente?.masseinheit || '',
           new Date(behandlung.untersuchung_datum).toISOString().split('T')[0]
         ]);
