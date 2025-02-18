@@ -17,12 +17,12 @@ const Navigation = () => {
 
   const navigationItems = [
     {
-      name: "Patientenliste",
+      name: isMobile ? "Patienten" : "Patientenliste",
       href: "/",
       icon: ClipboardList,
     },
     {
-      name: "Mitarbeiterverzeichnis",
+      name: isMobile ? "Mitarbeiter" : "Mitarbeiterverzeichnis",
       href: "/employees",
       icon: Users,
     },
@@ -44,34 +44,39 @@ const Navigation = () => {
         <div className="h-16" /> {/* Spacer for content */}
         <nav className="fixed bottom-0 left-0 right-0 bg-background border-t z-50">
           <div className="container relative flex items-center justify-between px-4 py-2">
-            {navigationItems.slice(0, 2).map((item) => (
-              <Button
-                key={item.name}
-                variant="ghost"
-                className="flex-col gap-1 h-auto py-2"
-                onClick={() => navigate(item.href)}
-              >
-                <item.icon className="h-5 w-5" />
-                <span className="text-xs">{item.name}</span>
-              </Button>
-            ))}
+            <div className="flex gap-2">
+              {navigationItems.slice(0, 2).map((item) => (
+                <Button
+                  key={item.name}
+                  variant="ghost"
+                  className="flex-col gap-1 h-auto py-2"
+                  onClick={() => navigate(item.href)}
+                >
+                  <item.icon className="h-5 w-5" />
+                  <span className="text-xs">{item.name}</span>
+                </Button>
+              ))}
+            </div>
+            <div className="absolute left-1/2 -translate-x-1/2 -top-6 bg-background w-32 h-8 rounded-t-full border-t border-l border-r" />
             <Button
               className="absolute left-1/2 -translate-x-1/2 -top-6 rounded-full w-12 h-12 p-0 shadow-lg"
               onClick={() => navigate("/dashboard")}
             >
               <LayoutDashboard className="h-5 w-5" />
             </Button>
-            {navigationItems.slice(2).map((item) => (
-              <Button
-                key={item.name}
-                variant="ghost"
-                className="flex-col gap-1 h-auto py-2"
-                onClick={() => navigate(item.href)}
-              >
-                <item.icon className="h-5 w-5" />
-                <span className="text-xs">{item.name}</span>
-              </Button>
-            ))}
+            <div className="flex gap-2">
+              {navigationItems.slice(2).map((item) => (
+                <Button
+                  key={item.name}
+                  variant="ghost"
+                  className="flex-col gap-1 h-auto py-2"
+                  onClick={() => navigate(item.href)}
+                >
+                  <item.icon className="h-5 w-5" />
+                  <span className="text-xs">{item.name}</span>
+                </Button>
+              ))}
+            </div>
           </div>
         </nav>
       </>
@@ -83,6 +88,13 @@ const Navigation = () => {
       <div className="h-16" /> {/* Spacer for content */}
       <nav className="fixed top-0 left-0 right-0 bg-background border-b z-50">
         <div className="container flex items-center justify-between h-16 px-4">
+          <Button
+            variant="ghost"
+            className="p-2 mr-4"
+            onClick={() => navigate("/dashboard")}
+          >
+            <LayoutDashboard className="h-6 w-6" />
+          </Button>
           <div className="flex items-center gap-2">
             {navigationItems.map((item) => (
               <Button
@@ -96,13 +108,6 @@ const Navigation = () => {
               </Button>
             ))}
           </div>
-          <Button
-            variant="ghost"
-            className="p-2"
-            onClick={() => navigate("/dashboard")}
-          >
-            <LayoutDashboard className="h-6 w-6" />
-          </Button>
         </div>
       </nav>
     </>
