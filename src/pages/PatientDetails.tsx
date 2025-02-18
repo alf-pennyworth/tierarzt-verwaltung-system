@@ -28,7 +28,7 @@ interface PatientDetails {
       name: string;
     } | null;
     medikament_typ: string | null;
-    medikament_menge: number | null;
+    medikament_menge: string | null;  // Changed from number to string
   }[];
 }
 

@@ -249,7 +249,7 @@ const Transcription = () => {
       }
 
       const amountMatch = formData.medikamentMenge.match(/(\d+(?:[.,]\d+)?)/);
-      const amount = amountMatch ? parseFloat(amountMatch[1]) : null;
+      const amount = amountMatch ? amountMatch[1] : null;
 
       const { error: behandlungError } = await supabase
         .from("behandlungen")
