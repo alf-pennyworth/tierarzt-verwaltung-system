@@ -22,7 +22,8 @@ const Reports = () => {
           medikamente (
             zulassungsnummer,
             packungs_id,
-            masseinheit
+            masseinheit,
+            eingangs_nr
           ),
           patient:patient_id (
             tamb_form,
@@ -53,14 +54,20 @@ const Reports = () => {
       ];
 
       behandlungen?.forEach(behandlung => {
+        // Format decimal numbers with comma as separator
+        const formatAmount = (amount: number | null) => {
+          if (amount === null) return '';
+          return amount.toString().replace('.', ',');
+        };
+
         csvRows.push([
           behandlung.patient?.praxis?.betriebsnummer || '',
           behandlung.patient?.besitzer?.betriebsnummer || '',
           behandlung.patient?.tamb_form || '',
           behandlung.medikamente?.zulassungsnummer || '',
           behandlung.medikamente?.packungs_id || '',
-          '', // Empty string for TAMA_ENR since column doesn't exist yet
-          String(behandlung.medikament_menge || ''),
+          behandlung.medikamente?.eingangs_nr || '',
+          formatAmount(behandlung.medikament_menge),
           behandlung.medikamente?.masseinheit || '',
           new Date(behandlung.untersuchung_datum).toISOString().split('T')[0]
         ]);
