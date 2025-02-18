@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -248,19 +249,20 @@ const Transcription = () => {
         medikamentData = data;
       }
 
+      // Parse the amount from medikamentMenge if it exists
       const amountMatch = formData.medikamentMenge.match(/(\d+(?:[.,]\d+)?)/);
-      const amount = amountMatch ? amountMatch[1] : null;
+      const amount = amountMatch ? parseFloat(amountMatch[1].replace(',', '.')) : null;
 
       const { error: behandlungError } = await supabase
         .from("behandlungen")
         .insert({
-          patient_id: state?.patientId,
           diagnose_id: diagnoseData.id,
           medikament_id: medikamentData?.id,
           medikament_typ: formData.medikamentTyp,
-          medikament_menge: amount,
+          medikament_menge: amount, // Now passing a number or null
           untersuchung_datum: new Date(formData.untersuchungsDatum).toISOString(),
           praxis_id: patientData?.praxis_id,
+          patient_id: state?.patientId
         });
 
       if (behandlungError) throw behandlungError;
