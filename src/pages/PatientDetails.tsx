@@ -75,7 +75,13 @@ const PatientDetails = () => {
     }
 
     if (data) {
-      setPatient(data);
+      setPatient({
+        ...data,
+        behandlungen: data.behandlungen.map(b => ({
+          ...b,
+          medikament_menge: b.medikament_menge?.toString() || null
+        }))
+      });
     }
   };
 

@@ -24,12 +24,12 @@ const Reports = () => {
             packungs_id,
             masseinheit
           ),
-          patient (
+          patient:patient_id (
             tamb_form,
-            praxis (
+            praxis:praxis_id (
               betriebsnummer
             ),
-            besitzer (
+            besitzer:besitzer_id (
               betriebsnummer
             )
           )
@@ -59,8 +59,8 @@ const Reports = () => {
           behandlung.patient?.tamb_form || '',
           behandlung.medikamente?.zulassungsnummer || '',
           behandlung.medikamente?.packungs_id || '',
-          behandlung.medikamente?.eingangs_nr || '',
-          behandlung.medikament_menge || '',
+          '', // Empty string for TAMA_ENR since column doesn't exist yet
+          String(behandlung.medikament_menge || ''),
           behandlung.medikamente?.masseinheit || '',
           new Date(behandlung.untersuchung_datum).toISOString().split('T')[0]
         ]);

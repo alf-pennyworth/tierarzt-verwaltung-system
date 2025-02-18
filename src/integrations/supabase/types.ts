@@ -205,6 +205,7 @@ export type Database = {
         Row: {
           created_at: string
           deleted_at: string | null
+          eingangs_nr: string | null
           id: string
           masseinheit: string
           medication_type_id: string | null
@@ -216,6 +217,7 @@ export type Database = {
         Insert: {
           created_at?: string
           deleted_at?: string | null
+          eingangs_nr?: string | null
           id?: string
           masseinheit: string
           medication_type_id?: string | null
@@ -227,6 +229,7 @@ export type Database = {
         Update: {
           created_at?: string
           deleted_at?: string | null
+          eingangs_nr?: string | null
           id?: string
           masseinheit?: string
           medication_type_id?: string | null
@@ -257,6 +260,7 @@ export type Database = {
           praxis_id: string
           rasse: string | null
           spezies: string
+          tamb_form: Database["public"]["Enums"]["tamb_form"] | null
           updated_at: string
         }
         Insert: {
@@ -270,6 +274,7 @@ export type Database = {
           praxis_id: string
           rasse?: string | null
           spezies: string
+          tamb_form?: Database["public"]["Enums"]["tamb_form"] | null
           updated_at?: string
         }
         Update: {
@@ -283,6 +288,7 @@ export type Database = {
           praxis_id?: string
           rasse?: string | null
           spezies?: string
+          tamb_form?: Database["public"]["Enums"]["tamb_form"] | null
           updated_at?: string
         }
         Relationships: [
@@ -304,6 +310,7 @@ export type Database = {
       }
       praxis: {
         Row: {
+          betriebsnummer: string | null
           created_at: string
           deleted_at: string | null
           id: string
@@ -311,6 +318,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          betriebsnummer?: string | null
           created_at?: string
           deleted_at?: string | null
           id?: string
@@ -318,6 +326,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          betriebsnummer?: string | null
           created_at?: string
           deleted_at?: string | null
           id?: string
@@ -420,6 +429,28 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      tamb_form:
+        | "SON"
+        | "RM4"
+        | "RM5"
+        | "RN3"
+        | "RN6"
+        | "RN7"
+        | "SM0"
+        | "SM1"
+        | "SM2"
+        | "SM4"
+        | "SN3"
+        | "HM1"
+        | "HM3"
+        | "HM4"
+        | "HN2"
+        | "PM1"
+        | "PN2"
+        | "X01"
+        | "X02"
+        | "X03"
+        | "X04"
       user_role: "admin" | "vet"
     }
     CompositeTypes: {

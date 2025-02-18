@@ -11,7 +11,7 @@ interface TreatmentDetails {
   id: string;
   untersuchung_datum: string;
   diagnose_path: string[] | null;
-  medikament_menge: string | null;
+  medikament_menge: string | null;  // Changed from number to string
   medikament_typ: string | null;
   diagnose: {
     diagnose: string;
@@ -60,7 +60,10 @@ const TreatmentDetails = () => {
       }
 
       if (data) {
-        setTreatment(data);
+        setTreatment({
+          ...data,
+          medikament_menge: data.medikament_menge?.toString() || null
+        });
       }
     };
 
