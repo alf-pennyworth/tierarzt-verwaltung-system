@@ -18,7 +18,7 @@ const Reports = () => {
         .from('behandlungen')
         .select(`
           untersuchung_datum,
-          formatted_menge:medikament_menge(replace(to_char("medikament_menge", 'FM999999.99'), '.', ',')),
+          medikament_menge,
           medikamente (
             zulassungsnummer,
             packungs_id,
@@ -54,6 +54,12 @@ const Reports = () => {
       ];
 
       behandlungen?.forEach(behandlung => {
+        // Format decimal numbers with comma as separator
+        const formatAmount = (amount: number | null) => {
+          if (amount === null) return '';
+          return amount.toString().replace('.', ',');
+        };
+
         csvRows.push([
           behandlung.patient?.praxis?.betriebsnummer || '',
           behandlung.patient?.besitzer?.betriebsnummer || '',
@@ -61,7 +67,7 @@ const Reports = () => {
           behandlung.medikamente?.zulassungsnummer || '',
           behandlung.medikamente?.packungs_id || '',
           behandlung.medikamente?.eingangs_nr || '',
-          behandlung.formatted_menge || '',
+          formatAmount(behandlung.medikament_menge),
           behandlung.medikamente?.masseinheit || '',
           new Date(behandlung.untersuchung_datum).toISOString().split('T')[0]
         ]);
