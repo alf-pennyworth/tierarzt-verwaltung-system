@@ -18,7 +18,7 @@ const Reports = () => {
         .from('behandlungen')
         .select(`
           untersuchung_datum,
-          medikament_menge_formatted,
+          formatted_menge:medikament_menge(replace(to_char("medikament_menge", 'FM999999.99'), '.', ',')),
           medikamente (
             zulassungsnummer,
             packungs_id,
@@ -61,7 +61,7 @@ const Reports = () => {
           behandlung.medikamente?.zulassungsnummer || '',
           behandlung.medikamente?.packungs_id || '',
           behandlung.medikamente?.eingangs_nr || '',
-          behandlung.medikament_menge_formatted || '',
+          behandlung.formatted_menge || '',
           behandlung.medikamente?.masseinheit || '',
           new Date(behandlung.untersuchung_datum).toISOString().split('T')[0]
         ]);
