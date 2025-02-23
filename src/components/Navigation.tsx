@@ -43,7 +43,7 @@ const Navigation = () => {
       <>
         <div className="h-16" /> {/* Spacer for content */}
         <nav className="fixed bottom-0 left-0 right-0 bg-background border-t z-40">
-          <div className="absolute left-1/2 -translate-x-1/2 -top-8 h-16 w-16 bg-[hsl(var(--background))] rounded-full" />
+          <div className="absolute left-1/2 -translate-x-1/2 -top-8 h-16 w-16 bg-[hsl(var(--background))] rounded-full border-b border-[hsl(var(--border))]" />
           <Button
             className="absolute left-1/2 -translate-x-1/2 -top-6 rounded-full w-12 h-12 p-0 shadow-lg z-50"
             onClick={() => navigate("/dashboard")}
