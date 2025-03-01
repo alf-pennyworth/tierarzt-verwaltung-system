@@ -19,6 +19,7 @@ export type Database = {
           id: string
           medikament_id: string | null
           medikament_menge: number | null
+          medikament_menge_formatted: string | null
           medikament_typ: string | null
           patient_id: string
           praxis_id: string
@@ -34,6 +35,7 @@ export type Database = {
           id?: string
           medikament_id?: string | null
           medikament_menge?: number | null
+          medikament_menge_formatted?: string | null
           medikament_typ?: string | null
           patient_id: string
           praxis_id: string
@@ -49,6 +51,7 @@ export type Database = {
           id?: string
           medikament_id?: string | null
           medikament_menge?: number | null
+          medikament_menge_formatted?: string | null
           medikament_typ?: string | null
           patient_id?: string
           praxis_id?: string
@@ -211,6 +214,7 @@ export type Database = {
           medication_type_id: string | null
           name: string
           packungs_id: string | null
+          packungsbeschreibung: string | null
           updated_at: string
           zulassungsnummer: string | null
         }
@@ -223,6 +227,7 @@ export type Database = {
           medication_type_id?: string | null
           name: string
           packungs_id?: string | null
+          packungsbeschreibung?: string | null
           updated_at?: string
           zulassungsnummer?: string | null
         }
@@ -235,6 +240,7 @@ export type Database = {
           medication_type_id?: string | null
           name?: string
           packungs_id?: string | null
+          packungsbeschreibung?: string | null
           updated_at?: string
           zulassungsnummer?: string | null
         }
@@ -250,6 +256,7 @@ export type Database = {
       }
       patient: {
         Row: {
+          behandelnder_arzt: string | null
           besitzer_id: string
           bild_url: string | null
           created_at: string
@@ -264,6 +271,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          behandelnder_arzt?: string | null
           besitzer_id: string
           bild_url?: string | null
           created_at?: string
@@ -278,6 +286,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          behandelnder_arzt?: string | null
           besitzer_id?: string
           bild_url?: string | null
           created_at?: string
@@ -292,6 +301,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "patient_behandelnder_arzt_fkey"
+            columns: ["behandelnder_arzt"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "patient_besitzer_id_fkey"
             columns: ["besitzer_id"]
@@ -340,9 +356,13 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           email: string
+          Fachrichtung: string | null
+          Gebäude: string | null
           id: string
           nachname: string
           praxis_id: string | null
+          profilbild_url: string | null
+          Raum: string | null
           rolle_id: string | null
           telefonnummer: string | null
           updated_at: string
@@ -352,9 +372,13 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           email: string
+          Fachrichtung?: string | null
+          Gebäude?: string | null
           id: string
           nachname: string
           praxis_id?: string | null
+          profilbild_url?: string | null
+          Raum?: string | null
           rolle_id?: string | null
           telefonnummer?: string | null
           updated_at?: string
@@ -364,9 +388,13 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           email?: string
+          Fachrichtung?: string | null
+          Gebäude?: string | null
           id?: string
           nachname?: string
           praxis_id?: string | null
+          profilbild_url?: string | null
+          Raum?: string | null
           rolle_id?: string | null
           telefonnummer?: string | null
           updated_at?: string
@@ -426,7 +454,12 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      format_number_de: {
+        Args: {
+          n: number
+        }
+        Returns: string
+      }
     }
     Enums: {
       tamb_form:
