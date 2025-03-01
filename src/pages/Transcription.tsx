@@ -189,14 +189,14 @@ const Transcription = () => {
         
         if (data.medications && data.medications.length > 0) {
           const med = data.medications[0];
-          newData.medikament = med.name || "";
+          newData.medikament = med.original_mention || med.name || "";
           newData.medikamentTyp = med.medication_type?.name || "";
           
           if (med.amount && med.unit) {
             newData.medikamentMenge = `${med.amount} ${med.unit}`;
           }
 
-          if (med.name && med.name.length >= 2) {
+          if (newData.medikament.length >= 2) {
             setShowMedicationDropdown(true);
           }
         }

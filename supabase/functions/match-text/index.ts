@@ -19,7 +19,14 @@ const findMedicationMatches = (
   medications: any[]
 ) => {
   const normalizedText = normalizeText(text);
-  const matches: { id: string; name: string; medication_type?: { name: string }; amount?: string; unit?: string }[] = [];
+  const matches: { 
+    id: string; 
+    name: string; 
+    medication_type?: { name: string }; 
+    amount?: string; 
+    unit?: string;
+    original_mention?: string;
+  }[] = [];
   
   console.log("Normalized input text:", normalizedText);
   
@@ -31,68 +38,75 @@ const findMedicationMatches = (
     // Add more abbreviations as needed
   };
   
-  // Process abbreviations first
+  // Find all potential mentions of medications
+  let foundMentions = [];
+  
+  // Check for abbreviations
   for (const [abbr, fullNames] of Object.entries(medicationAbbreviations)) {
     if (normalizedText.includes(abbr)) {
-      console.log(`Found abbreviation: ${abbr}`);
-      
-      // Find matching medications for this abbreviation
-      const matchingMeds = medications.filter(med => 
-        fullNames.some(name => normalizeText(med.name).includes(name)) ||
-        normalizeText(med.name).includes(abbr)
-      );
-      
-      if (matchingMeds.length > 0) {
-        console.log(`Found ${matchingMeds.length} medications matching abbreviation ${abbr}`);
-        
-        // Get the amount if available
-        const amountMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(mg|ml|g|tabletten|kapseln|stück)/i);
-        const matchingMed = matchingMeds[0]; // Take the first match
-        
-        const result = {
-          id: matchingMed.id,
-          name: matchingMed.name,
-          medication_type: matchingMed.medication_type
-        };
-        
-        if (amountMatch) {
-          console.log(`Found amount: ${amountMatch[1]} ${amountMatch[2]}`);
-          result.amount = amountMatch[1];
-          result.unit = amountMatch[2].toLowerCase();
-        }
-        
-        matches.push(result);
-        break; // Only use the first matching abbreviation
-      }
+      foundMentions.push({
+        text: abbr,
+        fullNames: fullNames,
+        isAbbreviation: true
+      });
     }
   }
   
-  // If no matches from abbreviations, try exact matches from the database
-  if (matches.length === 0) {
-    console.log("No matches from abbreviations, trying database entries directly");
+  // Also check for direct medication names
+  medications.forEach(med => {
+    const normalizedName = normalizeText(med.name);
+    if (normalizedText.includes(normalizedName)) {
+      foundMentions.push({
+        text: normalizedName,
+        fullNames: [normalizedName],
+        isAbbreviation: false,
+        exactMatch: med
+      });
+    }
+  });
+  
+  // If no mentions found, return empty array
+  if (foundMentions.length === 0) {
+    return [];
+  }
+  
+  // Process found mentions
+  for (const mention of foundMentions) {
+    let matchingMeds;
     
-    medications.forEach(med => {
-      const normalizedName = normalizeText(med.name);
+    if (mention.exactMatch) {
+      // We have an exact match directly from the database
+      matchingMeds = [mention.exactMatch];
+    } else {
+      // Find matching medications for abbreviation
+      matchingMeds = medications.filter(med => 
+        mention.fullNames.some(name => normalizeText(med.name).includes(name)) ||
+        normalizeText(med.name).includes(mention.text)
+      );
+    }
+    
+    if (matchingMeds.length > 0) {
+      // Get the amount if available
+      const amountMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(mg|ml|g|tabletten|kapseln|stück)/i);
+      const matchingMed = matchingMeds[0]; // Take the first match
       
-      if (normalizedText.includes(normalizedName)) {
-        console.log(`Found direct match: ${med.name}`);
-        
-        const amountMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(mg|ml|g|tabletten|kapseln|stück)/i);
-        const result = {
-          id: med.id,
-          name: med.name,
-          medication_type: med.medication_type
-        };
-        
-        if (amountMatch) {
-          console.log(`Found amount: ${amountMatch[1]} ${amountMatch[2]}`);
-          result.amount = amountMatch[1];
-          result.unit = amountMatch[2].toLowerCase();
-        }
-        
-        matches.push(result);
+      // Store the original mention in the result
+      const result = {
+        id: matchingMed.id,
+        name: matchingMed.name,
+        medication_type: matchingMed.medication_type,
+        original_mention: mention.text
+      };
+      
+      if (amountMatch) {
+        console.log(`Found amount: ${amountMatch[1]} ${amountMatch[2]}`);
+        result.amount = amountMatch[1];
+        result.unit = amountMatch[2].toLowerCase();
       }
-    });
+      
+      matches.push(result);
+      // Don't break after the first match to allow finding multiple medications
+    }
   }
   
   console.log("All medication matches found:", matches);
