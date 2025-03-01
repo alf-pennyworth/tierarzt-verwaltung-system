@@ -61,6 +61,7 @@ const Transcription = () => {
   const [packagingOptions, setPackagingOptions] = useState<PackagingOption[]>([]);
   const [isLoadingMedications, setIsLoadingMedications] = useState(false);
   const [isLoadingPackaging, setIsLoadingPackaging] = useState(false);
+  const [showMedicationDropdown, setShowMedicationDropdown] = useState(false);
 
   const [formData, setFormData] = useState({
     patientName: "",
@@ -121,8 +122,7 @@ const Transcription = () => {
 
   useEffect(() => {
     const searchForMedications = async () => {
-      if (formData.medikament.trim().length < 2) {
-        setMedicationOptions([]);
+      if (formData.medikament.trim().length < 2 || !showMedicationDropdown) {
         return;
       }
       
@@ -144,7 +144,7 @@ const Transcription = () => {
     };
 
     searchForMedications();
-  }, [formData.medikament, toast]);
+  }, [formData.medikament, showMedicationDropdown, toast]);
 
   const fetchPackagingOptions = async (medicationName: string) => {
     if (!medicationName) {
@@ -181,28 +181,23 @@ const Transcription = () => {
       console.log("Matching results:", data);
 
       setFormData(prev => {
-        // Initialize updated form data with current values
         const newData = { ...prev };
         
-        // Update diagnose if found
         if (data.diagnoses && data.diagnoses.length > 0) {
           newData.diagnose = data.diagnoses.map((d: any) => d.name).join(', ');
         }
         
-        // Update medication related fields if found
         if (data.medications && data.medications.length > 0) {
           const med = data.medications[0];
           newData.medikament = med.name || "";
           newData.medikamentTyp = med.medication_type?.name || "";
           
-          // Format medication amount
           if (med.amount && med.unit) {
             newData.medikamentMenge = `${med.amount} ${med.unit}`;
           }
-          
-          // If we have a medication name, fetch packaging options
-          if (med.name) {
-            fetchPackagingOptions(med.name);
+
+          if (med.name && med.name.length >= 2) {
+            setShowMedicationDropdown(true);
           }
         }
         
@@ -321,6 +316,7 @@ const Transcription = () => {
     }));
     
     fetchPackagingOptions(medicationName);
+    setShowMedicationDropdown(false);
   };
 
   const handlePackagingSelect = (packageId: string) => {
@@ -332,6 +328,16 @@ const Transcription = () => {
         medikamentId: packageId,
         packungsbeschreibung: selectedPackage.description,
       }));
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    
+    setFormData(prev => ({ ...prev, [id]: value }));
+    
+    if (id === 'medikament' && value.trim().length >= 2) {
+      setShowMedicationDropdown(true);
     }
   };
 
@@ -476,7 +482,7 @@ const Transcription = () => {
                 <Input
                   id="diagnose"
                   value={formData.diagnose}
-                  onChange={(e) => setFormData(prev => ({ ...prev, diagnose: e.target.value }))}
+                  onChange={handleInputChange}
                 />
               </div>
 
@@ -485,7 +491,7 @@ const Transcription = () => {
                 <Input
                   id="medikamentTyp"
                   value={formData.medikamentTyp}
-                  onChange={(e) => setFormData(prev => ({ ...prev, medikamentTyp: e.target.value }))}
+                  onChange={handleInputChange}
                 />
               </div>
 
@@ -494,11 +500,12 @@ const Transcription = () => {
                 <Input
                   id="medikament"
                   value={formData.medikament}
-                  onChange={(e) => setFormData(prev => ({ ...prev, medikament: e.target.value }))}
+                  onChange={handleInputChange}
                   placeholder="Medikament eingeben oder aus der Liste wählen"
+                  className="mb-1"
                 />
-                {formData.medikament.length > 1 && medicationOptions.length > 0 && (
-                  <Select onValueChange={handleMedicationSelect} value={formData.medikament}>
+                {showMedicationDropdown && formData.medikament.trim().length >= 2 && (
+                  <Select onValueChange={handleMedicationSelect}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Medikament auswählen" />
                     </SelectTrigger>
@@ -552,7 +559,7 @@ const Transcription = () => {
                 <Input
                   id="medikamentMenge"
                   value={formData.medikamentMenge}
-                  onChange={(e) => setFormData(prev => ({ ...prev, medikamentMenge: e.target.value }))}
+                  onChange={handleInputChange}
                 />
               </div>
 
@@ -562,7 +569,7 @@ const Transcription = () => {
                   id="untersuchungsDatum"
                   type="date"
                   value={formData.untersuchungsDatum}
-                  onChange={(e) => setFormData(prev => ({ ...prev, untersuchungsDatum: e.target.value }))}
+                  onChange={handleInputChange}
                 />
               </div>
             </div>
