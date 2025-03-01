@@ -181,16 +181,31 @@ const Transcription = () => {
       console.log("Matching results:", data);
 
       setFormData(prev => {
-        const newData = {
-          ...prev,
-          diagnose: data.diagnoses.map((m: any) => m.name).join(', '),
-          medikament: data.medications[0]?.name || "",
-          medikamentTyp: data.medications[0]?.medication_type?.name || "",
-          medikamentMenge: data.medications[0]?.amount ? 
-            `${data.medications[0].amount} ${data.medications[0].unit}` : 
-            "",
-        };
-
+        // Initialize updated form data with current values
+        const newData = { ...prev };
+        
+        // Update diagnose if found
+        if (data.diagnoses && data.diagnoses.length > 0) {
+          newData.diagnose = data.diagnoses.map((d: any) => d.name).join(', ');
+        }
+        
+        // Update medication related fields if found
+        if (data.medications && data.medications.length > 0) {
+          const med = data.medications[0];
+          newData.medikament = med.name || "";
+          newData.medikamentTyp = med.medication_type?.name || "";
+          
+          // Format medication amount
+          if (med.amount && med.unit) {
+            newData.medikamentMenge = `${med.amount} ${med.unit}`;
+          }
+          
+          // If we have a medication name, fetch packaging options
+          if (med.name) {
+            fetchPackagingOptions(med.name);
+          }
+        }
+        
         console.log("Updated form data:", newData);
         return newData;
       });

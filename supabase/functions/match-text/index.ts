@@ -13,44 +13,115 @@ const normalizeText = (text: string): string => {
   return text.toLowerCase().trim();
 };
 
-const findDatabaseMatches = (
+// Function to find medication matches in text
+const findMedicationMatches = (
   text: string,
-  options: { id: string; name: string; medication_type?: { name: string } },
-  extractAmount: boolean = false
+  medications: any[]
 ) => {
   const normalizedText = normalizeText(text);
   const matches: { id: string; name: string; medication_type?: { name: string }; amount?: string; unit?: string }[] = [];
   
   console.log("Normalized input text:", normalizedText);
-  console.log("Available options:", options);
   
-  options.forEach(option => {
-    const normalizedName = normalizeText(option.name);
-    console.log(`Comparing with database entry: ${option.name} (normalized: ${normalizedName})`);
-    
-    if (normalizedText.includes(normalizedName)) {
-      console.log(`Found match: ${option.name}`);
+  // First check for common medication abbreviations/nicknames
+  const medicationAbbreviations: Record<string, string[]> = {
+    "amoxi": ["amoxicillin", "amoxibactin"],
+    "pen": ["penicillin"],
+    "cef": ["ceftiofur", "cefalexin"],
+    // Add more abbreviations as needed
+  };
+  
+  // Process abbreviations first
+  for (const [abbr, fullNames] of Object.entries(medicationAbbreviations)) {
+    if (normalizedText.includes(abbr)) {
+      console.log(`Found abbreviation: ${abbr}`);
       
-      const result: { id: string; name: string; medication_type?: { name: string }; amount?: string; unit?: string } = {
-        id: option.id,
-        name: option.name,
-        medication_type: option.medication_type
-      };
-
-      if (extractAmount) {
+      // Find matching medications for this abbreviation
+      const matchingMeds = medications.filter(med => 
+        fullNames.some(name => normalizeText(med.name).includes(name)) ||
+        normalizeText(med.name).includes(abbr)
+      );
+      
+      if (matchingMeds.length > 0) {
+        console.log(`Found ${matchingMeds.length} medications matching abbreviation ${abbr}`);
+        
+        // Get the amount if available
         const amountMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(mg|ml|g|tabletten|kapseln|stück)/i);
+        const matchingMed = matchingMeds[0]; // Take the first match
+        
+        const result = {
+          id: matchingMed.id,
+          name: matchingMed.name,
+          medication_type: matchingMed.medication_type
+        };
+        
         if (amountMatch) {
+          console.log(`Found amount: ${amountMatch[1]} ${amountMatch[2]}`);
           result.amount = amountMatch[1];
           result.unit = amountMatch[2].toLowerCase();
-          console.log(`Found amount: ${amountMatch[1]} ${amountMatch[2]}`);
         }
+        
+        matches.push(result);
+        break; // Only use the first matching abbreviation
       }
+    }
+  }
+  
+  // If no matches from abbreviations, try exact matches from the database
+  if (matches.length === 0) {
+    console.log("No matches from abbreviations, trying database entries directly");
+    
+    medications.forEach(med => {
+      const normalizedName = normalizeText(med.name);
+      
+      if (normalizedText.includes(normalizedName)) {
+        console.log(`Found direct match: ${med.name}`);
+        
+        const amountMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(mg|ml|g|tabletten|kapseln|stück)/i);
+        const result = {
+          id: med.id,
+          name: med.name,
+          medication_type: med.medication_type
+        };
+        
+        if (amountMatch) {
+          console.log(`Found amount: ${amountMatch[1]} ${amountMatch[2]}`);
+          result.amount = amountMatch[1];
+          result.unit = amountMatch[2].toLowerCase();
+        }
+        
+        matches.push(result);
+      }
+    });
+  }
+  
+  console.log("All medication matches found:", matches);
+  return matches;
+};
 
-      matches.push(result);
+// Function to find diagnosis matches in text
+const findDiagnoseMatches = (
+  text: string,
+  diagnoses: { id: string; diagnose: string }[]
+) => {
+  const normalizedText = normalizeText(text);
+  const matches: { id: string; name: string }[] = [];
+  
+  console.log("Normalized diagnosis input text:", normalizedText);
+  
+  diagnoses.forEach(diag => {
+    const normalizedDiagnose = normalizeText(diag.diagnose);
+    
+    if (normalizedText.includes(normalizedDiagnose)) {
+      console.log(`Found diagnosis match: ${diag.diagnose}`);
+      matches.push({
+        id: diag.id,
+        name: diag.diagnose
+      });
     }
   });
-
-  console.log("All matches found:", matches);
+  
+  console.log("All diagnosis matches found:", matches);
   return matches;
 };
 
@@ -104,13 +175,12 @@ serve(async (req) => {
     console.log('Loaded diagnoses:', diagnoseData)
     console.log('Loaded medications:', medikamentData)
 
-    const diagnosisMatches = findDatabaseMatches(transcription, 
-      (diagnoseData || []).map(d => ({ id: d.id, name: d.diagnose }))
+    const diagnosisMatches = findDiagnoseMatches(transcription, 
+      (diagnoseData || [])
     )
     
-    const medicationMatches = findDatabaseMatches(transcription, 
-      medikamentData || [],
-      true
+    const medicationMatches = findMedicationMatches(transcription, 
+      medikamentData || []
     )
 
     console.log("Found diagnoses:", diagnosisMatches)
