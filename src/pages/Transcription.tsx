@@ -10,6 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { getAllDiagnoses, findDiagnoseByName } from "@/services/diagnoseService";
+import { searchMedications, getPackagingDescriptions } from "@/services/medicationService";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 
 interface PatientData {
   name: string;
@@ -25,6 +33,14 @@ interface LocationState {
   patientId?: string;
 }
 
+interface Medication {
+  id: string;
+  name: string;
+  eingangs_nr: string | null;
+  masseinheit: string;
+  medication_type_id: string | null;
+}
+
 const Transcription = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcription, setTranscription] = useState("");
@@ -37,6 +53,10 @@ const Transcription = () => {
   const state = location.state as LocationState;
   const navigate = useNavigate();
 
+  const [medicationOptions, setMedicationOptions] = useState<Medication[]>([]);
+  const [packagingOptions, setPackagingOptions] = useState<string[]>([]);
+  const [isLoadingMedications, setIsLoadingMedications] = useState(false);
+
   const [formData, setFormData] = useState({
     patientName: "",
     besitzerName: "",
@@ -45,7 +65,9 @@ const Transcription = () => {
     diagnose: "",
     medikamentTyp: "",
     medikament: "",
+    medikamentId: "", // New field to store selected medication ID
     medikamentMenge: "",
+    packungsbeschreibung: "", // New field for package description
     untersuchungsDatum: format(new Date(), "yyyy-MM-dd"),
   });
 
@@ -91,6 +113,57 @@ const Transcription = () => {
 
     fetchPatientData();
   }, [state?.patientId, toast]);
+
+  useEffect(() => {
+    // When medikament field is updated, search for matching medications
+    const searchForMedications = async () => {
+      if (formData.medikament.trim().length < 2) {
+        setMedicationOptions([]);
+        return;
+      }
+      
+      try {
+        setIsLoadingMedications(true);
+        const medications = await searchMedications(formData.medikament);
+        setMedicationOptions(medications);
+      } catch (error) {
+        console.error("Error searching medications:", error);
+        toast({
+          variant: "destructive",
+          title: "Fehler",
+          description: "Fehler beim Suchen nach Medikamenten.",
+        });
+      } finally {
+        setIsLoadingMedications(false);
+      }
+    };
+
+    searchForMedications();
+  }, [formData.medikament, toast]);
+
+  useEffect(() => {
+    // When medication ID changes, fetch packaging options
+    const fetchPackagingOptions = async () => {
+      if (!formData.medikamentId) {
+        setPackagingOptions([]);
+        return;
+      }
+      
+      try {
+        const options = await getPackagingDescriptions(formData.medikamentId);
+        setPackagingOptions(options);
+      } catch (error) {
+        console.error("Error fetching packaging options:", error);
+        toast({
+          variant: "destructive",
+          title: "Fehler",
+          description: "Fehler beim Laden der Verpackungsoptionen.",
+        });
+      }
+    };
+
+    fetchPackagingOptions();
+  }, [formData.medikamentId, toast]);
 
   const fetchOptionsAndProcess = async (transcriptionText: string) => {
     console.log("Processing text:", transcriptionText);
@@ -213,6 +286,24 @@ const Transcription = () => {
     }
   };
 
+  const handleMedicationSelect = (medicationId: string) => {
+    const selectedMedication = medicationOptions.find(med => med.id === medicationId);
+    
+    setFormData(prev => ({
+      ...prev,
+      medikamentId: medicationId,
+      medikament: selectedMedication?.name || prev.medikament,
+      packungsbeschreibung: "", // Reset packaging description when medication changes
+    }));
+  };
+
+  const handlePackagingSelect = (packaging: string) => {
+    setFormData(prev => ({
+      ...prev,
+      packungsbeschreibung: packaging,
+    }));
+  };
+
   const handleSave = async () => {
     try {
       console.log("Searching for diagnosis:", formData.diagnose);
@@ -234,21 +325,6 @@ const Transcription = () => {
 
       console.log("Found diagnose data:", diagnoseData);
 
-      let medikamentData = null;
-      if (formData.medikament) {
-        const { data, error: medikamentError } = await supabase
-          .from("medikamente")
-          .select("id")
-          .ilike("name", `%${formData.medikament}%`)
-          .maybeSingle();
-
-        if (medikamentError) throw medikamentError;
-        if (!data) {
-          throw new Error(`Kein Medikament mit dem Namen "${formData.medikament}" gefunden.`);
-        }
-        medikamentData = data;
-      }
-
       // Parse the amount from medikamentMenge if it exists
       const amountMatch = formData.medikamentMenge.match(/(\d+(?:[.,]\d+)?)/);
       const amount = amountMatch ? parseFloat(amountMatch[1].replace(',', '.')) : null;
@@ -257,7 +333,7 @@ const Transcription = () => {
         .from("behandlungen")
         .insert({
           diagnose_id: diagnoseData.id,
-          medikament_id: medikamentData?.id,
+          medikament_id: formData.medikamentId || null, // Use the selected medication ID
           medikament_typ: formData.medikamentTyp,
           medikament_menge: amount, // Now passing a number or null
           untersuchung_datum: new Date(formData.untersuchungsDatum).toISOString(),
@@ -389,7 +465,54 @@ const Transcription = () => {
                   id="medikament"
                   value={formData.medikament}
                   onChange={(e) => setFormData(prev => ({ ...prev, medikament: e.target.value }))}
+                  placeholder="Medikament eingeben oder aus der Liste wählen"
                 />
+                {formData.medikament.length > 1 && (
+                  <Select onValueChange={handleMedicationSelect} value={formData.medikamentId}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Medikament auswählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {isLoadingMedications ? (
+                        <SelectItem value="loading" disabled>Lade Medikamente...</SelectItem>
+                      ) : medicationOptions.length > 0 ? (
+                        medicationOptions.map((med) => (
+                          <SelectItem key={med.id} value={med.id}>
+                            {med.name} ({med.masseinheit})
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="none" disabled>Keine Medikamente gefunden</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="packungsbeschreibung">Packungsbeschreibung</Label>
+                <Select 
+                  onValueChange={handlePackagingSelect} 
+                  value={formData.packungsbeschreibung}
+                  disabled={!formData.medikamentId || packagingOptions.length === 0}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Packung auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {packagingOptions.length > 0 ? (
+                      packagingOptions.map((pack, index) => (
+                        <SelectItem key={index} value={pack}>
+                          {pack}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="none" disabled>
+                        {formData.medikamentId ? 'Keine Packungen verfügbar' : 'Bitte zuerst ein Medikament auswählen'}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
