@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -41,6 +40,11 @@ interface Medication {
   medication_type_id: string | null;
 }
 
+interface PackagingOption {
+  id: string;
+  description: string;
+}
+
 const Transcription = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcription, setTranscription] = useState("");
@@ -54,8 +58,9 @@ const Transcription = () => {
   const navigate = useNavigate();
 
   const [medicationOptions, setMedicationOptions] = useState<Medication[]>([]);
-  const [packagingOptions, setPackagingOptions] = useState<string[]>([]);
+  const [packagingOptions, setPackagingOptions] = useState<PackagingOption[]>([]);
   const [isLoadingMedications, setIsLoadingMedications] = useState(false);
+  const [isLoadingPackaging, setIsLoadingPackaging] = useState(false);
 
   const [formData, setFormData] = useState({
     patientName: "",
@@ -65,9 +70,9 @@ const Transcription = () => {
     diagnose: "",
     medikamentTyp: "",
     medikament: "",
-    medikamentId: "", // New field to store selected medication ID
+    medikamentId: "",
     medikamentMenge: "",
-    packungsbeschreibung: "", // New field for package description
+    packungsbeschreibung: "",
     untersuchungsDatum: format(new Date(), "yyyy-MM-dd"),
   });
 
@@ -115,7 +120,6 @@ const Transcription = () => {
   }, [state?.patientId, toast]);
 
   useEffect(() => {
-    // When medikament field is updated, search for matching medications
     const searchForMedications = async () => {
       if (formData.medikament.trim().length < 2) {
         setMedicationOptions([]);
@@ -125,6 +129,7 @@ const Transcription = () => {
       try {
         setIsLoadingMedications(true);
         const medications = await searchMedications(formData.medikament);
+        console.log("Found medications:", medications);
         setMedicationOptions(medications);
       } catch (error) {
         console.error("Error searching medications:", error);
@@ -141,29 +146,28 @@ const Transcription = () => {
     searchForMedications();
   }, [formData.medikament, toast]);
 
-  useEffect(() => {
-    // When medication ID changes, fetch packaging options
-    const fetchPackagingOptions = async () => {
-      if (!formData.medikamentId) {
-        setPackagingOptions([]);
-        return;
-      }
-      
-      try {
-        const options = await getPackagingDescriptions(formData.medikamentId);
-        setPackagingOptions(options);
-      } catch (error) {
-        console.error("Error fetching packaging options:", error);
-        toast({
-          variant: "destructive",
-          title: "Fehler",
-          description: "Fehler beim Laden der Verpackungsoptionen.",
-        });
-      }
-    };
-
-    fetchPackagingOptions();
-  }, [formData.medikamentId, toast]);
+  const fetchPackagingOptions = async (medicationName: string) => {
+    if (!medicationName) {
+      setPackagingOptions([]);
+      return;
+    }
+    
+    try {
+      setIsLoadingPackaging(true);
+      const options = await getPackagingDescriptions(medicationName);
+      console.log("Package options for", medicationName, ":", options);
+      setPackagingOptions(options);
+    } catch (error) {
+      console.error("Error fetching packaging options:", error);
+      toast({
+        variant: "destructive",
+        title: "Fehler",
+        description: "Fehler beim Laden der Verpackungsoptionen.",
+      });
+    } finally {
+      setIsLoadingPackaging(false);
+    }
+  };
 
   const fetchOptionsAndProcess = async (transcriptionText: string) => {
     console.log("Processing text:", transcriptionText);
@@ -176,15 +180,20 @@ const Transcription = () => {
 
       console.log("Matching results:", data);
 
-      setFormData(prev => ({
-        ...prev,
-        diagnose: data.diagnoses.map((m: any) => m.name).join(', '),
-        medikament: data.medications.map((m: any) => m.name).join(', '),
-        medikamentTyp: data.medications[0]?.medication_type?.name || "",
-        medikamentMenge: data.medications[0]?.amount ? 
-          `${data.medications[0].amount} ${data.medications[0].unit}` : 
-          "",
-      }));
+      setFormData(prev => {
+        const newData = {
+          ...prev,
+          diagnose: data.diagnoses.map((m: any) => m.name).join(', '),
+          medikament: data.medications[0]?.name || "",
+          medikamentTyp: data.medications[0]?.medication_type?.name || "",
+          medikamentMenge: data.medications[0]?.amount ? 
+            `${data.medications[0].amount} ${data.medications[0].unit}` : 
+            "",
+        };
+
+        console.log("Updated form data:", newData);
+        return newData;
+      });
 
       toast({
         title: "Analyse erfolgreich",
@@ -286,22 +295,29 @@ const Transcription = () => {
     }
   };
 
-  const handleMedicationSelect = (medicationId: string) => {
-    const selectedMedication = medicationOptions.find(med => med.id === medicationId);
+  const handleMedicationSelect = (medicationName: string) => {
+    console.log("Selected medication name:", medicationName);
     
     setFormData(prev => ({
       ...prev,
-      medikamentId: medicationId,
-      medikament: selectedMedication?.name || prev.medikament,
-      packungsbeschreibung: "", // Reset packaging description when medication changes
+      medikament: medicationName,
+      packungsbeschreibung: "",
+      medikamentId: "",
     }));
+    
+    fetchPackagingOptions(medicationName);
   };
 
-  const handlePackagingSelect = (packaging: string) => {
-    setFormData(prev => ({
-      ...prev,
-      packungsbeschreibung: packaging,
-    }));
+  const handlePackagingSelect = (packageId: string) => {
+    const selectedPackage = packagingOptions.find(pkg => pkg.id === packageId);
+    
+    if (selectedPackage) {
+      setFormData(prev => ({
+        ...prev,
+        medikamentId: packageId,
+        packungsbeschreibung: selectedPackage.description,
+      }));
+    }
   };
 
   const handleSave = async () => {
@@ -325,7 +341,6 @@ const Transcription = () => {
 
       console.log("Found diagnose data:", diagnoseData);
 
-      // Parse the amount from medikamentMenge if it exists
       const amountMatch = formData.medikamentMenge.match(/(\d+(?:[.,]\d+)?)/);
       const amount = amountMatch ? parseFloat(amountMatch[1].replace(',', '.')) : null;
 
@@ -333,9 +348,9 @@ const Transcription = () => {
         .from("behandlungen")
         .insert({
           diagnose_id: diagnoseData.id,
-          medikament_id: formData.medikamentId || null, // Use the selected medication ID
+          medikament_id: formData.medikamentId || null,
           medikament_typ: formData.medikamentTyp,
-          medikament_menge: amount, // Now passing a number or null
+          medikament_menge: amount,
           untersuchung_datum: new Date(formData.untersuchungsDatum).toISOString(),
           praxis_id: patientData?.praxis_id,
           patient_id: state?.patientId
@@ -467,8 +482,8 @@ const Transcription = () => {
                   onChange={(e) => setFormData(prev => ({ ...prev, medikament: e.target.value }))}
                   placeholder="Medikament eingeben oder aus der Liste wählen"
                 />
-                {formData.medikament.length > 1 && (
-                  <Select onValueChange={handleMedicationSelect} value={formData.medikamentId}>
+                {formData.medikament.length > 1 && medicationOptions.length > 0 && (
+                  <Select onValueChange={handleMedicationSelect} value={formData.medikament}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Medikament auswählen" />
                     </SelectTrigger>
@@ -477,7 +492,7 @@ const Transcription = () => {
                         <SelectItem value="loading" disabled>Lade Medikamente...</SelectItem>
                       ) : medicationOptions.length > 0 ? (
                         medicationOptions.map((med) => (
-                          <SelectItem key={med.id} value={med.id}>
+                          <SelectItem key={med.id} value={med.name}>
                             {med.name} ({med.masseinheit})
                           </SelectItem>
                         ))
@@ -493,22 +508,24 @@ const Transcription = () => {
                 <Label htmlFor="packungsbeschreibung">Packungsbeschreibung</Label>
                 <Select 
                   onValueChange={handlePackagingSelect} 
-                  value={formData.packungsbeschreibung}
-                  disabled={!formData.medikamentId || packagingOptions.length === 0}
+                  value={formData.medikamentId}
+                  disabled={packagingOptions.length === 0}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Packung auswählen" />
                   </SelectTrigger>
                   <SelectContent>
-                    {packagingOptions.length > 0 ? (
-                      packagingOptions.map((pack, index) => (
-                        <SelectItem key={index} value={pack}>
-                          {pack}
+                    {isLoadingPackaging ? (
+                      <SelectItem value="loading" disabled>Lade Verpackungen...</SelectItem>
+                    ) : packagingOptions.length > 0 ? (
+                      packagingOptions.map((pack) => (
+                        <SelectItem key={pack.id} value={pack.id}>
+                          {pack.description}
                         </SelectItem>
                       ))
                     ) : (
                       <SelectItem value="none" disabled>
-                        {formData.medikamentId ? 'Keine Packungen verfügbar' : 'Bitte zuerst ein Medikament auswählen'}
+                        {formData.medikament ? 'Keine Packungen verfügbar' : 'Bitte zuerst ein Medikament auswählen'}
                       </SelectItem>
                     )}
                   </SelectContent>
