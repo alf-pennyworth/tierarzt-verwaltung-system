@@ -144,7 +144,6 @@ serve(async (req) => {
     
     return new Response(JSON.stringify({
       error: error.message || 'An unknown error occurred',
-      stack: error.stack,
     }), {
       status: 500,
       headers: {
