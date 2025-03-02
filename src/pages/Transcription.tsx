@@ -1,9 +1,8 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mic, MicOff, AlertCircle } from "lucide-react";
+import { Mic, MicOff } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -46,13 +45,6 @@ interface PackagingOption {
   description: string;
 }
 
-interface Entity {
-  entity_type: string;
-  text: string;
-  start: number;
-  end: number;
-}
-
 const Transcription = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcription, setTranscription] = useState("");
@@ -70,8 +62,6 @@ const Transcription = () => {
   const [isLoadingMedications, setIsLoadingMedications] = useState(false);
   const [isLoadingPackaging, setIsLoadingPackaging] = useState(false);
   const [showMedicationDropdown, setShowMedicationDropdown] = useState(false);
-  const [recordingError, setRecordingError] = useState<string | null>(null);
-  const [transcriptionAttempts, setTranscriptionAttempts] = useState(0);
 
   const [formData, setFormData] = useState({
     patientName: "",
@@ -179,65 +169,47 @@ const Transcription = () => {
     }
   };
 
-  const processTranscriptionEntities = (transcriptionText: string, entities: Entity[]) => {
+  const fetchOptionsAndProcess = async (transcriptionText: string) => {
     console.log("Processing text:", transcriptionText);
-    console.log("Processing entities:", entities);
-    
     try {
-      const medicationEntities = entities.filter(entity => 
-        entity.entity_type === "med" || 
-        entity.entity_type === "MEDICATION" || 
-        entity.entity_type === "medicine" ||
-        entity.entity_type === "drug"
-      );
-      
-      console.log("Medication entities:", medicationEntities);
+      const { data, error } = await supabase.functions.invoke('match-text', {
+        body: { transcription: transcriptionText }
+      });
 
-      // If entity detection found medications, use those
-      if (medicationEntities.length > 0) {
-        setFormData(prev => {
-          const newData = { ...prev };
+      if (error) throw error;
+
+      console.log("Matching results:", data);
+
+      setFormData(prev => {
+        const newData = { ...prev };
+        
+        if (data.diagnoses && data.diagnoses.length > 0) {
+          newData.diagnose = data.diagnoses.map((d: any) => d.name).join(', ');
+        }
+        
+        if (data.medications && data.medications.length > 0) {
+          const med = data.medications[0];
+          newData.medikament = med.original_mention || med.name || "";
+          newData.medikamentTyp = med.medication_type?.name || "";
           
-          // Use the first detected medication entity
-          const med = medicationEntities[0];
-          newData.medikament = med.text;
-          
+          if (med.amount && med.unit) {
+            newData.medikamentMenge = `${med.amount} ${med.unit}`;
+          }
+
           if (newData.medikament.length >= 2) {
             setShowMedicationDropdown(true);
           }
-          
-          return newData;
-        });
-      } else {
-        // If no entities were found, try the match-text function as fallback
-        supabase.functions.invoke('match-text', {
-          body: { transcription: transcriptionText }
-        }).then(({ data, error }) => {
-          if (error) {
-            console.error('Error from match-text function:', error);
-            return;
-          }
-          
-          console.log("Matching results from match-text:", data);
-  
-          setFormData(prev => {
-            const newData = { ...prev };
-            
-            if (data.diagnoses && data.diagnoses.length > 0) {
-              newData.diagnose = data.diagnoses.map((d: any) => d.name).join(', ');
-            }
-            
-            return newData;
-          });
-        }).catch(err => {
-          console.error("Error invoking match-text function:", err);
-        });
-      }
+        }
+        
+        console.log("Updated form data:", newData);
+        return newData;
+      });
 
       toast({
         title: "Analyse erfolgreich",
         description: "Der Text wurde erfolgreich analysiert.",
       });
+
     } catch (error) {
       console.error('Error processing transcription:', error);
       toast({
@@ -249,7 +221,6 @@ const Transcription = () => {
   };
 
   const startRecording = async () => {
-    setRecordingError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
@@ -269,10 +240,9 @@ const Transcription = () => {
       });
     } catch (error) {
       console.error("Error accessing microphone:", error);
-      setRecordingError("Mikrofon konnte nicht aktiviert werden. Bitte erlauben Sie den Zugriff auf Ihr Mikrofon.");
       toast({
         variant: "destructive",
-        title: "Mikrofon-Fehler",
+        title: "Fehler",
         description: "Zugriff auf das Mikrofon nicht möglich.",
       });
     }
@@ -306,49 +276,29 @@ const Transcription = () => {
 
   const transcribeAudio = async (audioData: string) => {
     setIsProcessing(true);
-    setTranscriptionAttempts(prev => prev + 1);
-    
     try {
-      console.log("Sending audio data for transcription. Length:", audioData.length);
       const { data, error } = await supabase.functions.invoke('transcribe', {
         body: { audio: audioData },
       });
 
-      if (error) {
-        console.error("Transcription error:", error);
-        throw error;
-      }
+      if (error) throw error;
 
       if (data.text) {
         console.log("New transcription received:", data.text);
-        console.log("Entities received:", data.entities);
         setTranscription(data.text);
-        processTranscriptionEntities(data.text, data.entities || []);
+        await fetchOptionsAndProcess(data.text);
         
         toast({
           title: "Transkription erfolgreich",
           description: "Der Text wurde erfolgreich erstellt und analysiert.",
         });
-      } else {
-        console.error("No text in transcription response", data);
-        throw new Error("Die Spracherkennung hat keinen Text erkannt.");
       }
     } catch (error) {
       console.error("Transcription error:", error);
-      let errorMessage = "Die Transkription konnte nicht erstellt werden.";
-      
-      if (error.message) {
-        errorMessage += " Fehler: " + error.message;
-      }
-      
-      if (transcriptionAttempts >= 2) {
-        errorMessage += " Versuchen Sie eine kürzere Aufnahme oder prüfen Sie Ihre Internetverbindung.";
-      }
-      
       toast({
         variant: "destructive",
         title: "Fehler",
-        description: errorMessage,
+        description: "Die Transkription konnte nicht erstellt werden.",
       });
     } finally {
       setIsProcessing(false);
@@ -474,13 +424,6 @@ const Transcription = () => {
                 )}
               </Button>
             </div>
-
-            {recordingError && (
-              <div className="text-center text-red-500 p-2 bg-red-50 rounded-md flex items-center justify-center">
-                <AlertCircle className="mr-2 h-4 w-4" />
-                {recordingError}
-              </div>
-            )}
 
             {isProcessing && (
               <div className="text-center text-gray-500">
