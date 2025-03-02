@@ -36,6 +36,12 @@ serve(async (req) => {
       throw new Error('No audio data provided')
     }
 
+    // Check if API key is configured
+    const apiKey = Deno.env.get('ASSEMBLY_AI_API_KEY')
+    if (!apiKey) {
+      throw new Error('AssemblyAI API key not configured')
+    }
+
     // Convert base64 to binary
     console.log('Converting audio data')
     const audioData = body.audio.split(',')[1] || body.audio
@@ -46,7 +52,7 @@ serve(async (req) => {
     const uploadResponse = await fetch('https://api.assemblyai.com/v2/upload', {
       method: 'POST',
       headers: {
-        'Authorization': Deno.env.get('ASSEMBLY_AI_API_KEY') || '',
+        'Authorization': apiKey,
         'Content-Type': 'application/octet-stream',
         'Transfer-Encoding': 'chunked'
       },
@@ -67,12 +73,13 @@ serve(async (req) => {
     const transcriptResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
       method: 'POST',
       headers: {
-        'Authorization': Deno.env.get('ASSEMBLY_AI_API_KEY') || '',
+        'Authorization': apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         audio_url: upload_url,
         language_code: 'de',
+        entity_detection: true
       }),
     })
 
@@ -91,7 +98,7 @@ serve(async (req) => {
       console.log('Polling transcription status')
       const pollResponse = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
         headers: {
-          'Authorization': Deno.env.get('ASSEMBLY_AI_API_KEY') || '',
+          'Authorization': apiKey,
         },
       })
 
