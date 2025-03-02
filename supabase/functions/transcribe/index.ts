@@ -5,143 +5,136 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Max-Age': '86400',
 }
 
 serve(async (req) => {
-  console.log('Function invoked with method:', req.method)
-  
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    console.log('Handling OPTIONS request')
     return new Response(null, {
-      status: 204,
-      headers: corsHeaders
+      headers: corsHeaders,
     })
   }
 
   try {
-    if (req.method !== 'POST') {
-      throw new Error(`Method ${req.method} not allowed`)
-    }
+    const { audio } = await req.json()
 
-    console.log('Processing POST request')
-    const contentType = req.headers.get('content-type')
-    console.log('Content-Type:', contentType)
-
-    const body = await req.json()
-    console.log('Request body received')
-
-    if (!body.audio) {
+    if (!audio) {
       throw new Error('No audio data provided')
     }
 
-    // Convert base64 to binary
-    console.log('Converting audio data')
-    const audioData = body.audio.split(',')[1] || body.audio
-    const binaryAudio = Uint8Array.from(atob(audioData), c => c.charCodeAt(0))
+    // Strip the 'data:audio/webm;base64,' prefix if present
+    const base64Data = audio.includes(',') ? audio.split(',')[1] : audio
+
+    // Create transcription using AssemblyAI API
+    const assemblyApiKey = Deno.env.get('ASSEMBLY_AI_API_KEY')
     
-    // Create upload URL
-    console.log('Uploading to AssemblyAI')
+    if (!assemblyApiKey) {
+      throw new Error('ASSEMBLY_AI_API_KEY environment variable not set')
+    }
+
+    // First, upload the audio file
     const uploadResponse = await fetch('https://api.assemblyai.com/v2/upload', {
       method: 'POST',
       headers: {
-        'Authorization': Deno.env.get('ASSEMBLY_AI_API_KEY') || '',
-        'Content-Type': 'application/octet-stream',
-        'Transfer-Encoding': 'chunked'
+        'Authorization': assemblyApiKey,
+        'Content-Type': 'application/json',
       },
-      body: binaryAudio,
+      body: base64Data,
     })
 
     if (!uploadResponse.ok) {
-      const errorText = await uploadResponse.text()
-      console.error('Upload failed:', errorText)
-      throw new Error(`Failed to upload audio: ${errorText}`)
+      const errorData = await uploadResponse.json()
+      console.error('Upload error:', errorData)
+      throw new Error(`Failed to upload audio: ${errorData.error || 'Unknown error'}`)
     }
 
-    const { upload_url } = await uploadResponse.json()
-    console.log('Upload successful, URL:', upload_url)
+    const uploadData = await uploadResponse.json()
+    const uploadUrl = uploadData.upload_url
 
-    // Start transcription
-    console.log('Starting transcription')
-    const transcriptResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
+    console.log('Audio uploaded successfully. URL:', uploadUrl)
+
+    // Then, send the transcription request with entity detection enabled
+    const transcriptionResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
       method: 'POST',
       headers: {
-        'Authorization': Deno.env.get('ASSEMBLY_AI_API_KEY') || '',
+        'Authorization': assemblyApiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        audio_url: upload_url,
+        audio_url: uploadUrl,
         language_code: 'de',
+        entity_detection: true // Enable entity detection
       }),
     })
 
-    if (!transcriptResponse.ok) {
-      const errorText = await transcriptResponse.text()
-      console.error('Transcription request failed:', errorText)
-      throw new Error(`Failed to start transcription: ${errorText}`)
+    if (!transcriptionResponse.ok) {
+      const errorData = await transcriptionResponse.json()
+      console.error('Transcription request error:', errorData)
+      throw new Error(`Failed to request transcription: ${errorData.error || 'Unknown error'}`)
     }
 
-    const { id: transcriptId } = await transcriptResponse.json()
-    console.log('Transcription started with ID:', transcriptId)
+    const transcriptionData = await transcriptionResponse.json()
+    const transcriptId = transcriptionData.id
 
-    // Poll for completion
-    let transcript
-    while (true) {
-      console.log('Polling transcription status')
-      const pollResponse = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
+    console.log('Transcription requested. ID:', transcriptId)
+
+    // Poll for the transcription result
+    let result
+    let isCompleted = false
+    
+    while (!isCompleted) {
+      await new Promise(resolve => setTimeout(resolve, 1000)) // Wait for 1 second
+      
+      const pollingResponse = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
         headers: {
-          'Authorization': Deno.env.get('ASSEMBLY_AI_API_KEY') || '',
+          'Authorization': assemblyApiKey,
         },
       })
-
-      if (!pollResponse.ok) {
-        const errorText = await pollResponse.text()
-        console.error('Polling failed:', errorText)
-        throw new Error(`Failed to poll transcription status: ${errorText}`)
-      }
-
-      transcript = await pollResponse.json()
-      console.log('Poll status:', transcript.status)
       
-      if (transcript.status === 'completed' || transcript.status === 'error') {
-        break
+      if (!pollingResponse.ok) {
+        const errorData = await pollingResponse.json()
+        console.error('Polling error:', errorData)
+        throw new Error(`Failed to poll for transcription: ${errorData.error || 'Unknown error'}`)
       }
-
-      // Wait 1 second before polling again
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      result = await pollingResponse.json()
+      isCompleted = ['completed', 'error'].includes(result.status)
+      
+      console.log('Polling status:', result.status)
     }
-
-    if (transcript.status === 'error') {
-      throw new Error('Transcription failed: ' + transcript.error)
+    
+    if (result.status === 'error') {
+      console.error('Transcription error:', result)
+      throw new Error(`Transcription failed: ${result.error || 'Unknown error'}`)
     }
 
     console.log('Transcription completed successfully')
-    return new Response(
-      JSON.stringify({ text: transcript.text }),
-      { 
-        headers: { 
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      }
-    )
+    console.log('Detected entities:', result.entities || [])
+
+    // Construct response with transcription text and entities
+    const response = {
+      text: result.text,
+      entities: result.entities || []
+    }
+
+    return new Response(JSON.stringify(response), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+    })
 
   } catch (error) {
-    console.error('Transcription error:', error)
-    return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        details: error.stack,
-        type: error.constructor.name
-      }),
-      { 
-        status: 500,
-        headers: { 
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      }
-    )
+    console.error('Error in transcription function:', error)
+    
+    return new Response(JSON.stringify({
+      error: error.message || 'An unknown error occurred',
+      stack: error.stack,
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      },
+    })
   }
 })

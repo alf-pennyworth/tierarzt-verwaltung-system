@@ -45,6 +45,13 @@ interface PackagingOption {
   description: string;
 }
 
+interface Entity {
+  entity_type: string;
+  text: string;
+  start: number;
+  end: number;
+}
+
 const Transcription = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcription, setTranscription] = useState("");
@@ -169,40 +176,49 @@ const Transcription = () => {
     }
   };
 
-  const fetchOptionsAndProcess = async (transcriptionText: string) => {
+  const processTranscriptionEntities = (transcriptionText: string, entities: Entity[]) => {
     console.log("Processing text:", transcriptionText);
+    console.log("Processing entities:", entities);
+    
     try {
-      const { data, error } = await supabase.functions.invoke('match-text', {
+      const medicationEntities = entities.filter(entity => 
+        entity.entity_type === "med" || 
+        entity.entity_type === "MEDICATION" || 
+        entity.entity_type === "medicine" ||
+        entity.entity_type === "drug"
+      );
+      
+      console.log("Medication entities:", medicationEntities);
+
+      supabase.functions.invoke('match-text', {
         body: { transcription: transcriptionText }
-      });
-
-      if (error) throw error;
-
-      console.log("Matching results:", data);
-
-      setFormData(prev => {
-        const newData = { ...prev };
-        
-        if (data.diagnoses && data.diagnoses.length > 0) {
-          newData.diagnose = data.diagnoses.map((d: any) => d.name).join(', ');
+      }).then(({ data, error }) => {
+        if (error) {
+          console.error('Error from match-text function:', error);
+          return;
         }
         
-        if (data.medications && data.medications.length > 0) {
-          const med = data.medications[0];
-          newData.medikament = med.original_mention || med.name || "";
-          newData.medikamentTyp = med.medication_type?.name || "";
+        console.log("Matching results from match-text:", data);
+
+        setFormData(prev => {
+          const newData = { ...prev };
           
-          if (med.amount && med.unit) {
-            newData.medikamentMenge = `${med.amount} ${med.unit}`;
+          if (data.diagnoses && data.diagnoses.length > 0) {
+            newData.diagnose = data.diagnoses.map((d: any) => d.name).join(', ');
           }
-
-          if (newData.medikament.length >= 2) {
-            setShowMedicationDropdown(true);
+          
+          if (medicationEntities.length > 0) {
+            const med = medicationEntities[0];
+            newData.medikament = med.text;
+            
+            if (newData.medikament.length >= 2) {
+              setShowMedicationDropdown(true);
+            }
           }
-        }
-        
-        console.log("Updated form data:", newData);
-        return newData;
+          
+          console.log("Updated form data:", newData);
+          return newData;
+        });
       });
 
       toast({
@@ -285,8 +301,9 @@ const Transcription = () => {
 
       if (data.text) {
         console.log("New transcription received:", data.text);
+        console.log("Entities received:", data.entities);
         setTranscription(data.text);
-        await fetchOptionsAndProcess(data.text);
+        processTranscriptionEntities(data.text, data.entities || []);
         
         toast({
           title: "Transkription erfolgreich",
