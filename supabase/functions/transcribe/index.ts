@@ -8,16 +8,20 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log("Handling OPTIONS request")
     return new Response(null, {
       headers: corsHeaders,
     })
   }
 
   try {
+    console.log("Starting transcription process")
     const { audio } = await req.json()
 
     if (!audio) {
+      console.error("No audio data provided")
       throw new Error('No audio data provided')
     }
 
@@ -28,9 +32,11 @@ serve(async (req) => {
     const assemblyApiKey = Deno.env.get('ASSEMBLY_AI_API_KEY')
     
     if (!assemblyApiKey) {
+      console.error("ASSEMBLY_AI_API_KEY environment variable not set")
       throw new Error('ASSEMBLY_AI_API_KEY environment variable not set')
     }
 
+    console.log("Uploading audio to AssemblyAI")
     // First, upload the audio file
     const uploadResponse = await fetch('https://api.assemblyai.com/v2/upload', {
       method: 'POST',
@@ -53,6 +59,7 @@ serve(async (req) => {
     console.log('Audio uploaded successfully. URL:', uploadUrl)
 
     // Then, send the transcription request with entity detection enabled
+    console.log("Requesting transcription with entity detection")
     const transcriptionResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
       method: 'POST',
       headers: {
@@ -80,10 +87,14 @@ serve(async (req) => {
     // Poll for the transcription result
     let result
     let isCompleted = false
+    let pollingAttempts = 0
+    const maxPollingAttempts = 30 // Maximum polling attempts (30 seconds)
     
-    while (!isCompleted) {
+    while (!isCompleted && pollingAttempts < maxPollingAttempts) {
       await new Promise(resolve => setTimeout(resolve, 1000)) // Wait for 1 second
+      pollingAttempts++
       
+      console.log(`Polling attempt ${pollingAttempts}/${maxPollingAttempts}`)
       const pollingResponse = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
         headers: {
           'Authorization': assemblyApiKey,
@@ -100,6 +111,11 @@ serve(async (req) => {
       isCompleted = ['completed', 'error'].includes(result.status)
       
       console.log('Polling status:', result.status)
+    }
+    
+    if (pollingAttempts >= maxPollingAttempts) {
+      console.error('Transcription timed out after maximum polling attempts')
+      throw new Error('Transcription timed out. Please try again with a shorter audio clip.')
     }
     
     if (result.status === 'error') {

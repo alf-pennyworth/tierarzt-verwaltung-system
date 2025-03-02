@@ -69,6 +69,7 @@ const Transcription = () => {
   const [isLoadingMedications, setIsLoadingMedications] = useState(false);
   const [isLoadingPackaging, setIsLoadingPackaging] = useState(false);
   const [showMedicationDropdown, setShowMedicationDropdown] = useState(false);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     patientName: "",
@@ -219,13 +220,19 @@ const Transcription = () => {
           console.log("Updated form data:", newData);
           return newData;
         });
-      });
 
-      toast({
-        title: "Analyse erfolgreich",
-        description: "Der Text wurde erfolgreich analysiert.",
+        toast({
+          title: "Analyse erfolgreich",
+          description: "Der Text wurde erfolgreich analysiert.",
+        });
+      }).catch(err => {
+        console.error("Error invoking match-text function:", err);
+        toast({
+          variant: "destructive",
+          title: "Fehler",
+          description: "Fehler bei der Analyse des Textes.",
+        });
       });
-
     } catch (error) {
       console.error('Error processing transcription:', error);
       toast({
@@ -237,6 +244,7 @@ const Transcription = () => {
   };
 
   const startRecording = async () => {
+    setRecordingError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorderRef.current = new MediaRecorder(stream);
@@ -256,9 +264,10 @@ const Transcription = () => {
       });
     } catch (error) {
       console.error("Error accessing microphone:", error);
+      setRecordingError("Mikrofon konnte nicht aktiviert werden. Bitte erlauben Sie den Zugriff auf Ihr Mikrofon.");
       toast({
         variant: "destructive",
-        title: "Fehler",
+        title: "Mikrofon-Fehler",
         description: "Zugriff auf das Mikrofon nicht möglich.",
       });
     }
@@ -293,11 +302,15 @@ const Transcription = () => {
   const transcribeAudio = async (audioData: string) => {
     setIsProcessing(true);
     try {
+      console.log("Sending audio data for transcription. Length:", audioData.length);
       const { data, error } = await supabase.functions.invoke('transcribe', {
         body: { audio: audioData },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Transcription error:", error);
+        throw error;
+      }
 
       if (data.text) {
         console.log("New transcription received:", data.text);
@@ -309,13 +322,16 @@ const Transcription = () => {
           title: "Transkription erfolgreich",
           description: "Der Text wurde erfolgreich erstellt und analysiert.",
         });
+      } else {
+        console.error("No text in transcription response", data);
+        throw new Error("Die Spracherkennung hat keinen Text erkannt.");
       }
     } catch (error) {
       console.error("Transcription error:", error);
       toast({
         variant: "destructive",
         title: "Fehler",
-        description: "Die Transkription konnte nicht erstellt werden.",
+        description: error.message || "Die Transkription konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
       });
     } finally {
       setIsProcessing(false);
@@ -441,6 +457,12 @@ const Transcription = () => {
                 )}
               </Button>
             </div>
+
+            {recordingError && (
+              <div className="text-center text-red-500 p-2 bg-red-50 rounded-md">
+                {recordingError}
+              </div>
+            )}
 
             {isProcessing && (
               <div className="text-center text-gray-500">
