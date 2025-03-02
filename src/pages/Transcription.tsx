@@ -1,8 +1,9 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mic, MicOff } from "lucide-react";
+import { Mic, MicOff, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -70,6 +71,7 @@ const Transcription = () => {
   const [isLoadingPackaging, setIsLoadingPackaging] = useState(false);
   const [showMedicationDropdown, setShowMedicationDropdown] = useState(false);
   const [recordingError, setRecordingError] = useState<string | null>(null);
+  const [transcriptionAttempts, setTranscriptionAttempts] = useState(0);
 
   const [formData, setFormData] = useState({
     patientName: "",
@@ -191,47 +193,50 @@ const Transcription = () => {
       
       console.log("Medication entities:", medicationEntities);
 
-      supabase.functions.invoke('match-text', {
-        body: { transcription: transcriptionText }
-      }).then(({ data, error }) => {
-        if (error) {
-          console.error('Error from match-text function:', error);
-          return;
-        }
-        
-        console.log("Matching results from match-text:", data);
-
+      // If entity detection found medications, use those
+      if (medicationEntities.length > 0) {
         setFormData(prev => {
           const newData = { ...prev };
           
-          if (data.diagnoses && data.diagnoses.length > 0) {
-            newData.diagnose = data.diagnoses.map((d: any) => d.name).join(', ');
+          // Use the first detected medication entity
+          const med = medicationEntities[0];
+          newData.medikament = med.text;
+          
+          if (newData.medikament.length >= 2) {
+            setShowMedicationDropdown(true);
           }
           
-          if (medicationEntities.length > 0) {
-            const med = medicationEntities[0];
-            newData.medikament = med.text;
-            
-            if (newData.medikament.length >= 2) {
-              setShowMedicationDropdown(true);
-            }
-          }
-          
-          console.log("Updated form data:", newData);
           return newData;
         });
+      } else {
+        // If no entities were found, try the match-text function as fallback
+        supabase.functions.invoke('match-text', {
+          body: { transcription: transcriptionText }
+        }).then(({ data, error }) => {
+          if (error) {
+            console.error('Error from match-text function:', error);
+            return;
+          }
+          
+          console.log("Matching results from match-text:", data);
+  
+          setFormData(prev => {
+            const newData = { ...prev };
+            
+            if (data.diagnoses && data.diagnoses.length > 0) {
+              newData.diagnose = data.diagnoses.map((d: any) => d.name).join(', ');
+            }
+            
+            return newData;
+          });
+        }).catch(err => {
+          console.error("Error invoking match-text function:", err);
+        });
+      }
 
-        toast({
-          title: "Analyse erfolgreich",
-          description: "Der Text wurde erfolgreich analysiert.",
-        });
-      }).catch(err => {
-        console.error("Error invoking match-text function:", err);
-        toast({
-          variant: "destructive",
-          title: "Fehler",
-          description: "Fehler bei der Analyse des Textes.",
-        });
+      toast({
+        title: "Analyse erfolgreich",
+        description: "Der Text wurde erfolgreich analysiert.",
       });
     } catch (error) {
       console.error('Error processing transcription:', error);
@@ -301,6 +306,8 @@ const Transcription = () => {
 
   const transcribeAudio = async (audioData: string) => {
     setIsProcessing(true);
+    setTranscriptionAttempts(prev => prev + 1);
+    
     try {
       console.log("Sending audio data for transcription. Length:", audioData.length);
       const { data, error } = await supabase.functions.invoke('transcribe', {
@@ -328,10 +335,20 @@ const Transcription = () => {
       }
     } catch (error) {
       console.error("Transcription error:", error);
+      let errorMessage = "Die Transkription konnte nicht erstellt werden.";
+      
+      if (error.message) {
+        errorMessage += " Fehler: " + error.message;
+      }
+      
+      if (transcriptionAttempts >= 2) {
+        errorMessage += " Versuchen Sie eine kürzere Aufnahme oder prüfen Sie Ihre Internetverbindung.";
+      }
+      
       toast({
         variant: "destructive",
         title: "Fehler",
-        description: error.message || "Die Transkription konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
+        description: errorMessage,
       });
     } finally {
       setIsProcessing(false);
@@ -459,7 +476,8 @@ const Transcription = () => {
             </div>
 
             {recordingError && (
-              <div className="text-center text-red-500 p-2 bg-red-50 rounded-md">
+              <div className="text-center text-red-500 p-2 bg-red-50 rounded-md flex items-center justify-center">
+                <AlertCircle className="mr-2 h-4 w-4" />
                 {recordingError}
               </div>
             )}
