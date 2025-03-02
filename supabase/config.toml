@@ -76,14 +76,3 @@ url = ""
 enabled = false
 port = 54327
 vector_port = 54328
-# Setup BigQuery for analytics
-[analytics.bigquery]
-enabled = false
-# The ID of the Google Cloud Project
-project_id = ""
-# The service account JSON file
-service_account = ""
-# The BigQuery dataset ID
-dataset_id = ""
-# The BigQuery table ID
-table_id = ""
