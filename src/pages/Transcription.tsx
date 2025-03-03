@@ -202,6 +202,8 @@ const Transcription = () => {
       console.log("No drug entities found in the transcription");
     }
 
+    extractMedicationType(transcriptionText);
+    
     findDiagnosisInText(transcriptionText);
     
     extractMedicationAmount(transcriptionText);
@@ -256,6 +258,46 @@ const Transcription = () => {
     } else {
       console.log("No medication amount found in text");
     }
+  };
+
+  const extractMedicationType = (text: string) => {
+    const medicationTypes = [
+      'tablette', 'tabletten', 
+      'kapsel', 'kapseln', 
+      'salbe', 'salben',
+      'tropfen', 'lösung',
+      'spray', 'sprays',
+      'injektion', 'injektionen',
+      'suspension', 'gel',
+      'infusion', 'infusionen',
+      'pulver', 'creme',
+      'sirup', 'pflaster',
+      'zäpfchen'
+    ];
+    
+    const normalizedText = text.toLowerCase();
+    
+    for (const type of medicationTypes) {
+      if (normalizedText.includes(type)) {
+        console.log(`Found medication type: ${type}`);
+        
+        const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1);
+        
+        setFormData(prev => ({
+          ...prev,
+          medikamentTyp: capitalizedType,
+        }));
+        
+        toast({
+          title: "Medikamententyp erkannt",
+          description: `Typ "${capitalizedType}" wurde im Text gefunden.`,
+        });
+        
+        return;
+      }
+    }
+    
+    console.log("No medication type found in text");
   };
 
   const startRecording = async () => {
@@ -335,6 +377,7 @@ const Transcription = () => {
         } else {
           findDiagnosisInText(data.text);
           extractMedicationAmount(data.text);
+          extractMedicationType(data.text);
         }
         
         toast({
