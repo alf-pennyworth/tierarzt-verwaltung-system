@@ -1,42 +1,34 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import "https://deno.land/x/xhr@0.2.1/mod.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Max-Age': '86400',
 }
 
 serve(async (req) => {
-  console.log('Function invoked with method:', req.method)
-  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    console.log('Handling OPTIONS request')
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders
-    })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    if (req.method !== 'POST') {
-      throw new Error(`Method ${req.method} not allowed`)
+    console.log('Received request to transcribe audio')
+    
+    // Validate request body
+    let body
+    try {
+      body = await req.json()
+    } catch (error) {
+      throw new Error('Invalid JSON in request body')
     }
-
-    console.log('Processing POST request')
-    const contentType = req.headers.get('content-type')
-    console.log('Content-Type:', contentType)
-
-    const body = await req.json()
-    console.log('Request body received')
 
     if (!body.audio) {
       throw new Error('No audio data provided')
     }
 
-    // Check if API key is configured
+    // Get AssemblyAI API key
     const apiKey = Deno.env.get('ASSEMBLY_AI_API_KEY')
     if (!apiKey) {
       throw new Error('AssemblyAI API key not configured')
@@ -56,14 +48,14 @@ serve(async (req) => {
       headers: {
         'Authorization': apiKey,
         'Content-Type': 'application/octet-stream',
-        'Transfer-Encoding': 'chunked'
       },
       body: binaryAudio,
     })
 
     if (!uploadResponse.ok) {
+      console.error('Upload error status:', uploadResponse.status)
       const errorText = await uploadResponse.text()
-      console.error('Upload failed:', errorText)
+      console.error('Upload error response:', errorText)
       throw new Error(`Failed to upload audio: ${errorText}`)
     }
 
@@ -90,8 +82,8 @@ serve(async (req) => {
     })
 
     if (!transcriptResponse.ok) {
+      console.error('Transcription request error status:', transcriptResponse.status)
       const errorText = await transcriptResponse.text()
-      console.error('Transcription request failed:', errorText)
       throw new Error(`Failed to start transcription: ${errorText}`)
     }
 
@@ -114,9 +106,9 @@ serve(async (req) => {
       })
 
       if (!pollResponse.ok) {
+        console.error('Polling error status:', pollResponse.status)
         const errorText = await pollResponse.text()
-        console.error('Polling failed:', errorText)
-        throw new Error(`Failed to poll transcription status: ${errorText}`)
+        throw new Error(`Failed to poll transcription: ${errorText}`)
       }
 
       transcript = await pollResponse.json()
@@ -126,7 +118,15 @@ serve(async (req) => {
       if (transcript.status === 'completed') {
         console.log('Transcription completed successfully')
         console.log('Transcription text:', transcript.text)
-        console.log('Entity detection results:', JSON.stringify(transcript.entities || []))
+        
+        if (transcript.entities && transcript.entities.length > 0) {
+          console.log('Entity detection results:', JSON.stringify(transcript.entities))
+          // Log drug entities specifically for debugging
+          const drugs = transcript.entities.filter(entity => entity.entity_type === 'drug');
+          console.log('Detected drug entities:', JSON.stringify(drugs))
+        } else {
+          console.log('No entities detected in the transcription')
+        }
         break
       } else if (transcript.status === 'error') {
         console.error('Transcription error:', transcript.error)
@@ -150,25 +150,20 @@ serve(async (req) => {
       { 
         headers: { 
           ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json' 
+        } 
       }
     )
-
   } catch (error) {
-    console.error('Transcription error:', error)
+    console.error('Error in transcribe function:', error.message)
     return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        details: error.stack,
-        type: error.constructor.name
-      }),
+      JSON.stringify({ error: error.message }),
       { 
-        status: 500,
+        status: 500, 
         headers: { 
           ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json' 
+        } 
       }
     )
   }

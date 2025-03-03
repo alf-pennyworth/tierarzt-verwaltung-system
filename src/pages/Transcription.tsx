@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,13 @@ interface Medication {
 interface PackagingOption {
   id: string;
   description: string;
+}
+
+interface EntityDetection {
+  text: string;
+  entity_type: string;
+  start: number;
+  end: number;
 }
 
 const Transcription = () => {
@@ -169,54 +177,34 @@ const Transcription = () => {
     }
   };
 
-  const fetchOptionsAndProcess = async (transcriptionText: string) => {
-    console.log("Processing text:", transcriptionText);
-    try {
-      const { data, error } = await supabase.functions.invoke('match-text', {
-        body: { transcription: transcriptionText }
-      });
-
-      if (error) throw error;
-
-      console.log("Matching results:", data);
-
-      setFormData(prev => {
-        const newData = { ...prev };
-        
-        if (data.diagnoses && data.diagnoses.length > 0) {
-          newData.diagnose = data.diagnoses.map((d: any) => d.name).join(', ');
-        }
-        
-        if (data.medications && data.medications.length > 0) {
-          const med = data.medications[0];
-          newData.medikament = med.original_mention || med.name || "";
-          newData.medikamentTyp = med.medication_type?.name || "";
-          
-          if (med.amount && med.unit) {
-            newData.medikamentMenge = `${med.amount} ${med.unit}`;
-          }
-
-          if (newData.medikament.length >= 2) {
-            setShowMedicationDropdown(true);
-          }
-        }
-        
-        console.log("Updated form data:", newData);
-        return newData;
-      });
-
+  // Direct use of AssemblyAI entities without custom matching
+  const handleAssemblyAIEntities = (entities: EntityDetection[]) => {
+    console.log("Processing AssemblyAI entities:", entities);
+    
+    // Filter for drug entities only
+    const drugEntities = entities.filter(entity => entity.entity_type === "drug");
+    console.log("Drug entities found:", drugEntities);
+    
+    if (drugEntities.length > 0) {
+      // Take the first drug entity
+      const firstDrug = drugEntities[0];
+      
+      setFormData(prev => ({
+        ...prev,
+        medikament: firstDrug.text,
+      }));
+      
+      // Show medication dropdown for further selection if needed
+      if (firstDrug.text.length >= 2) {
+        setShowMedicationDropdown(true);
+      }
+      
       toast({
-        title: "Analyse erfolgreich",
-        description: "Der Text wurde erfolgreich analysiert.",
+        title: "Medikament erkannt",
+        description: `Medikament "${firstDrug.text}" wurde im Text gefunden.`,
       });
-
-    } catch (error) {
-      console.error('Error processing transcription:', error);
-      toast({
-        variant: "destructive",
-        title: "Fehler",
-        description: "Fehler bei der Verarbeitung der Transkription.",
-      });
+    } else {
+      console.log("No drug entities found in the transcription");
     }
   };
 
@@ -291,11 +279,15 @@ const Transcription = () => {
         console.log("Transcription text:", data.text);
         console.log("Detected entities:", data.entities);
         setTranscription(data.text);
-        await fetchOptionsAndProcess(data.text);
+        
+        // Use AssemblyAI entities directly
+        if (data.entities && data.entities.length > 0) {
+          handleAssemblyAIEntities(data.entities);
+        }
         
         toast({
           title: "Transkription erfolgreich",
-          description: "Der Text wurde erfolgreich erstellt und analysiert.",
+          description: "Der Text wurde erfolgreich erstellt.",
         });
       }
     } catch (error) {
