@@ -41,11 +41,13 @@ serve(async (req) => {
     if (!apiKey) {
       throw new Error('AssemblyAI API key not configured')
     }
+    console.log('API key is configured and available')
 
     // Convert base64 to binary
     console.log('Converting audio data')
     const audioData = body.audio.split(',')[1] || body.audio
     const binaryAudio = Uint8Array.from(atob(audioData), c => c.charCodeAt(0))
+    console.log('Audio data converted, length:', binaryAudio.length)
     
     // Create upload URL
     console.log('Uploading to AssemblyAI')
@@ -65,22 +67,26 @@ serve(async (req) => {
       throw new Error(`Failed to upload audio: ${errorText}`)
     }
 
-    const { upload_url } = await uploadResponse.json()
+    const uploadResult = await uploadResponse.json()
+    const upload_url = uploadResult.upload_url
     console.log('Upload successful, URL:', upload_url)
 
     // Start transcription
-    console.log('Starting transcription')
+    console.log('Starting transcription with entity detection enabled')
+    const transcriptionConfig = {
+      audio_url: upload_url,
+      language_code: 'de',
+      entity_detection: true
+    }
+    console.log('Transcription config:', JSON.stringify(transcriptionConfig))
+    
     const transcriptResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
       method: 'POST',
       headers: {
         'Authorization': apiKey,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        audio_url: upload_url,
-        language_code: 'de',
-        entity_detection: true
-      }),
+      body: JSON.stringify(transcriptionConfig),
     })
 
     if (!transcriptResponse.ok) {
@@ -89,13 +95,18 @@ serve(async (req) => {
       throw new Error(`Failed to start transcription: ${errorText}`)
     }
 
-    const { id: transcriptId } = await transcriptResponse.json()
+    const transcriptResult = await transcriptResponse.json()
+    const transcriptId = transcriptResult.id
     console.log('Transcription started with ID:', transcriptId)
 
     // Poll for completion
     let transcript
-    while (true) {
-      console.log('Polling transcription status')
+    let attempts = 0
+    const maxAttempts = 30 // Prevent infinite loops
+    
+    while (attempts < maxAttempts) {
+      attempts++
+      console.log(`Polling transcription status (attempt ${attempts})`)
       const pollResponse = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptId}`, {
         headers: {
           'Authorization': apiKey,
@@ -111,21 +122,31 @@ serve(async (req) => {
       transcript = await pollResponse.json()
       console.log('Poll status:', transcript.status)
       
-      if (transcript.status === 'completed' || transcript.status === 'error') {
+      // Log more details if completed
+      if (transcript.status === 'completed') {
+        console.log('Transcription completed successfully')
+        console.log('Transcription text:', transcript.text)
+        console.log('Entity detection results:', JSON.stringify(transcript.entities || []))
         break
+      } else if (transcript.status === 'error') {
+        console.error('Transcription error:', transcript.error)
+        throw new Error('Transcription failed: ' + transcript.error)
       }
 
       // Wait 1 second before polling again
       await new Promise(resolve => setTimeout(resolve, 1000))
     }
 
-    if (transcript.status === 'error') {
-      throw new Error('Transcription failed: ' + transcript.error)
+    if (attempts >= maxAttempts) {
+      throw new Error('Transcription timed out after multiple polling attempts')
     }
 
-    console.log('Transcription completed successfully')
+    console.log('Returning transcription results to client')
     return new Response(
-      JSON.stringify({ text: transcript.text }),
+      JSON.stringify({ 
+        text: transcript.text,
+        entities: transcript.entities || []
+      }),
       { 
         headers: { 
           ...corsHeaders,

@@ -277,14 +277,19 @@ const Transcription = () => {
   const transcribeAudio = async (audioData: string) => {
     setIsProcessing(true);
     try {
+      console.log("Calling transcribe function with audio data length:", audioData.length);
+      
       const { data, error } = await supabase.functions.invoke('transcribe', {
         body: { audio: audioData },
       });
 
       if (error) throw error;
 
+      console.log("Full transcription response:", data);
+
       if (data.text) {
-        console.log("New transcription received:", data.text);
+        console.log("Transcription text:", data.text);
+        console.log("Detected entities:", data.entities);
         setTranscription(data.text);
         await fetchOptionsAndProcess(data.text);
         
