@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -177,16 +176,13 @@ const Transcription = () => {
     }
   };
 
-  // Direct use of AssemblyAI entities without custom matching
-  const handleAssemblyAIEntities = (entities: EntityDetection[]) => {
+  const handleAssemblyAIEntities = (entities: EntityDetection[], transcriptionText: string) => {
     console.log("Processing AssemblyAI entities:", entities);
     
-    // Filter for drug entities only
     const drugEntities = entities.filter(entity => entity.entity_type === "drug");
     console.log("Drug entities found:", drugEntities);
     
     if (drugEntities.length > 0) {
-      // Take the first drug entity
       const firstDrug = drugEntities[0];
       
       setFormData(prev => ({
@@ -194,7 +190,6 @@ const Transcription = () => {
         medikament: firstDrug.text,
       }));
       
-      // Show medication dropdown for further selection if needed
       if (firstDrug.text.length >= 2) {
         setShowMedicationDropdown(true);
       }
@@ -205,6 +200,61 @@ const Transcription = () => {
       });
     } else {
       console.log("No drug entities found in the transcription");
+    }
+
+    findDiagnosisInText(transcriptionText);
+    
+    extractMedicationAmount(transcriptionText);
+  };
+
+  const findDiagnosisInText = async (text: string) => {
+    try {
+      const diagnoses = await getAllDiagnoses();
+      console.log("Searching for diagnoses in:", text);
+      
+      for (const diag of diagnoses) {
+        if (text.toLowerCase().includes(diag.diagnose.toLowerCase())) {
+          console.log(`Found diagnosis match: ${diag.diagnose}`);
+          setFormData(prev => ({
+            ...prev,
+            diagnose: diag.diagnose
+          }));
+          
+          toast({
+            title: "Diagnose erkannt",
+            description: `Diagnose "${diag.diagnose}" wurde im Text gefunden.`,
+          });
+          
+          return;
+        }
+      }
+      
+      console.log("No diagnosis match found in text");
+    } catch (error) {
+      console.error("Error finding diagnosis in text:", error);
+    }
+  };
+
+  const extractMedicationAmount = (text: string) => {
+    const amountMatch = text.match(/(\d+(?:[.,]\d+)?)\s*(mg|ml|g|tabletten|kapseln|stück)/i);
+    
+    if (amountMatch) {
+      const amount = amountMatch[1];
+      const unit = amountMatch[2].toLowerCase();
+      
+      console.log(`Found medication amount: ${amount} ${unit}`);
+      
+      setFormData(prev => ({
+        ...prev,
+        medikamentMenge: `${amount} ${unit}`,
+      }));
+      
+      toast({
+        title: "Medikamentenmenge erkannt",
+        description: `Menge "${amount} ${unit}" wurde im Text gefunden.`,
+      });
+    } else {
+      console.log("No medication amount found in text");
     }
   };
 
@@ -280,9 +330,11 @@ const Transcription = () => {
         console.log("Detected entities:", data.entities);
         setTranscription(data.text);
         
-        // Use AssemblyAI entities directly
         if (data.entities && data.entities.length > 0) {
-          handleAssemblyAIEntities(data.entities);
+          handleAssemblyAIEntities(data.entities, data.text);
+        } else {
+          findDiagnosisInText(data.text);
+          extractMedicationAmount(data.text);
         }
         
         toast({
