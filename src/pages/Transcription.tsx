@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { getAllDiagnoses, findDiagnoseByName } from "@/services/diagnoseService";
-import { searchMedications, getPackagingDescriptions } from "@/services/medicationService";
+import { searchMedications, getPackagingDescriptions, getMedicationTypeByName } from "@/services/medicationService";
 import { 
   Select, 
   SelectContent, 
@@ -176,7 +176,7 @@ const Transcription = () => {
     }
   };
 
-  const handleAssemblyAIEntities = (entities: EntityDetection[], transcriptionText: string) => {
+  const handleAssemblyAIEntities = async (entities: EntityDetection[], transcriptionText: string) => {
     console.log("Processing AssemblyAI entities:", entities);
     
     const drugEntities = entities.filter(entity => entity.entity_type === "drug");
@@ -184,19 +184,39 @@ const Transcription = () => {
     
     if (drugEntities.length > 0) {
       const firstDrug = drugEntities[0];
+      const drugName = firstDrug.text;
       
       setFormData(prev => ({
         ...prev,
-        medikament: firstDrug.text,
+        medikament: drugName,
       }));
       
-      if (firstDrug.text.length >= 2) {
+      try {
+        const medicationType = await getMedicationTypeByName(drugName);
+        console.log("Found medication type:", medicationType);
+        
+        if (medicationType) {
+          setFormData(prev => ({
+            ...prev,
+            medikamentTyp: medicationType,
+          }));
+          
+          toast({
+            title: "Medikamenttyp erkannt",
+            description: `Medikamenttyp "${medicationType}" wurde gefunden.`,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching medication type:", error);
+      }
+      
+      if (drugName.length >= 2) {
         setShowMedicationDropdown(true);
       }
       
       toast({
         title: "Medikament erkannt",
-        description: `Medikament "${firstDrug.text}" wurde im Text gefunden.`,
+        description: `Medikament "${drugName}" wurde im Text gefunden.`,
       });
     } else {
       console.log("No drug entities found in the transcription");
@@ -354,7 +374,7 @@ const Transcription = () => {
     }
   };
 
-  const handleMedicationSelect = (medicationName: string) => {
+  const handleMedicationSelect = async (medicationName: string) => {
     console.log("Selected medication name:", medicationName);
     
     setFormData(prev => ({
@@ -363,6 +383,20 @@ const Transcription = () => {
       packungsbeschreibung: "",
       medikamentId: "",
     }));
+    
+    try {
+      const medicationType = await getMedicationTypeByName(medicationName);
+      console.log("Found medication type:", medicationType);
+      
+      if (medicationType) {
+        setFormData(prev => ({
+          ...prev,
+          medikamentTyp: medicationType,
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching medication type:", error);
+    }
     
     fetchPackagingOptions(medicationName);
     setShowMedicationDropdown(false);
