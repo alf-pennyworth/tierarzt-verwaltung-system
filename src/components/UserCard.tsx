@@ -43,6 +43,16 @@ const UserCard: React.FC<UserCardProps> = ({ profile }) => {
     }
   };
 
+  // Debug the profile image URL
+  console.log('Profile image URL:', profile.profilbild_url);
+  let imageUrl = '';
+  
+  if (profile.profilbild_url) {
+    const { data } = supabase.storage.from('Profilbild').getPublicUrl(profile.profilbild_url);
+    imageUrl = data.publicUrl;
+    console.log('Generated public URL:', imageUrl);
+  }
+
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -61,8 +71,13 @@ const UserCard: React.FC<UserCardProps> = ({ profile }) => {
         <Avatar className="h-32 w-32">
           {profile.profilbild_url ? (
             <AvatarImage 
-              src={`${supabase.storage.from('Profilbild').getPublicUrl(profile.profilbild_url).data.publicUrl}?t=${new Date().getTime()}`} 
-              alt={`${profile.vorname} ${profile.nachname}`} 
+              src={imageUrl}
+              alt={`${profile.vorname} ${profile.nachname}`}
+              onError={(e) => {
+                console.error('Error loading image:', e);
+                // If image fails to load, show fallback
+                e.currentTarget.style.display = 'none';
+              }}
             />
           ) : (
             <AvatarFallback className="text-3xl">{profile.vorname.charAt(0)}{profile.nachname.charAt(0)}</AvatarFallback>

@@ -56,8 +56,13 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
   // Set initial preview from profile
   React.useEffect(() => {
     if (profile.profilbild_url) {
-      const imageUrl = `${supabase.storage.from('Profilbild').getPublicUrl(profile.profilbild_url).data.publicUrl}?t=${new Date().getTime()}`;
-      setPreview(imageUrl);
+      try {
+        const { data } = supabase.storage.from('Profilbild').getPublicUrl(profile.profilbild_url);
+        setPreview(data.publicUrl);
+        console.log('Preview URL set:', data.publicUrl);
+      } catch (error) {
+        console.error('Error getting public URL:', error);
+      }
     }
   }, [profile.profilbild_url]);
 
@@ -73,11 +78,14 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
         const fileName = `${profile.id}/${Date.now()}.${fileExt}`;
         const filePath = fileName;
 
+        console.log('Uploading file:', filePath);
+        
         const { error: uploadError, data: uploadData } = await supabase.storage
           .from('Profilbild')
           .upload(filePath, file, { upsert: true });
 
         if (uploadError) {
+          console.error('Upload error:', uploadError);
           toast({
             title: "Fehler beim Hochladen",
             description: uploadError.message,
@@ -87,10 +95,22 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
           setIsUploading(false);
           return;
         }
+        
+        console.log('Upload successful:', uploadData);
         profilbild_url = filePath;
       }
 
       // Update the profile in Supabase
+      console.log('Updating profile with:', {
+        email: data.email,
+        nachname: data.nachname,
+        telefonnummer: data.telefonnummer,
+        profilbild_url,
+        Raum: data.Raum || null,
+        Fachrichtung: data.Fachrichtung || null,
+        Gebäude: data.Gebäude || null,
+      });
+      
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -105,12 +125,12 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
         .eq('id', profile.id);
 
       if (error) {
+        console.error('Error updating profile:', error);
         toast({
           title: "Fehler beim Speichern",
           description: error.message,
           variant: "destructive"
         });
-        console.error('Error updating profile:', error);
       } else {
         toast({
           title: "Erfolg",
