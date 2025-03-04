@@ -1,7 +1,7 @@
+
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Patient } from '../pages/Profile';
+import PatientListItem from './PatientListItem';
 
 interface PatientListProps {
   patients: Patient[];
@@ -9,29 +9,17 @@ interface PatientListProps {
 
 const PatientList: React.FC<PatientListProps> = ({ patients }) => {
   if (patients.length === 0) {
-    return <p>Keine Patienten gefunden.</p>;
+    return (
+      <div className="text-center p-8 border rounded-md bg-muted/30">
+        <p className="text-muted-foreground">Keine Patienten gefunden.</p>
+      </div>
+    );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="space-y-2">
       {patients.map((patient) => (
-        <Card key={patient.id}>
-          <CardHeader className="flex items-center space-x-4">
-            <Avatar>
-              {patient.bild_url ? (
-                <AvatarImage src={patient.bild_url} alt={patient.name} />
-              ) : (
-                <AvatarFallback>{patient.name.charAt(0)}</AvatarFallback>
-              )}
-            </Avatar>
-            <CardTitle>{patient.name}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>Spezies: {patient.spezies}</p>
-            <p>Rasse: {patient.rasse}</p>
-            <p>Geburtsdatum: {new Date(patient.geburtsdatum).toLocaleDateString()}</p>
-          </CardContent>
-        </Card>
+        <PatientListItem key={patient.id} patient={patient} />
       ))}
     </div>
   );

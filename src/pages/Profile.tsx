@@ -1,8 +1,11 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import ProfileForm from "@/components/ProfileForm";
 import PatientList from "@/components/PatientList";
+import UserCard from "@/components/UserCard";
 import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export interface Profile {
   id: string;
@@ -11,6 +14,9 @@ export interface Profile {
   nachname: string;
   telefonnummer: string | null;
   profilbild_url?: string | null;
+  Raum?: string | null;
+  Fachrichtung?: string | null;
+  Gebäude?: string | null;
 }
 
 export interface Patient {
@@ -63,18 +69,49 @@ const ProfilePage: React.FC = () => {
     }
   }, [user]);
 
-  if (loading) return <div>Loading...</div>;
-  if (!profile) return <div>Error loading profile.</div>;
+  if (loading) {
+    return (
+      <div className="container mx-auto p-4">
+        <h1 className="text-2xl font-bold mb-4">Profilseite</h1>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <Skeleton className="h-[400px] w-full" />
+          </div>
+          <div>
+            <Skeleton className="h-[200px] w-full mb-4" />
+            <Skeleton className="h-[200px] w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!profile) return <div className="container mx-auto p-4">Error loading profile.</div>;
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Profilseite</h1>
-      <div className="mb-8">
-        <ProfileForm profile={profile} refreshProfile={fetchProfile} />
-      </div>
-      <div>
-        <h2 className="text-xl font-semibold mb-2">Meine Patienten</h2>
-        <PatientList patients={patients} />
+      <h1 className="text-2xl font-bold mb-6">Profilseite</h1>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Left Column - Profile Form */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Profildetails bearbeiten</h2>
+          <div className="bg-card rounded-lg border p-6">
+            <ProfileForm profile={profile} refreshProfile={fetchProfile} />
+          </div>
+        </div>
+        
+        {/* Right Column - User Card and Patient List */}
+        <div className="space-y-8">
+          {/* User Card */}
+          <UserCard profile={profile} />
+          
+          {/* Patient List */}
+          <div>
+            <h2 className="text-xl font-semibold mb-4">Meine Patienten</h2>
+            <PatientList patients={patients} />
+          </div>
+        </div>
       </div>
     </div>
   );

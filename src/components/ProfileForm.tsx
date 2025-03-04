@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from "@/integrations/supabase/client";
@@ -5,6 +6,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
+import { toast } from './ui/use-toast';
 
 interface ProfileFormProps {
   profile: {
@@ -14,6 +16,9 @@ interface ProfileFormProps {
     nachname: string;
     telefonnummer: string | null;
     profilbild_url?: string | null;
+    Raum?: string | null;
+    Fachrichtung?: string | null;
+    Gebäude?: string | null;
   };
   refreshProfile: () => void;
 }
@@ -22,6 +27,9 @@ interface FormValues {
   email: string;
   nachname: string;
   telefonnummer: string;
+  Raum: string;
+  Fachrichtung: string;
+  Gebäude: string;
   profilbild: FileList;
 }
 
@@ -36,31 +44,50 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
       email: profile.email,
       nachname: profile.nachname,
       telefonnummer: profile.telefonnummer || '',
+      Raum: profile.Raum || '',
+      Fachrichtung: profile.Fachrichtung || '',
+      Gebäude: profile.Gebäude || '',
     },
   });
 
-  const [preview, setPreview] = useState<string | null>(profile.profilbild_url || null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Set initial preview from profile
+  React.useEffect(() => {
+    if (profile.profilbild_url) {
+      const imageUrl = `${supabase.storage.from('Profilbild').getPublicUrl(profile.profilbild_url).data.publicUrl}?t=${new Date().getTime()}`;
+      setPreview(imageUrl);
+    }
+  }, [profile.profilbild_url]);
 
   const onSubmit = async (data: FormValues) => {
     try {
+      setIsUploading(true);
       let profilbild_url = profile.profilbild_url;
 
       // If a new profile picture is selected, upload it
       if (data.profilbild && data.profilbild.length > 0) {
         const file = data.profilbild[0];
         const fileExt = file.name.split('.').pop();
-        const fileName = `${profile.id}.${fileExt}`;
-        const filePath = `profilbild/${fileName}`;
+        const fileName = `${profile.id}/${Date.now()}.${fileExt}`;
+        const filePath = fileName;
 
         const { error: uploadError, data: uploadData } = await supabase.storage
           .from('Profilbild')
           .upload(filePath, file, { upsert: true });
 
         if (uploadError) {
+          toast({
+            title: "Fehler beim Hochladen",
+            description: uploadError.message,
+            variant: "destructive"
+          });
           setError('profilbild', { message: uploadError.message });
+          setIsUploading(false);
           return;
         }
-        profilbild_url = uploadData.path;
+        profilbild_url = filePath;
       }
 
       // Update the profile in Supabase
@@ -71,16 +98,35 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
           nachname: data.nachname,
           telefonnummer: data.telefonnummer,
           profilbild_url: profilbild_url,
+          Raum: data.Raum || null,
+          Fachrichtung: data.Fachrichtung || null,
+          Gebäude: data.Gebäude || null,
         })
         .eq('id', profile.id);
 
       if (error) {
+        toast({
+          title: "Fehler beim Speichern",
+          description: error.message,
+          variant: "destructive"
+        });
         console.error('Error updating profile:', error);
       } else {
+        toast({
+          title: "Erfolg",
+          description: "Profil erfolgreich aktualisiert",
+        });
         refreshProfile();
       }
     } catch (error) {
       console.error('Submission error:', error);
+      toast({
+        title: "Fehler",
+        description: "Ein unerwarteter Fehler ist aufgetreten",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -97,7 +143,7 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-md">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {/* Vorname (read-only) */}
       <div>
         <Label htmlFor="vorname">Vorname</Label>
@@ -139,9 +185,8 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
           id="telefonnummer"
           type="text"
           {...register('telefonnummer', {
-            required: 'Telefonnummer ist erforderlich',
             pattern: {
-              value: /^[0-9+\s()-]+$/,
+              value: /^[0-9+\s()-]*$/,
               message: 'Ungültige Telefonnummer',
             },
           })}
@@ -149,15 +194,43 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
         {errors.telefonnummer && <p className="text-red-500 text-sm">{errors.telefonnummer.message}</p>}
       </div>
 
+      {/* New Fields: Raum, Fachrichtung, Gebäude */}
+      <div>
+        <Label htmlFor="Fachrichtung">Fachrichtung</Label>
+        <Input
+          id="Fachrichtung"
+          type="text"
+          {...register('Fachrichtung')}
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="Gebäude">Gebäude</Label>
+        <Input
+          id="Gebäude"
+          type="text"
+          {...register('Gebäude')}
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="Raum">Raum</Label>
+        <Input
+          id="Raum"
+          type="text"
+          {...register('Raum')}
+        />
+      </div>
+
       {/* Profile picture upload with preview */}
       <div>
         <Label htmlFor="profilbild">Profilbild</Label>
         <div className="flex items-center space-x-4">
-          <Avatar>
+          <Avatar className="h-16 w-16">
             {preview ? (
               <AvatarImage src={preview} alt="Profilbild" />
             ) : (
-              <AvatarFallback>{profile.vorname.charAt(0)}</AvatarFallback>
+              <AvatarFallback>{profile.vorname.charAt(0)}{profile.nachname.charAt(0)}</AvatarFallback>
             )}
           </Avatar>
           <Input
@@ -171,8 +244,8 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
         {errors.profilbild && <p className="text-red-500 text-sm">{errors.profilbild.message}</p>}
       </div>
 
-      <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? 'Speichern...' : 'Speichern'}
+      <Button type="submit" disabled={isSubmitting || isUploading}>
+        {(isSubmitting || isUploading) ? 'Speichern...' : 'Speichern'}
       </Button>
     </form>
   );
