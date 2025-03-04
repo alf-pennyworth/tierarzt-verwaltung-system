@@ -48,6 +48,8 @@ export const getPackagingDescriptions = async (medicationName: string) => {
 
 export const getMedicationTypeByName = async (medicationName: string) => {
   try {
+    console.log("Fetching medication type for:", medicationName);
+    
     // First get the medication to find its type_id
     const { data: medicationData, error: medicationError } = await supabase
       .from("medikamente")
@@ -60,10 +62,14 @@ export const getMedicationTypeByName = async (medicationName: string) => {
       throw medicationError;
     }
     
+    console.log("Medication data retrieved:", medicationData);
+    
     if (!medicationData || !medicationData.medication_type_id) {
       console.log("No medication type found for:", medicationName);
       return null;
     }
+    
+    console.log("Looking up medication type id:", medicationData.medication_type_id);
     
     // Then get the type name using the type_id
     const { data: typeData, error: typeError } = await supabase
@@ -77,6 +83,7 @@ export const getMedicationTypeByName = async (medicationName: string) => {
       throw typeError;
     }
     
+    console.log("Type data retrieved:", typeData);
     return typeData?.name || null;
   } catch (error) {
     console.error("Error in getMedicationTypeByName:", error);

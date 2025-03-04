@@ -351,7 +351,7 @@ const Transcription = () => {
         setTranscription(data.text);
         
         if (data.entities && data.entities.length > 0) {
-          handleAssemblyAIEntities(data.entities, data.text);
+          await handleAssemblyAIEntities(data.entities, data.text);
         } else {
           findDiagnosisInText(data.text);
           extractMedicationAmount(data.text);
@@ -385,17 +385,27 @@ const Transcription = () => {
     }));
     
     try {
+      console.log("Fetching medication type for selected medication:", medicationName);
       const medicationType = await getMedicationTypeByName(medicationName);
-      console.log("Found medication type:", medicationType);
+      console.log("Found medication type for selected medication:", medicationType);
       
       if (medicationType) {
         setFormData(prev => ({
           ...prev,
           medikamentTyp: medicationType,
         }));
+        
+        console.log("Updated medication type state to:", medicationType);
+        
+        toast({
+          title: "Medikamenttyp geladen",
+          description: `Medikamenttyp "${medicationType}" wurde geladen.`,
+        });
+      } else {
+        console.warn("No medication type found for:", medicationName);
       }
     } catch (error) {
-      console.error("Error fetching medication type:", error);
+      console.error("Error fetching medication type for selected medication:", error);
     }
     
     fetchPackagingOptions(medicationName);
