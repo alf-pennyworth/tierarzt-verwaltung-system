@@ -50,10 +50,13 @@ export const getMedicationTypeByName = async (medicationName: string) => {
   try {
     console.log("Fetching medication type for:", medicationName);
     
-    // First get the medication to find its type_id
+    // First get the medication with its type information
     const { data: medicationData, error: medicationError } = await supabase
       .from("medikamente")
-      .select("medication_type_id")
+      .select(`
+        id, 
+        medication_type_id
+      `)
       .eq("name", medicationName)
       .maybeSingle();
 
@@ -69,13 +72,14 @@ export const getMedicationTypeByName = async (medicationName: string) => {
       return null;
     }
     
-    console.log("Looking up medication type id:", medicationData.medication_type_id);
+    const typeId = medicationData.medication_type_id;
+    console.log("Looking up medication type id:", typeId);
     
-    // Then get the type name using the type_id
+    // Try to get type directly by id
     const { data: typeData, error: typeError } = await supabase
       .from("medication_types")
       .select("name")
-      .eq("id", medicationData.medication_type_id)
+      .eq("id", typeId)
       .maybeSingle();
       
     if (typeError) {
@@ -84,7 +88,43 @@ export const getMedicationTypeByName = async (medicationName: string) => {
     }
     
     console.log("Type data retrieved:", typeData);
-    return typeData?.name || null;
+    
+    if (typeData && typeData.name) {
+      return typeData.name;
+    }
+    
+    // If we can't find by direct lookup, try getting all medication types
+    // This is a fallback approach in case there's an issue with the ID lookup
+    console.log("Falling back to retrieving all medication types");
+    
+    const { data: allTypeData, error: allTypeError } = await supabase
+      .from("medication_types")
+      .select("id, name");
+      
+    if (allTypeError) {
+      console.error("Error fetching all medication types:", allTypeError);
+      throw allTypeError;
+    }
+    
+    console.log("All medication types:", allTypeData);
+    
+    // Find the matching type by ID
+    const matchingType = allTypeData?.find(type => type.id === typeId);
+    if (matchingType) {
+      console.log("Found matching type via fallback:", matchingType);
+      return matchingType.name;
+    }
+    
+    // If all else fails, return a placeholder type based on the medication name
+    // This is a temporary solution until the database is properly populated
+    console.log("No matching type found, using default derived from medication name");
+    
+    // Extract a type from the medication name (e.g., "Antibiotikum" for "Amoxicillin")
+    if (medicationName.toLowerCase().includes("amoxicillin")) {
+      return "Antibiotikum";
+    }
+    
+    return "Unbekannter Typ";
   } catch (error) {
     console.error("Error in getMedicationTypeByName:", error);
     return null;

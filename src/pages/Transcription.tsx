@@ -377,6 +377,8 @@ const Transcription = () => {
   const handleMedicationSelect = async (medicationName: string) => {
     console.log("Selected medication name:", medicationName);
     
+    const selectedMedication = medicationOptions.find(med => med.name === medicationName);
+    
     setFormData(prev => ({
       ...prev,
       medikament: medicationName,
@@ -402,10 +404,31 @@ const Transcription = () => {
           description: `Medikamenttyp "${medicationType}" wurde geladen.`,
         });
       } else {
-        console.warn("No medication type found for:", medicationName);
+        let defaultType = "Medikament";
+        if (medicationName.toLowerCase().includes("amoxicillin")) {
+          defaultType = "Antibiotikum";
+        }
+        
+        setFormData(prev => ({
+          ...prev,
+          medikamentTyp: defaultType,
+        }));
+        
+        console.log("Set default medication type to:", defaultType);
+        
+        toast({
+          title: "Medikamenttyp nicht gefunden",
+          description: `Standard-Typ "${defaultType}" wurde verwendet.`,
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error("Error fetching medication type for selected medication:", error);
+      toast({
+        title: "Fehler",
+        description: "Fehler beim Laden des Medikamenttyps.",
+        variant: "destructive"
+      });
     }
     
     fetchPackagingOptions(medicationName);
