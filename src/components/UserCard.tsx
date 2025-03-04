@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Button } from './ui/button';
@@ -23,6 +23,8 @@ interface UserCardProps {
 
 const UserCard: React.FC<UserCardProps> = ({ profile }) => {
   const navigate = useNavigate();
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
   
   const handleLogout = async () => {
     try {
@@ -43,15 +45,21 @@ const UserCard: React.FC<UserCardProps> = ({ profile }) => {
     }
   };
 
-  // Debug the profile image URL
-  console.log('Profile image URL:', profile.profilbild_url);
-  let imageUrl = '';
-  
-  if (profile.profilbild_url) {
-    const { data } = supabase.storage.from('Profilbild').getPublicUrl(profile.profilbild_url);
-    imageUrl = data.publicUrl;
-    console.log('Generated public URL:', imageUrl);
-  }
+  // Load and process profile image
+  useEffect(() => {
+    if (profile.profilbild_url) {
+      try {
+        // Get the public URL for the image
+        const { data } = supabase.storage.from('Profilbild').getPublicUrl(profile.profilbild_url);
+        setImageUrl(data.publicUrl);
+        console.log('Profile image public URL:', data.publicUrl);
+        setImageError(false);
+      } catch (error) {
+        console.error('Error getting image URL:', error);
+        setImageError(true);
+      }
+    }
+  }, [profile.profilbild_url]);
 
   return (
     <Card className="w-full">
@@ -69,14 +77,13 @@ const UserCard: React.FC<UserCardProps> = ({ profile }) => {
       </CardHeader>
       <CardContent className="flex flex-col items-center space-y-4">
         <Avatar className="h-32 w-32">
-          {profile.profilbild_url ? (
+          {imageUrl && !imageError ? (
             <AvatarImage 
               src={imageUrl}
               alt={`${profile.vorname} ${profile.nachname}`}
-              onError={(e) => {
-                console.error('Error loading image:', e);
-                // If image fails to load, show fallback
-                e.currentTarget.style.display = 'none';
+              onError={() => {
+                console.error('Error loading profile image');
+                setImageError(true);
               }}
             />
           ) : (
