@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from "@/integrations/supabase/client";
@@ -53,23 +54,27 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    if (profile.profilbild_url) {
-      try {
-        const { data, error } = supabase.storage
-          .from('Profilbild')
-          .createSignedUrl(profile.profilbild_url, 3600);
-        
-        if (error) {
-          console.error('Error creating signed URL for preview:', error);
-          return;
+    const loadProfileImagePreview = async () => {
+      if (profile.profilbild_url) {
+        try {
+          const { data, error } = await supabase.storage
+            .from('Profilbild')
+            .createSignedUrl(profile.profilbild_url, 3600);
+          
+          if (error) {
+            console.error('Error creating signed URL for preview:', error);
+            return;
+          }
+          
+          setPreview(data.signedUrl);
+          console.log('Preview signed URL set:', data.signedUrl);
+        } catch (error) {
+          console.error('Error getting signed URL for preview:', error);
         }
-        
-        setPreview(data.signedUrl);
-        console.log('Preview signed URL set:', data.signedUrl);
-      } catch (error) {
-        console.error('Error getting signed URL for preview:', error);
       }
-    }
+    };
+
+    loadProfileImagePreview();
   }, [profile.profilbild_url]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
