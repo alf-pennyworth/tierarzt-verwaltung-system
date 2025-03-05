@@ -45,18 +45,28 @@ const UserCard: React.FC<UserCardProps> = ({ profile }) => {
     }
   };
 
-  // Load and process profile image
+  // Load and process profile image using signed URLs for private bucket
   useEffect(() => {
     if (profile.profilbild_url) {
       try {
-        // Get the public URL for the image
-        console.log('Getting URL for image path:', profile.profilbild_url);
-        const { data } = supabase.storage.from('Profilbild').getPublicUrl(profile.profilbild_url);
-        console.log('Profile image public URL:', data.publicUrl);
-        setImageUrl(data.publicUrl);
+        console.log('Getting signed URL for image path:', profile.profilbild_url);
+        
+        // Create a signed URL that expires in 60 minutes (3600 seconds)
+        const { data, error } = supabase.storage
+          .from('Profilbild')
+          .createSignedUrl(profile.profilbild_url, 3600);
+        
+        if (error) {
+          console.error('Error creating signed URL:', error);
+          setImageError(true);
+          return;
+        }
+        
+        console.log('Profile image signed URL created:', data.signedUrl);
+        setImageUrl(data.signedUrl);
         setImageError(false);
       } catch (error) {
-        console.error('Error getting image URL:', error);
+        console.error('Error getting signed image URL:', error);
         setImageError(true);
       }
     } else {

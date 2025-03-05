@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from './ui/input';
@@ -53,25 +52,42 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
   const [preview, setPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Set initial preview from profile
-  React.useEffect(() => {
+  useEffect(() => {
     if (profile.profilbild_url) {
       try {
-        const { data } = supabase.storage.from('Profilbild').getPublicUrl(profile.profilbild_url);
-        setPreview(data.publicUrl);
-        console.log('Preview URL set:', data.publicUrl);
+        const { data, error } = supabase.storage
+          .from('Profilbild')
+          .createSignedUrl(profile.profilbild_url, 3600);
+        
+        if (error) {
+          console.error('Error creating signed URL for preview:', error);
+          return;
+        }
+        
+        setPreview(data.signedUrl);
+        console.log('Preview signed URL set:', data.signedUrl);
       } catch (error) {
-        console.error('Error getting public URL:', error);
+        console.error('Error getting signed URL for preview:', error);
       }
     }
   }, [profile.profilbild_url]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const onSubmit = async (data: FormValues) => {
     try {
       setIsUploading(true);
       let profilbild_url = profile.profilbild_url;
 
-      // If a new profile picture is selected, upload it
       if (data.profilbild && data.profilbild.length > 0) {
         const file = data.profilbild[0];
         const fileExt = file.name.split('.').pop();
@@ -100,7 +116,6 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
         profilbild_url = filePath;
       }
 
-      // Update the profile in Supabase
       console.log('Updating profile with:', {
         email: data.email,
         nachname: data.nachname,
@@ -150,27 +165,13 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
     }
   };
 
-  // Update preview when a file is selected
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {/* Vorname (read-only) */}
       <div>
         <Label htmlFor="vorname">Vorname</Label>
         <Input id="vorname" type="text" value={profile.vorname} disabled className="bg-gray-100" />
       </div>
 
-      {/* Editable Nachname */}
       <div>
         <Label htmlFor="nachname">Nachname</Label>
         <Input
@@ -181,7 +182,6 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
         {errors.nachname && <p className="text-red-500 text-sm">{errors.nachname.message}</p>}
       </div>
 
-      {/* Editable E-Mail */}
       <div>
         <Label htmlFor="email">E-Mail</Label>
         <Input
@@ -198,7 +198,6 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
         {errors.email && <p className="text-red-500 text-sm">{errors.email.message}</p>}
       </div>
 
-      {/* Editable Telefonnummer */}
       <div>
         <Label htmlFor="telefonnummer">Telefonnummer</Label>
         <Input
@@ -214,7 +213,6 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
         {errors.telefonnummer && <p className="text-red-500 text-sm">{errors.telefonnummer.message}</p>}
       </div>
 
-      {/* New Fields: Raum, Fachrichtung, Gebäude */}
       <div>
         <Label htmlFor="Fachrichtung">Fachrichtung</Label>
         <Input
@@ -242,7 +240,6 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
         />
       </div>
 
-      {/* Profile picture upload with preview */}
       <div>
         <Label htmlFor="profilbild">Profilbild</Label>
         <div className="flex items-center space-x-4">
