@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from "@/integrations/supabase/client";
@@ -57,6 +56,7 @@ const ProfileForm: React.FC<ProfileFormProps> = ({ profile, refreshProfile }) =>
     const loadProfileImagePreview = async () => {
       if (profile.profilbild_url) {
         try {
+          // Use await to properly handle the Promise
           const { data, error } = await supabase.storage
             .from('Profilbild')
             .createSignedUrl(profile.profilbild_url, 3600);
