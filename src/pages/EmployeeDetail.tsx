@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Phone, Mail, MapPin, Building, Briefcase, ArrowLeft } from 'lucide-react';
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/use-toast";
+import PatientList from "@/components/PatientList";
 
 interface EmployeeProfile {
   id: string;
@@ -21,11 +22,22 @@ interface EmployeeProfile {
   Gebäude: string | null;
 }
 
+interface Patient {
+  id: string;
+  name: string;
+  bild_url: string | null;
+  spezies: string;
+  rasse: string;
+  geburtsdatum: string;
+}
+
 const EmployeeDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [patientsLoading, setPatientsLoading] = useState(true);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
 
@@ -76,7 +88,33 @@ const EmployeeDetail = () => {
       }
     };
 
-    fetchEmployeeDetails();
+    const fetchPatients = async () => {
+      if (!id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('patient')
+          .select('*')
+          .eq('behandelnder_arzt', id);
+          
+        if (error) {
+          throw error;
+        }
+        
+        setPatients(data || []);
+      } catch (error) {
+        console.error('Error fetching patients:', error);
+        toast({
+          title: "Fehler",
+          description: "Patientenliste konnte nicht geladen werden.",
+          variant: "destructive"
+        });
+      } finally {
+        setPatientsLoading(false);
+      }
+    };
+
+    Promise.all([fetchEmployeeDetails(), fetchPatients()]);
   }, [id]);
 
   const handleCallEmployee = () => {
@@ -149,82 +187,104 @@ const EmployeeDetail = () => {
         <h1 className="text-2xl font-bold">Mitarbeiterdetails</h1>
       </div>
       
-      <Card className="w-full">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Mitarbeiterprofil</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center space-y-4">
-          <Avatar className="h-32 w-32">
-            {imageUrl && !imageError ? (
-              <AvatarImage 
-                src={imageUrl}
-                alt={`${employee.vorname} ${employee.nachname}`}
-                onError={() => {
-                  console.error('Error loading profile image');
-                  setImageError(true);
-                }}
-              />
-            ) : (
-              <AvatarFallback className="text-3xl">{employee.vorname.charAt(0)}{employee.nachname.charAt(0)}</AvatarFallback>
-            )}
-          </Avatar>
-          
-          <div className="text-center">
-            <h3 className="text-xl font-semibold">{employee.vorname} {employee.nachname}</h3>
-            <div className="flex items-center justify-center mt-1 text-muted-foreground">
-              {employee.Fachrichtung && (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <Card className="w-full">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Mitarbeiterprofil</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center space-y-4">
+            <Avatar className="h-32 w-32">
+              {imageUrl && !imageError ? (
+                <AvatarImage 
+                  src={imageUrl}
+                  alt={`${employee.vorname} ${employee.nachname}`}
+                  onError={() => {
+                    console.error('Error loading profile image');
+                    setImageError(true);
+                  }}
+                />
+              ) : (
+                <AvatarFallback className="text-3xl">{employee.vorname.charAt(0)}{employee.nachname.charAt(0)}</AvatarFallback>
+              )}
+            </Avatar>
+            
+            <div className="text-center">
+              <h3 className="text-xl font-semibold">{employee.vorname} {employee.nachname}</h3>
+              <div className="flex items-center justify-center mt-1 text-muted-foreground">
+                {employee.Fachrichtung && (
+                  <div className="flex items-center">
+                    <Briefcase className="h-4 w-4 mr-1" />
+                    <span>{employee.Fachrichtung}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex space-x-4">
+              {employee.telefonnummer && (
+                <Button onClick={handleCallEmployee} variant="outline">
+                  <Phone className="mr-2 h-4 w-4" />
+                  Anrufen
+                </Button>
+              )}
+              
+              <Button onClick={handleEmailEmployee} variant="outline">
+                <Mail className="mr-2 h-4 w-4" />
+                E-Mail
+              </Button>
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col items-start space-y-2">
+            <div className="grid grid-cols-1 gap-2 w-full">
+              <div className="flex items-center">
+                <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
+                <span>{employee.email}</span>
+              </div>
+              
+              {employee.telefonnummer && (
                 <div className="flex items-center">
-                  <Briefcase className="h-4 w-4 mr-1" />
-                  <span>{employee.Fachrichtung}</span>
+                  <Phone className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <span>{employee.telefonnummer}</span>
+                </div>
+              )}
+              
+              {employee.Gebäude && (
+                <div className="flex items-center">
+                  <Building className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <span>{employee.Gebäude}</span>
+                </div>
+              )}
+              
+              {employee.Raum && (
+                <div className="flex items-center">
+                  <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <span>Raum {employee.Raum}</span>
                 </div>
               )}
             </div>
-          </div>
-          
-          <div className="flex space-x-4">
-            {employee.telefonnummer && (
-              <Button onClick={handleCallEmployee} variant="outline">
-                <Phone className="mr-2 h-4 w-4" />
-                Anrufen
-              </Button>
-            )}
-            
-            <Button onClick={handleEmailEmployee} variant="outline">
-              <Mail className="mr-2 h-4 w-4" />
-              E-Mail
-            </Button>
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col items-start space-y-2">
-          <div className="grid grid-cols-1 gap-2 w-full">
-            <div className="flex items-center">
-              <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
-              <span>{employee.email}</span>
+          </CardFooter>
+        </Card>
+        
+        {/* Patient List */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Patienten</h2>
+          {patientsLoading ? (
+            <div className="space-y-2">
+              {[...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-24 w-full" />
+              ))}
             </div>
-            
-            {employee.telefonnummer && (
-              <div className="flex items-center">
-                <Phone className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span>{employee.telefonnummer}</span>
-              </div>
-            )}
-            
-            {employee.Gebäude && (
-              <div className="flex items-center">
-                <Building className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span>{employee.Gebäude}</span>
-              </div>
-            )}
-            
-            {employee.Raum && (
-              <div className="flex items-center">
-                <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span>Raum {employee.Raum}</span>
-              </div>
-            )}
-          </div>
-        </CardFooter>
-      </Card>
+          ) : patients.length > 0 ? (
+            <PatientList patients={patients} />
+          ) : (
+            <Card>
+              <CardContent className="p-6 text-center text-muted-foreground">
+                Keine Patienten gefunden.
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

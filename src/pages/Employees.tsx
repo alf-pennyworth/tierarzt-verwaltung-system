@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from 'react-router-dom';
 import { Briefcase, Building, MapPin } from 'lucide-react';
 import { toast } from "@/components/ui/use-toast";
+import { useAuth } from "../hooks/useAuth";
 
 interface Employee {
   id: string;
@@ -18,6 +19,7 @@ interface Employee {
   Raum: string | null;
   Fachrichtung: string | null;
   Gebäude: string | null;
+  praxis_id: string | null;
   imageUrl?: string | null;
 }
 
@@ -25,13 +27,39 @@ const Employees = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
+        // First get the current user's praxis_id
+        if (!user) return;
+        
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('praxis_id')
+          .eq('id', user.id)
+          .single();
+          
+        if (profileError) {
+          throw profileError;
+        }
+        
+        if (!profileData.praxis_id) {
+          toast({
+            title: "Warnung",
+            description: "Sie sind keiner Praxis zugeordnet.",
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+        
+        // Fetch all employees from the same praxis
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
+          .eq('praxis_id', profileData.praxis_id)
           .order('nachname');
 
         if (error) {
@@ -72,7 +100,7 @@ const Employees = () => {
     };
 
     fetchEmployees();
-  }, []);
+  }, [user]);
 
   const handleEmployeeClick = (employeeId: string) => {
     navigate(`/employees/${employeeId}`);
