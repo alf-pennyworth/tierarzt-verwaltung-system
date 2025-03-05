@@ -50,14 +50,17 @@ const UserCard: React.FC<UserCardProps> = ({ profile }) => {
     if (profile.profilbild_url) {
       try {
         // Get the public URL for the image
+        console.log('Getting URL for image path:', profile.profilbild_url);
         const { data } = supabase.storage.from('Profilbild').getPublicUrl(profile.profilbild_url);
-        setImageUrl(data.publicUrl);
         console.log('Profile image public URL:', data.publicUrl);
+        setImageUrl(data.publicUrl);
         setImageError(false);
       } catch (error) {
         console.error('Error getting image URL:', error);
         setImageError(true);
       }
+    } else {
+      console.log('No profile image URL provided');
     }
   }, [profile.profilbild_url]);
 
