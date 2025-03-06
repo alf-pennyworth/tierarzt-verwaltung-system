@@ -5,9 +5,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from 'react-router-dom';
-import { Briefcase, Building, MapPin } from 'lucide-react';
+import { AlertCircle, Briefcase, Building, MapPin, RefreshCcw } from 'lucide-react';
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "../hooks/useAuth";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 interface Employee {
   id: string;
@@ -23,82 +25,126 @@ interface Employee {
   imageUrl?: string | null;
 }
 
+interface PraxisInfo {
+  id: string;
+  name: string;
+}
+
 const Employees = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [praxis, setPraxis] = useState<PraxisInfo | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        // First get the current user's praxis_id
-        if (!user) return;
-        
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('praxis_id')
-          .eq('id', user.id)
-          .single();
-          
-        if (profileError) {
-          throw profileError;
-        }
-        
-        if (!profileData.praxis_id) {
-          toast({
-            title: "Warnung",
-            description: "Sie sind keiner Praxis zugeordnet.",
-            variant: "destructive"
-          });
-          setLoading(false);
-          return;
-        }
-        
-        // Fetch all employees from the same praxis
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('praxis_id', profileData.praxis_id)
-          .order('nachname');
-
-        if (error) {
-          throw error;
-        }
-
-        // Load profile images for employees with profile pictures
-        const employeesWithImages = await Promise.all(
-          (data || []).map(async (employee) => {
-            if (employee.profilbild_url) {
-              try {
-                const { data: imageData, error: imageError } = await supabase.storage
-                  .from('Profilbild')
-                  .createSignedUrl(employee.profilbild_url, 3600);
-                
-                if (!imageError) {
-                  return { ...employee, imageUrl: imageData.signedUrl };
-                }
-              } catch (err) {
-                console.error('Error getting signed image URL:', err);
-              }
-            }
-            return { ...employee, imageUrl: null };
-          })
-        );
-
-        setEmployees(employeesWithImages);
-      } catch (error) {
-        console.error('Error fetching employees:', error);
-        toast({
-          title: "Fehler",
-          description: "Mitarbeiter konnten nicht geladen werden.",
-          variant: "destructive"
-        });
-      } finally {
+  const fetchEmployees = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log("Fetching employees, user:", user?.id);
+      
+      if (!user) {
+        console.log("No user found, stopping fetch");
         setLoading(false);
+        return;
       }
-    };
 
+      // First get the current user's praxis_id
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('praxis_id')
+        .eq('id', user.id)
+        .single();
+      
+      console.log("Profile data:", profileData, "Profile error:", profileError);
+        
+      if (profileError) {
+        console.error("Profile error:", profileError);
+        throw profileError;
+      }
+      
+      if (!profileData || !profileData.praxis_id) {
+        console.log("No praxis_id found for user");
+        setError("Sie sind keiner Praxis zugeordnet.");
+        setLoading(false);
+        return;
+      }
+
+      // Get praxis info
+      const { data: praxisData, error: praxisError } = await supabase
+        .from('praxis')
+        .select('id, name')
+        .eq('id', profileData.praxis_id)
+        .single();
+
+      console.log("Praxis data:", praxisData, "Praxis error:", praxisError);
+
+      if (praxisError) {
+        console.error("Praxis error:", praxisError);
+        if (praxisError.code === 'PGRST116') {
+          setError("Die zugeordnete Praxis existiert nicht.");
+        } else {
+          throw praxisError;
+        }
+        setLoading(false);
+        return;
+      }
+
+      setPraxis(praxisData);
+      
+      // Fetch all employees from the same praxis
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('praxis_id', profileData.praxis_id)
+        .order('nachname');
+
+      console.log("Employees data:", data, "Employees error:", error);
+
+      if (error) {
+        console.error("Error fetching employees:", error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        console.log("No employees found for this praxis");
+        setEmployees([]);
+        setLoading(false);
+        return;
+      }
+
+      // Load profile images for employees with profile pictures
+      const employeesWithImages = await Promise.all(
+        data.map(async (employee) => {
+          if (employee.profilbild_url) {
+            try {
+              const { data: imageData, error: imageError } = await supabase.storage
+                .from('Profilbild')
+                .createSignedUrl(employee.profilbild_url, 3600);
+              
+              if (!imageError && imageData) {
+                return { ...employee, imageUrl: imageData.signedUrl };
+              }
+            } catch (err) {
+              console.error('Error getting signed image URL:', err);
+            }
+          }
+          return { ...employee, imageUrl: null };
+        })
+      );
+
+      setEmployees(employeesWithImages);
+    } catch (error: any) {
+      console.error('Error in fetchEmployees:', error);
+      setError(`Fehler beim Laden der Mitarbeiter: ${error.message || 'Unbekannter Fehler'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchEmployees();
   }, [user]);
 
@@ -106,9 +152,34 @@ const Employees = () => {
     navigate(`/employees/${employeeId}`);
   };
 
+  if (error) {
+    return (
+      <div className="container mx-auto p-4">
+        <h1 className="text-2xl font-bold mb-6">Mitarbeiterverzeichnis</h1>
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Fehler</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <Button 
+          onClick={fetchEmployees}
+          className="flex items-center gap-2"
+        >
+          <RefreshCcw className="h-4 w-4" />
+          Erneut versuchen
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-6">Mitarbeiterverzeichnis</h1>
+      <h1 className="text-2xl font-bold mb-2">Mitarbeiterverzeichnis</h1>
+      {praxis && (
+        <p className="text-muted-foreground mb-6">
+          Praxis: {praxis.name}
+        </p>
+      )}
       
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -126,6 +197,19 @@ const Employees = () => {
               </CardContent>
             </Card>
           ))}
+        </div>
+      ) : employees.length === 0 ? (
+        <div className="text-center py-12 border rounded-lg bg-muted/20">
+          <p className="text-muted-foreground mb-4">
+            Keine Mitarbeiter in dieser Praxis gefunden.
+          </p>
+          <Button 
+            onClick={fetchEmployees}
+            className="flex items-center gap-2"
+          >
+            <RefreshCcw className="h-4 w-4" />
+            Aktualisieren
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -149,7 +233,8 @@ const Employees = () => {
                         />
                       ) : (
                         <AvatarFallback className="text-xl">
-                          {employee.vorname.charAt(0)}{employee.nachname.charAt(0)}
+                          {employee.vorname?.charAt(0) || ""}
+                          {employee.nachname?.charAt(0) || ""}
                         </AvatarFallback>
                       )}
                     </Avatar>
