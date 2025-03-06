@@ -35,13 +35,16 @@ const Employees = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
+        console.log("Employees.tsx: Starting fetchEmployees");
         setError(null);
         
         if (!user) {
+          console.log("Employees.tsx: No user found");
           setLoading(false);
           return;
         }
         
+        console.log("Employees.tsx: Fetching profile for user ID:", user.id);
         // First get the current user's praxis_id
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
@@ -50,7 +53,7 @@ const Employees = () => {
           .single();
           
         if (profileError) {
-          console.error('Error fetching profile:', profileError);
+          console.error('Employees.tsx: Error fetching profile:', profileError);
           setError('Fehler beim Laden des Profils');
           setLoading(false);
           toast({
@@ -61,7 +64,10 @@ const Employees = () => {
           return;
         }
         
+        console.log("Employees.tsx: Profile data:", profileData);
+        
         if (!profileData.praxis_id) {
+          console.log("Employees.tsx: No praxis_id found for user");
           setError('Keine Praxis zugeordnet');
           setLoading(false);
           toast({
@@ -72,6 +78,7 @@ const Employees = () => {
           return;
         }
         
+        console.log("Employees.tsx: Fetching praxis name for ID:", profileData.praxis_id);
         // Get praxis name
         const { data: praxisData, error: praxisError } = await supabase
           .from('praxis')
@@ -80,9 +87,13 @@ const Employees = () => {
           .single();
           
         if (!praxisError && praxisData) {
+          console.log("Employees.tsx: Praxis name:", praxisData.name);
           setPraxisName(praxisData.name);
+        } else {
+          console.error('Employees.tsx: Error fetching praxis name:', praxisError);
         }
         
+        console.log("Employees.tsx: Fetching employees for praxis ID:", profileData.praxis_id);
         // Fetch all employees from the same praxis
         const { data, error } = await supabase
           .from('profiles')
@@ -91,7 +102,7 @@ const Employees = () => {
           .order('nachname');
 
         if (error) {
-          console.error('Error fetching employees:', error);
+          console.error('Employees.tsx: Error fetching employees:', error);
           setError('Fehler beim Laden der Mitarbeiter');
           toast({
             title: "Fehler",
@@ -102,14 +113,18 @@ const Employees = () => {
           return;
         }
 
+        console.log("Employees.tsx: Employees data:", data);
+
         if (!data || data.length === 0) {
           // No error, but no employees found
+          console.log("Employees.tsx: No employees found");
           setEmployees([]);
           setLoading(false);
           return;
         }
 
         // Load profile images for employees with profile pictures
+        console.log("Employees.tsx: Loading profile images");
         const employeesWithImages = await Promise.all(
           data.map(async (employee) => {
             if (employee.profilbild_url) {
@@ -122,16 +137,17 @@ const Employees = () => {
                   return { ...employee, imageUrl: imageData.signedUrl };
                 }
               } catch (err) {
-                console.error('Error getting signed image URL:', err);
+                console.error('Employees.tsx: Error getting signed image URL:', err);
               }
             }
             return { ...employee, imageUrl: null };
           })
         );
 
+        console.log("Employees.tsx: Setting employees state with data");
         setEmployees(employeesWithImages);
       } catch (error) {
-        console.error('Error in fetchEmployees:', error);
+        console.error('Employees.tsx: Error in fetchEmployees:', error);
         setError('Ein unerwarteter Fehler ist aufgetreten');
         toast({
           title: "Fehler",
@@ -139,6 +155,7 @@ const Employees = () => {
           variant: "destructive"
         });
       } finally {
+        console.log("Employees.tsx: Finished loading employees");
         setLoading(false);
       }
     };
@@ -229,7 +246,9 @@ const Employees = () => {
                         />
                       ) : (
                         <AvatarFallback className="text-xl">
-                          {employee.vorname.charAt(0)}{employee.nachname.charAt(0)}
+                          {employee.vorname && employee.nachname ? 
+                            `${employee.vorname.charAt(0)}${employee.nachname.charAt(0)}` : 
+                            'NA'}
                         </AvatarFallback>
                       )}
                     </Avatar>
