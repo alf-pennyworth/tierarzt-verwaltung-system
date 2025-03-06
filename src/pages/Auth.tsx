@@ -16,6 +16,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 
+// This interface defines the shape of invite data
+interface InviteData {
+  email: string;
+  praxisId: string;
+  praxisName: string;
+}
+
 const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -23,10 +30,7 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
   const [inviteToken, setInviteToken] = useState<string | null>(null);
-  const [inviteData, setInviteData] = useState<{
-    praxisId: string;
-    praxisName: string;
-  } | null>(null);
+  const [inviteData, setInviteData] = useState<InviteData | null>(null);
   
   const [formData, setFormData] = useState({
     email: "",
@@ -61,19 +65,17 @@ const Auth = () => {
           setIsLoading(false);
         });
     }
-  }, [location]);
+  }, [location, toast]);
 
-  const verifyInviteToken = async (token: string) => {
+  const verifyInviteToken = async (token: string): Promise<InviteData | null> => {
     try {
-      // Decode and verify the token
-      const { data, error } = await supabase
-        .from("invites")
-        .select("email, praxis_id, praxis_name")
-        .eq("token", token)
-        .eq("is_used", false)
-        .single();
+      // Call a stored procedure to verify and get invite data
+      const { data: inviteData, error } = await supabase.rpc('verify_invite', { 
+        token_param: token 
+      });
 
-      if (error || !data) {
+      if (error || !inviteData) {
+        console.error("Error verifying token:", error);
         toast({
           variant: "destructive",
           title: "Ungültiger Einladungslink",
@@ -85,12 +87,13 @@ const Auth = () => {
       // Pre-fill the email field
       setFormData(prev => ({
         ...prev,
-        email: data.email
+        email: inviteData.email
       }));
 
       return {
-        praxisId: data.praxis_id,
-        praxisName: data.praxis_name
+        praxisId: inviteData.praxis_id,
+        praxisName: inviteData.praxis_name,
+        email: inviteData.email
       };
       
     } catch (error) {
@@ -170,11 +173,8 @@ const Auth = () => {
           throw error;
         }
 
-        // Mark the invite as used
-        await supabase
-          .from("invites")
-          .update({ is_used: true, used_at: new Date().toISOString() })
-          .eq("token", inviteToken);
+        // Mark the invite as used by calling a stored procedure
+        await supabase.rpc('mark_invite_used', { token_param: inviteToken });
 
         toast({
           title: "Registrierung erfolgreich",

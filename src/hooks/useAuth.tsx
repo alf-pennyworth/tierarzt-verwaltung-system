@@ -6,6 +6,7 @@ import type { User } from "@supabase/supabase-js";
 interface UserInfo {
   isAdmin: boolean;
   praxisId: string | null;
+  praxisName?: string;
 }
 
 export const useAuth = () => {
@@ -18,7 +19,7 @@ export const useAuth = () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('praxis_id, email')
+          .select('praxis_id, email, praxis:praxis_id(name)')
           .eq('id', userId)
           .single();
 
@@ -33,7 +34,8 @@ export const useAuth = () => {
 
         setUserInfo({
           isAdmin,
-          praxisId: data?.praxis_id || null
+          praxisId: data?.praxis_id || null,
+          praxisName: data?.praxis?.name || undefined
         });
       } catch (err) {
         console.error("Error in fetchUserInfo:", err);

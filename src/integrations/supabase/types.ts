@@ -180,6 +180,50 @@ export type Database = {
           },
         ]
       }
+      invites: {
+        Row: {
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          is_used: boolean | null
+          praxis_id: string
+          praxis_name: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          is_used?: boolean | null
+          praxis_id: string
+          praxis_name: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          is_used?: boolean | null
+          praxis_id?: string
+          praxis_name?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invites_praxis_id_fkey"
+            columns: ["praxis_id"]
+            isOneToOne: false
+            referencedRelation: "praxis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medication_types: {
         Row: {
           created_at: string
