@@ -5,10 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNavigate } from 'react-router-dom';
-import { Briefcase, Building, MapPin, UserPlus } from 'lucide-react';
+import { Briefcase, Building, MapPin } from 'lucide-react';
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "../hooks/useAuth";
-import { Button } from "@/components/ui/button";
 
 interface Employee {
   id: string;
@@ -27,25 +26,15 @@ interface Employee {
 const Employees = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [praxisName, setPraxisName] = useState<string | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
 
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        console.log("Employees.tsx: Starting fetchEmployees");
-        setError(null);
-        
-        if (!user) {
-          console.log("Employees.tsx: No user found");
-          setLoading(false);
-          return;
-        }
-        
-        console.log("Employees.tsx: Fetching profile for user ID:", user.id);
         // First get the current user's praxis_id
+        if (!user) return;
+        
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('praxis_id')
@@ -53,47 +42,19 @@ const Employees = () => {
           .single();
           
         if (profileError) {
-          console.error('Employees.tsx: Error fetching profile:', profileError);
-          setError('Fehler beim Laden des Profils');
-          setLoading(false);
-          toast({
-            title: "Fehler",
-            description: "Ihr Profil konnte nicht geladen werden.",
-            variant: "destructive"
-          });
-          return;
+          throw profileError;
         }
         
-        console.log("Employees.tsx: Profile data:", profileData);
-        
         if (!profileData.praxis_id) {
-          console.log("Employees.tsx: No praxis_id found for user");
-          setError('Keine Praxis zugeordnet');
-          setLoading(false);
           toast({
             title: "Warnung",
             description: "Sie sind keiner Praxis zugeordnet.",
             variant: "destructive"
           });
+          setLoading(false);
           return;
         }
         
-        console.log("Employees.tsx: Fetching praxis name for ID:", profileData.praxis_id);
-        // Get praxis name
-        const { data: praxisData, error: praxisError } = await supabase
-          .from('praxis')
-          .select('name')
-          .eq('id', profileData.praxis_id)
-          .single();
-          
-        if (!praxisError && praxisData) {
-          console.log("Employees.tsx: Praxis name:", praxisData.name);
-          setPraxisName(praxisData.name);
-        } else {
-          console.error('Employees.tsx: Error fetching praxis name:', praxisError);
-        }
-        
-        console.log("Employees.tsx: Fetching employees for praxis ID:", profileData.praxis_id);
         // Fetch all employees from the same praxis
         const { data, error } = await supabase
           .from('profiles')
@@ -102,60 +63,38 @@ const Employees = () => {
           .order('nachname');
 
         if (error) {
-          console.error('Employees.tsx: Error fetching employees:', error);
-          setError('Fehler beim Laden der Mitarbeiter');
-          toast({
-            title: "Fehler",
-            description: "Mitarbeiter konnten nicht geladen werden.",
-            variant: "destructive"
-          });
-          setLoading(false);
-          return;
-        }
-
-        console.log("Employees.tsx: Employees data:", data);
-
-        if (!data || data.length === 0) {
-          // No error, but no employees found
-          console.log("Employees.tsx: No employees found");
-          setEmployees([]);
-          setLoading(false);
-          return;
+          throw error;
         }
 
         // Load profile images for employees with profile pictures
-        console.log("Employees.tsx: Loading profile images");
         const employeesWithImages = await Promise.all(
-          data.map(async (employee) => {
+          (data || []).map(async (employee) => {
             if (employee.profilbild_url) {
               try {
                 const { data: imageData, error: imageError } = await supabase.storage
                   .from('Profilbild')
                   .createSignedUrl(employee.profilbild_url, 3600);
                 
-                if (!imageError && imageData) {
+                if (!imageError) {
                   return { ...employee, imageUrl: imageData.signedUrl };
                 }
               } catch (err) {
-                console.error('Employees.tsx: Error getting signed image URL:', err);
+                console.error('Error getting signed image URL:', err);
               }
             }
             return { ...employee, imageUrl: null };
           })
         );
 
-        console.log("Employees.tsx: Setting employees state with data");
         setEmployees(employeesWithImages);
       } catch (error) {
-        console.error('Employees.tsx: Error in fetchEmployees:', error);
-        setError('Ein unerwarteter Fehler ist aufgetreten');
+        console.error('Error fetching employees:', error);
         toast({
           title: "Fehler",
-          description: "Ein unerwarteter Fehler ist aufgetreten.",
+          description: "Mitarbeiter konnten nicht geladen werden.",
           variant: "destructive"
         });
       } finally {
-        console.log("Employees.tsx: Finished loading employees");
         setLoading(false);
       }
     };
@@ -167,26 +106,9 @@ const Employees = () => {
     navigate(`/employees/${employeeId}`);
   };
 
-  if (error === 'Keine Praxis zugeordnet') {
-    return (
-      <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-6">Mitarbeiterverzeichnis</h1>
-        <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-6">
-          <p className="text-amber-800">
-            Sie sind keiner Praxis zugeordnet. Bitte kontaktieren Sie Ihren Administrator,
-            um einer Praxis zugewiesen zu werden.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Mitarbeiterverzeichnis</h1>
-        {praxisName && <span className="text-muted-foreground">{praxisName}</span>}
-      </div>
+      <h1 className="text-2xl font-bold mb-6">Mitarbeiterverzeichnis</h1>
       
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -204,25 +126,6 @@ const Employees = () => {
               </CardContent>
             </Card>
           ))}
-        </div>
-      ) : error && error !== 'Keine Praxis zugeordnet' ? (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
-          <p className="text-red-800">{error}</p>
-          <Button 
-            variant="outline" 
-            className="mt-2"
-            onClick={() => window.location.reload()}
-          >
-            Erneut versuchen
-          </Button>
-        </div>
-      ) : employees.length === 0 ? (
-        <div className="text-center py-12">
-          <UserPlus className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-lg font-medium text-gray-900">Keine Mitarbeiter gefunden</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Es wurden keine Mitarbeiter in Ihrer Praxis gefunden.
-          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -246,9 +149,7 @@ const Employees = () => {
                         />
                       ) : (
                         <AvatarFallback className="text-xl">
-                          {employee.vorname && employee.nachname ? 
-                            `${employee.vorname.charAt(0)}${employee.nachname.charAt(0)}` : 
-                            'NA'}
+                          {employee.vorname.charAt(0)}{employee.nachname.charAt(0)}
                         </AvatarFallback>
                       )}
                     </Avatar>
