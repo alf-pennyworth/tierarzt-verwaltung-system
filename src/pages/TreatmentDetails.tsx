@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,17 +10,13 @@ interface TreatmentDetails {
   id: string;
   untersuchung_datum: string;
   diagnose_path: string[] | null;
-  medikament_menge: string | null;  // Changed from number to string
+  medikament_menge: string | null;
   medikament_typ: string | null;
-  diagnose: {
-    diagnose: string;
-  } | null;
-  medikamente: {
-    name: string;
-  } | null;
-  patient: {
-    name: string;
-  };
+  diagnose: { diagnose: string } | null;
+  diagnose_fallback: string | null;
+  soap: string | null;
+  medikamente: { name: string } | null;
+  patient: { name: string };
 }
 
 const TreatmentDetails = () => {
@@ -44,6 +39,8 @@ const TreatmentDetails = () => {
           diagnose (
             diagnose
           ),
+          diagnose_fallback,
+          "SOAP",
           medikamente (
             name
           ),
@@ -62,7 +59,8 @@ const TreatmentDetails = () => {
       if (data) {
         setTreatment({
           ...data,
-          medikament_menge: data.medikament_menge?.toString() || null
+          soap: data["SOAP"] || null,
+          medikament_menge: data.medikament_menge?.toString() || null,
         });
       }
     };
@@ -77,10 +75,7 @@ const TreatmentDetails = () => {
   return (
     <div className="container mx-auto p-4 space-y-4">
       <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="outline"
-          onClick={() => navigate(-1)}
-        >
+        <Button variant="outline" onClick={() => navigate(-1)}>
           <ChevronLeft className="mr-2" />
           Zurück
         </Button>
@@ -88,6 +83,7 @@ const TreatmentDetails = () => {
       </div>
 
       <div className="grid gap-4">
+        {/* Treatment Date */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -100,6 +96,7 @@ const TreatmentDetails = () => {
           </CardContent>
         </Card>
 
+        {/* Patient */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -107,11 +104,10 @@ const TreatmentDetails = () => {
               Patient
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            {treatment.patient.name}
-          </CardContent>
+          <CardContent>{treatment.patient.name}</CardContent>
         </Card>
 
+        {/* Diagnose */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -121,7 +117,11 @@ const TreatmentDetails = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div>{treatment.diagnose?.diagnose}</div>
+              <div>
+                {treatment.diagnose?.diagnose ||
+                  treatment.diagnose_fallback ||
+                  "Keine Diagnose vorhanden"}
+              </div>
               {treatment.diagnose_path && (
                 <div className="text-sm text-muted-foreground">
                   <div className="font-semibold mb-1">Diagnosepfad:</div>
@@ -139,6 +139,7 @@ const TreatmentDetails = () => {
           </CardContent>
         </Card>
 
+        {/* Medikation */}
         {treatment.medikamente && (
           <Card>
             <CardHeader>
@@ -164,6 +165,19 @@ const TreatmentDetails = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* SOAP Notes */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              SOAP Notes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {treatment.soap || "Keine SOAP Notes vorhanden"}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
