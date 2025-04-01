@@ -18,6 +18,7 @@ import Employees from "./pages/Employees";
 import EmployeeDetail from "./pages/EmployeeDetail";
 import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
+import Medications from "./pages/Medications";
 
 const queryClient = new QueryClient();
 
@@ -81,6 +82,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/medications"
+            element={
+              <ProtectedRoute>
+                <Medications />
               </ProtectedRoute>
             }
           />

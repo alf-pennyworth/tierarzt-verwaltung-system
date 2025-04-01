@@ -9,6 +9,7 @@ import {
   FileBarChart,
   UserCircle,
   LayoutDashboard,
+  Pill,
 } from "lucide-react";
 
 const Navigation = () => {
@@ -25,6 +26,11 @@ const Navigation = () => {
       name: isMobile ? "Mitarbeiter" : "Mitarbeiterverzeichnis",
       href: "/employees",
       icon: Users,
+    },
+    {
+      name: isMobile ? "Medikamente" : "Medikamente",
+      href: "/medications",
+      icon: Pill,
     },
     {
       name: "Berichte",
@@ -52,7 +58,7 @@ const Navigation = () => {
           </Button>
           <div className="container relative flex items-center justify-between px-4 py-2">
             <div className="flex gap-2">
-              {navigationItems.slice(0, 2).map((item) => (
+              {navigationItems.slice(0, 3).map((item) => (
                 <Button
                   key={item.name}
                   variant="ghost"
@@ -65,7 +71,7 @@ const Navigation = () => {
               ))}
             </div>
             <div className="flex gap-2">
-              {navigationItems.slice(2).map((item) => (
+              {navigationItems.slice(3).map((item) => (
                 <Button
                   key={item.name}
                   variant="ghost"
