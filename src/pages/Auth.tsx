@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -140,15 +141,18 @@ const Auth = () => {
           throw praxisError;
         }
 
+        const praxisId = praxisData.id;
+        console.log("Created new praxis with ID:", praxisId);
+
         // 2. Sign up the user
-        const { error } = await supabase.auth.signUp({
+        const { data: authData, error } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
           options: {
             data: {
               vorname: formData.vorname,
               nachname: formData.nachname,
-              praxis_id: praxisData.id, // Assign the new praxis
+              praxis_id: praxisId, // Assign the new praxis
               is_admin: true, // First user is admin
             },
           },
@@ -156,6 +160,30 @@ const Auth = () => {
 
         if (error) {
           throw error;
+        }
+
+        console.log("User signed up:", authData.user?.id);
+
+        // 3. Manually create the profile to ensure it's properly linked to both user and praxis
+        if (authData.user) {
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .insert([
+              { 
+                id: authData.user.id,
+                vorname: formData.vorname,
+                nachname: formData.nachname,
+                email: formData.email,
+                praxis_id: praxisId
+              }
+            ]);
+
+          if (profileError) {
+            console.error("Error creating profile:", profileError);
+            // Don't throw here, as the user is already created
+          } else {
+            console.log("Created profile for user");
+          }
         }
 
         toast({
@@ -168,8 +196,10 @@ const Auth = () => {
           throw new Error("Einladungsdaten fehlen");
         }
 
+        console.log("Registering invited vet with praxis_id:", inviteData.praxis_id);
+
         // Sign up the invited vet
-        const { error } = await supabase.auth.signUp({
+        const { data: authData, error } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
           options: {
@@ -186,9 +216,34 @@ const Auth = () => {
           throw error;
         }
 
+        console.log("Invited user signed up:", authData.user?.id);
+
+        // Manually create the profile for invited vet
+        if (authData.user) {
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .insert([
+              { 
+                id: authData.user.id,
+                vorname: formData.vorname,
+                nachname: formData.nachname,
+                email: formData.email,
+                praxis_id: inviteData.praxis_id
+              }
+            ]);
+
+          if (profileError) {
+            console.error("Error creating profile:", profileError);
+            // Don't throw here, as the user is already created
+          } else {
+            console.log("Created profile for invited vet");
+          }
+        }
+
         // Mark the invite as used by calling a stored procedure
         if (inviteToken) {
           await supabase.rpc('mark_invite_used', { token_param: inviteToken });
+          console.log("Marked invite as used");
         }
 
         toast({
