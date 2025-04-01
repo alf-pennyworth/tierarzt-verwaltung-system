@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,11 +23,12 @@ interface PatientDetails {
     diagnose: {
       diagnose: string;
     } | null;
+    diagnose_fallback: string | null;
     medikamente: {
       name: string;
     } | null;
     medikament_typ: string | null;
-    medikament_menge: string | null;  // Changed from number to string
+    medikament_menge: string | null; // Changed from number to string
   }[];
 }
 
@@ -59,6 +59,7 @@ const PatientDetails = () => {
           diagnose (
             diagnose
           ),
+          diagnose_fallback,
           medikamente (
             name
           ),
@@ -170,9 +171,12 @@ const PatientDetails = () => {
                 <div className="font-semibold">
                   {format(new Date(behandlung.untersuchung_datum), "dd.MM.yyyy")}
                 </div>
-                {behandlung.diagnose && (
-                  <div>Diagnose: {behandlung.diagnose.diagnose}</div>
-                )}
+                <div>
+                  Diagnose:{" "}
+                  {behandlung.diagnose && behandlung.diagnose.diagnose
+                    ? behandlung.diagnose.diagnose
+                    : behandlung.diagnose_fallback || "-"}
+                </div>
                 {behandlung.medikamente && (
                   <div>
                     Medikament: {behandlung.medikamente.name}
