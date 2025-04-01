@@ -41,12 +41,16 @@ export const useAuth = () => {
 
         console.log("User metadata:", roleData.user?.user_metadata);
         console.log("Is admin:", isAdmin);
-        console.log("Praxis ID:", data?.praxis_id);
+        
+        // Use praxis_id from profile if available, otherwise from metadata
+        const praxisId = data?.praxis_id || roleData.user?.user_metadata?.praxis_id || null;
+        console.log("Praxis ID:", praxisId);
+        
         console.log("Praxis name:", data?.praxis?.name);
 
         setUserInfo({
           isAdmin,
-          praxisId: data?.praxis_id || null,
+          praxisId,
           praxisName: data?.praxis?.name || undefined,
           fullName,
           email: data?.email || roleData.user?.email || ''

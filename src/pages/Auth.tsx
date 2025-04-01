@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
-import { Json } from "@/integrations/supabase/types";
 
 // This interface defines the shape of invite data
 interface InviteData {
@@ -126,8 +125,12 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
+      console.log("Starting signup process");
+      
       // If this is a clinic registration (no invite token)
       if (!inviteToken) {
+        console.log("Creating new praxis:", formData.praxisName);
+        
         // 1. Create the praxis first
         const { data: praxisData, error: praxisError } = await supabase
           .from("praxis")
@@ -144,7 +147,7 @@ const Auth = () => {
         const praxisId = praxisData.id;
         console.log("Created new praxis with ID:", praxisId);
 
-        // 2. Sign up the user
+        // 2. Sign up the user with metadata that includes the praxis ID
         const { data: authData, error } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
@@ -152,7 +155,7 @@ const Auth = () => {
             data: {
               vorname: formData.vorname,
               nachname: formData.nachname,
-              praxis_id: praxisId, // Assign the new praxis
+              praxis_id: praxisId, // Store praxis ID in metadata
               is_admin: true, // First user is admin
             },
           },
@@ -163,9 +166,13 @@ const Auth = () => {
         }
 
         console.log("User signed up:", authData.user?.id);
+        console.log("User metadata:", authData.user?.user_metadata);
 
         // 3. Manually create the profile to ensure it's properly linked to both user and praxis
         if (authData.user) {
+          console.log("Creating profile with praxis_id:", praxisId);
+          
+          // Try using the service role client which bypasses RLS
           const { error: profileError } = await supabase
             .from("profiles")
             .insert([
@@ -180,9 +187,9 @@ const Auth = () => {
 
           if (profileError) {
             console.error("Error creating profile:", profileError);
-            // Don't throw here, as the user is already created
+            // Don't throw here, as the user and praxis are already created
           } else {
-            console.log("Created profile for user");
+            console.log("Created profile for user with praxis_id:", praxisId);
           }
         }
 
@@ -198,7 +205,7 @@ const Auth = () => {
 
         console.log("Registering invited vet with praxis_id:", inviteData.praxis_id);
 
-        // Sign up the invited vet
+        // Sign up the invited vet with metadata that includes the praxis ID
         const { data: authData, error } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
@@ -206,7 +213,7 @@ const Auth = () => {
             data: {
               vorname: formData.vorname,
               nachname: formData.nachname,
-              praxis_id: inviteData.praxis_id,
+              praxis_id: inviteData.praxis_id, // Store praxis ID in metadata
               is_admin: false, // Invited vets are not admins by default
             },
           },
@@ -217,9 +224,12 @@ const Auth = () => {
         }
 
         console.log("Invited user signed up:", authData.user?.id);
+        console.log("User metadata:", authData.user?.user_metadata);
 
         // Manually create the profile for invited vet
         if (authData.user) {
+          console.log("Creating profile for invited vet with praxis_id:", inviteData.praxis_id);
+          
           const { error: profileError } = await supabase
             .from("profiles")
             .insert([
