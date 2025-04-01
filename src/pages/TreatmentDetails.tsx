@@ -64,11 +64,20 @@ const TreatmentDetails = () => {
         }
 
         if (data) {
-          setTreatment({
-            ...data,
-            soap: data["SOAP"] || null,
+          const treatmentData: TreatmentDetails = {
+            id: data.id,
+            untersuchung_datum: data.untersuchung_datum,
+            diagnose_path: data.diagnose_path,
             medikament_menge: data.medikament_menge?.toString() || null,
-          });
+            medikament_typ: data.medikament_typ,
+            diagnose: data.diagnose,
+            diagnose_fallback: data.diagnose_fallback,
+            soap: data["SOAP"] || null,
+            medikamente: data.medikamente,
+            patient: data.patient
+          };
+          
+          setTreatment(treatmentData);
         }
       } catch (err) {
         console.error("Error in fetchTreatmentDetails:", err);

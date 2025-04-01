@@ -19,8 +19,17 @@ import { Loader2 } from "lucide-react";
 // This interface defines the shape of invite data
 interface InviteData {
   email: string;
-  praxisId: string;
-  praxisName: string;
+  praxis_id: string;
+  praxis_name: string;
+}
+
+interface InviteResponse {
+  token: string;
+  email: string;
+  praxis_id: string;
+  praxis_name: string;
+  expires_at: string;
+  is_used: boolean | null;
 }
 
 const Auth = () => {
@@ -57,7 +66,7 @@ const Auth = () => {
             setActiveTab("register");
             toast({
               title: "Einladung gefunden",
-              description: `Sie wurden eingeladen, ${data.praxisName} beizutreten.`,
+              description: `Sie wurden eingeladen, ${data.praxis_name} beizutreten.`,
             });
           }
         })
@@ -91,8 +100,8 @@ const Auth = () => {
       }));
 
       return {
-        praxisId: inviteData.praxis_id,
-        praxisName: inviteData.praxis_name,
+        praxis_id: inviteData.praxis_id,
+        praxis_name: inviteData.praxis_name,
         email: inviteData.email
       };
       
@@ -163,7 +172,7 @@ const Auth = () => {
             data: {
               vorname: formData.vorname,
               nachname: formData.nachname,
-              praxis_id: inviteData.praxisId,
+              praxis_id: inviteData.praxis_id,
               is_admin: false, // Invited vets are not admins by default
             },
           },
@@ -174,7 +183,9 @@ const Auth = () => {
         }
 
         // Mark the invite as used by calling a stored procedure
-        await supabase.rpc('mark_invite_used', { token_param: inviteToken });
+        if (inviteToken) {
+          await supabase.rpc('mark_invite_used', { token_param: inviteToken });
+        }
 
         toast({
           title: "Registrierung erfolgreich",

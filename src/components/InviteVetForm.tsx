@@ -46,24 +46,26 @@ const InviteVetForm = () => {
       setEmail("");
 
       // Display the registration link that would normally be sent by email
-      const inviteUrl = `${window.location.origin}/auth?token=${data.token}`;
-      
-      toast({
-        title: "Einladungslink (für Testzwecke)",
-        description: (
-          <div className="mt-2 p-2 bg-slate-100 rounded text-xs break-all">
-            <a 
-              href={inviteUrl} 
-              target="_blank" 
-              rel="noreferrer" 
-              className="text-blue-600 hover:underline"
-            >
-              {inviteUrl}
-            </a>
-          </div>
-        ),
-        duration: 10000,
-      });
+      if (typeof data === 'object' && data !== null && 'token' in data) {
+        const inviteUrl = `${window.location.origin}/auth?token=${data.token}`;
+        
+        toast({
+          title: "Einladungslink (für Testzwecke)",
+          description: (
+            <div className="mt-2 p-2 bg-slate-100 rounded text-xs break-all">
+              <a 
+                href={inviteUrl} 
+                target="_blank" 
+                rel="noreferrer" 
+                className="text-blue-600 hover:underline"
+              >
+                {inviteUrl}
+              </a>
+            </div>
+          ),
+          duration: 10000,
+        });
+      }
     } catch (error: any) {
       console.error("Error sending invite:", error);
       toast({

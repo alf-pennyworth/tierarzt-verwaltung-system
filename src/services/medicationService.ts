@@ -1,38 +1,44 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export const searchMedications = async (searchTerm: string, praxisId?: string) => {
-  // Build the query
-  let query = supabase
-    .from("medikamente")
-    .select("id, name, eingangs_nr, masseinheit, medication_type_id")
-    .ilike("name", `%${searchTerm}%`)
-    .order('name');
+  try {
+    // Build the query
+    let query = supabase
+      .from("medikamente")
+      .select("id, name, eingangs_nr, masseinheit, medication_type_id")
+      .ilike("name", `%${searchTerm}%`)
+      .order('name');
 
-  // Filter by praxis_id if provided
-  if (praxisId) {
-    query = query.eq("praxis_id", praxisId);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error("Error searching medications:", error);
-    throw error;
-  }
-
-  // Create a map to store unique medications by name
-  const uniqueMedicationMap = new Map();
-  
-  // Keep only the first occurrence of each medication name
-  data.forEach(med => {
-    if (!uniqueMedicationMap.has(med.name)) {
-      uniqueMedicationMap.set(med.name, med);
+    // Filter by praxis_id if provided
+    if (praxisId) {
+      query = query.eq("praxis_id", praxisId);
     }
-  });
-  
-  // Convert map values back to array
-  return Array.from(uniqueMedicationMap.values());
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Error searching medications:", error);
+      throw error;
+    }
+
+    // Create a map to store unique medications by name
+    const uniqueMedicationMap = new Map();
+    
+    // Keep only the first occurrence of each medication name
+    if (data) {
+      data.forEach(med => {
+        if (!uniqueMedicationMap.has(med.name)) {
+          uniqueMedicationMap.set(med.name, med);
+        }
+      });
+    }
+    
+    // Convert map values back to array
+    return Array.from(uniqueMedicationMap.values());
+  } catch (error) {
+    console.error("Error in searchMedications:", error);
+    return [];
+  }
 };
 
 export const getPackagingDescriptions = async (medicationName: string, praxisId?: string) => {
