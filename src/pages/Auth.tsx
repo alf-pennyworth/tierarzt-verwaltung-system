@@ -23,7 +23,8 @@ interface InviteData {
   praxis_name: string;
 }
 
-interface InviteResponse {
+// Define the expected return type for the verify_invite RPC
+interface VerifyInviteResponse {
   token: string;
   email: string;
   praxis_id: string;
@@ -79,11 +80,11 @@ const Auth = () => {
   const verifyInviteToken = async (token: string): Promise<InviteData | null> => {
     try {
       // Call a stored procedure to verify and get invite data
-      const { data: inviteData, error } = await supabase.rpc('verify_invite', { 
+      const { data: inviteResponse, error } = await supabase.rpc('verify_invite', { 
         token_param: token 
       });
 
-      if (error || !inviteData) {
+      if (error || !inviteResponse) {
         console.error("Error verifying token:", error);
         toast({
           variant: "destructive",
@@ -93,6 +94,9 @@ const Auth = () => {
         return null;
       }
 
+      // Cast the response to our expected type
+      const inviteData = inviteResponse as VerifyInviteResponse;
+      
       // Pre-fill the email field
       setFormData(prev => ({
         ...prev,
@@ -249,7 +253,7 @@ const Auth = () => {
           <CardTitle className="text-2xl">Willkommen</CardTitle>
           <CardDescription>
             {inviteData 
-              ? `Erstellen Sie Ihren Account für ${inviteData.praxisName}` 
+              ? `Erstellen Sie Ihren Account für ${inviteData.praxis_name}` 
               : "Melden Sie sich an oder erstellen Sie ein Konto"}
           </CardDescription>
         </CardHeader>

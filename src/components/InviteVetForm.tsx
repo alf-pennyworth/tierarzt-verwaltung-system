@@ -8,6 +8,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Send } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
+// Define the expected return type for the create_invite RPC
+interface CreateInviteResponse {
+  token: string;
+  email: string;
+  praxis_id: string;
+  praxis_name: string;
+  expires_at: string;
+}
+
 const InviteVetForm = () => {
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,8 +41,7 @@ const InviteVetForm = () => {
       // Generate invite via RPC function
       const { data, error } = await supabase.rpc('create_invite', {
         email_param: email,
-        praxis_id_param: userInfo.praxisId,
-        praxis_name_param: userInfo.praxisName
+        praxis_id_param: userInfo.praxisId
       });
 
       if (error) throw error;
@@ -46,8 +54,9 @@ const InviteVetForm = () => {
       setEmail("");
 
       // Display the registration link that would normally be sent by email
-      if (typeof data === 'object' && data !== null && 'token' in data) {
-        const inviteUrl = `${window.location.origin}/auth?token=${data.token}`;
+      if (data && typeof data === 'object' && 'token' in data) {
+        const inviteData = data as CreateInviteResponse;
+        const inviteUrl = `${window.location.origin}/auth?token=${inviteData.token}`;
         
         toast({
           title: "Einladungslink (für Testzwecke)",
