@@ -19,8 +19,6 @@ export const useAuth = () => {
   useEffect(() => {
     const fetchUserInfo = async (userId: string) => {
       try {
-        console.log("Fetching user profile for ID:", userId);
-        
         const { data, error } = await supabase
           .from('profiles')
           .select('praxis_id, email, vorname, nachname, praxis:praxis_id(name)')
@@ -32,17 +30,10 @@ export const useAuth = () => {
           return;
         }
 
-        console.log("User profile data:", data);
-
         // Check if user is an admin
         const { data: roleData } = await supabase.auth.getUser();
         const isAdmin = roleData.user?.user_metadata?.is_admin === true;
         const fullName = `${data?.vorname || ''} ${data?.nachname || ''}`.trim();
-
-        console.log("User metadata:", roleData.user?.user_metadata);
-        console.log("Is admin:", isAdmin);
-        console.log("Praxis ID:", data?.praxis_id);
-        console.log("Praxis name:", data?.praxis?.name);
 
         setUserInfo({
           isAdmin,
@@ -58,7 +49,6 @@ export const useAuth = () => {
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log("Initial session check:", session?.user?.id);
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserInfo(session.user.id);
@@ -70,7 +60,6 @@ export const useAuth = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log("Auth state changed:", session?.user?.id);
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserInfo(session.user.id);
