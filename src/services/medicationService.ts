@@ -1,13 +1,20 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-export const searchMedications = async (searchTerm: string) => {
-  // Get distinct medication names that match the search term
-  const { data, error } = await supabase
+export const searchMedications = async (searchTerm: string, praxisId?: string) => {
+  // Build the query
+  let query = supabase
     .from("medikamente")
     .select("id, name, eingangs_nr, masseinheit, medication_type_id")
     .ilike("name", `%${searchTerm}%`)
     .order('name');
+
+  // Filter by praxis_id if provided
+  if (praxisId) {
+    query = query.eq("praxis_id", praxisId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("Error searching medications:", error);
@@ -28,11 +35,18 @@ export const searchMedications = async (searchTerm: string) => {
   return Array.from(uniqueMedicationMap.values());
 };
 
-export const getPackagingDescriptions = async (medicationName: string) => {
-  const { data, error } = await supabase
+export const getPackagingDescriptions = async (medicationName: string, praxisId?: string) => {
+  let query = supabase
     .from("medikamente")
     .select("id, packungsbeschreibung")
     .eq("name", medicationName);
+
+  // Filter by praxis_id if provided
+  if (praxisId) {
+    query = query.eq("praxis_id", praxisId);
+  }
+  
+  const { data, error } = await query;
 
   if (error) {
     console.error("Error fetching packaging descriptions:", error);
@@ -46,19 +60,25 @@ export const getPackagingDescriptions = async (medicationName: string) => {
   }));
 };
 
-export const getMedicationTypeByName = async (medicationName: string) => {
+export const getMedicationTypeByName = async (medicationName: string, praxisId?: string) => {
   try {
     console.log("Fetching medication type for:", medicationName);
     
-    // First get the medication with its type information
-    const { data: medicationData, error: medicationError } = await supabase
+    // Build the query
+    let query = supabase
       .from("medikamente")
       .select(`
         id, 
         medication_type_id
       `)
-      .eq("name", medicationName)
-      .maybeSingle();
+      .eq("name", medicationName);
+
+    // Filter by praxis_id if provided
+    if (praxisId) {
+      query = query.eq("praxis_id", praxisId);
+    }
+    
+    const { data: medicationData, error: medicationError } = await query.maybeSingle();
 
     if (medicationError) {
       console.error("Error fetching medication type ID:", medicationError);
@@ -116,7 +136,6 @@ export const getMedicationTypeByName = async (medicationName: string) => {
     }
     
     // If all else fails, return a placeholder type based on the medication name
-    // This is a temporary solution until the database is properly populated
     console.log("No matching type found, using default derived from medication name");
     
     // Extract a type from the medication name (e.g., "Antibiotikum" for "Amoxicillin")
@@ -128,5 +147,32 @@ export const getMedicationTypeByName = async (medicationName: string) => {
   } catch (error) {
     console.error("Error in getMedicationTypeByName:", error);
     return null;
+  }
+};
+
+// Function to create a new medication for a specific praxis
+export const createMedication = async (medicationData: {
+  name: string;
+  masseinheit: string;
+  packungsbeschreibung?: string;
+  medication_type_id?: string;
+  praxis_id: string;
+}) => {
+  try {
+    const { data, error } = await supabase
+      .from("medikamente")
+      .insert([medicationData])
+      .select('id, name')
+      .single();
+
+    if (error) {
+      console.error("Error creating medication:", error);
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error in createMedication:", error);
+    throw error;
   }
 };

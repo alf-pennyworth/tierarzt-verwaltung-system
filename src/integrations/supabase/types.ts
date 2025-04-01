@@ -13,7 +13,8 @@ export type Database = {
         Row: {
           created_at: string
           deleted_at: string | null
-          diagnose_id: string
+          diagnose_fallback: string | null
+          diagnose_id: string | null
           diagnose_path: string[] | null
           diagnose_path_ids: string[] | null
           id: string
@@ -23,13 +24,15 @@ export type Database = {
           medikament_typ: string | null
           patient_id: string
           praxis_id: string
+          SOAP: string | null
           untersuchung_datum: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           deleted_at?: string | null
-          diagnose_id: string
+          diagnose_fallback?: string | null
+          diagnose_id?: string | null
           diagnose_path?: string[] | null
           diagnose_path_ids?: string[] | null
           id?: string
@@ -39,13 +42,15 @@ export type Database = {
           medikament_typ?: string | null
           patient_id: string
           praxis_id: string
+          SOAP?: string | null
           untersuchung_datum: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           deleted_at?: string | null
-          diagnose_id?: string
+          diagnose_fallback?: string | null
+          diagnose_id?: string | null
           diagnose_path?: string[] | null
           diagnose_path_ids?: string[] | null
           id?: string
@@ -55,6 +60,7 @@ export type Database = {
           medikament_typ?: string | null
           patient_id?: string
           praxis_id?: string
+          SOAP?: string | null
           untersuchung_datum?: string
           updated_at?: string
         }
@@ -259,6 +265,7 @@ export type Database = {
           name: string
           packungs_id: string | null
           packungsbeschreibung: string | null
+          praxis_id: string | null
           updated_at: string
           zulassungsnummer: string | null
         }
@@ -272,6 +279,7 @@ export type Database = {
           name: string
           packungs_id?: string | null
           packungsbeschreibung?: string | null
+          praxis_id?: string | null
           updated_at?: string
           zulassungsnummer?: string | null
         }
@@ -285,6 +293,7 @@ export type Database = {
           name?: string
           packungs_id?: string | null
           packungsbeschreibung?: string | null
+          praxis_id?: string | null
           updated_at?: string
           zulassungsnummer?: string | null
         }
@@ -294,6 +303,13 @@ export type Database = {
             columns: ["medication_type_id"]
             isOneToOne: false
             referencedRelation: "medication_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medikamente_praxis_id_fkey"
+            columns: ["praxis_id"]
+            isOneToOne: false
+            referencedRelation: "praxis"
             referencedColumns: ["id"]
           },
         ]
@@ -498,11 +514,34 @@ export type Database = {
       }
     }
     Functions: {
+      create_invite: {
+        Args: {
+          praxis_id_param: string
+          email_param: string
+        }
+        Returns: Json
+      }
       format_number_de: {
         Args: {
           n: number
         }
         Returns: string
+      }
+      get_user_praxis_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      mark_invite_used: {
+        Args: {
+          token_param: string
+        }
+        Returns: undefined
+      }
+      verify_invite: {
+        Args: {
+          token_param: string
+        }
+        Returns: Json
       }
     }
     Enums: {
