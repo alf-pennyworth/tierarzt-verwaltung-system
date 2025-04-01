@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -142,7 +141,7 @@ const Auth = () => {
         }
 
         // 2. Sign up the user
-        const { data: authData, error } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
           options: {
@@ -159,26 +158,6 @@ const Auth = () => {
           throw error;
         }
 
-        // 3. Manually create the profile to ensure it's properly linked to both user and praxis
-        if (authData.user) {
-          const { error: profileError } = await supabase
-            .from("profiles")
-            .insert([
-              { 
-                id: authData.user.id,
-                vorname: formData.vorname,
-                nachname: formData.nachname,
-                email: formData.email,
-                praxis_id: praxisData.id
-              }
-            ]);
-
-          if (profileError) {
-            console.error("Error creating profile:", profileError);
-            // Don't throw here, as the user is already created
-          }
-        }
-
         toast({
           title: "Praxis registriert",
           description: "Bitte überprüfen Sie Ihre E-Mails für die Bestätigung.",
@@ -190,7 +169,7 @@ const Auth = () => {
         }
 
         // Sign up the invited vet
-        const { data: authData, error } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
           options: {
@@ -205,26 +184,6 @@ const Auth = () => {
 
         if (error) {
           throw error;
-        }
-
-        // Manually create the profile for invited vet
-        if (authData.user) {
-          const { error: profileError } = await supabase
-            .from("profiles")
-            .insert([
-              { 
-                id: authData.user.id,
-                vorname: formData.vorname,
-                nachname: formData.nachname,
-                email: formData.email,
-                praxis_id: inviteData.praxis_id
-              }
-            ]);
-
-          if (profileError) {
-            console.error("Error creating profile:", profileError);
-            // Don't throw here, as the user is already created
-          }
         }
 
         // Mark the invite as used by calling a stored procedure
