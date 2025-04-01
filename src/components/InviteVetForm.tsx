@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Send } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { Json } from "@/integrations/supabase/types";
 
 // Define the expected return type for the create_invite RPC
 interface CreateInviteResponse {
@@ -54,8 +55,9 @@ const InviteVetForm = () => {
       setEmail("");
 
       // Display the registration link that would normally be sent by email
-      if (data && typeof data === 'object' && 'token' in data) {
-        const inviteData = data as CreateInviteResponse;
+      if (data && typeof data === 'object') {
+        // Cast data through unknown first to avoid direct conversion error
+        const inviteData = data as unknown as CreateInviteResponse;
         const inviteUrl = `${window.location.origin}/auth?token=${inviteData.token}`;
         
         toast({

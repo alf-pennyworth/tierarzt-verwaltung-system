@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
+import { Json } from "@/integrations/supabase/types";
 
 // This interface defines the shape of invite data
 interface InviteData {
@@ -94,8 +94,8 @@ const Auth = () => {
         return null;
       }
 
-      // Cast the response to our expected type
-      const inviteData = inviteResponse as VerifyInviteResponse;
+      // Cast the response through unknown first to avoid direct conversion error
+      const inviteData = inviteResponse as unknown as VerifyInviteResponse;
       
       // Pre-fill the email field
       setFormData(prev => ({
