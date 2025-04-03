@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -373,7 +372,12 @@ const Transcription = () => {
   const stopRecording = async () => {
     if (!mediaRecorderRef.current) return;
     return new Promise<void>((resolve) => {
-      mediaRecorderRef.current!.onstop = async () => {
+      if (!mediaRecorderRef.current) {
+        resolve();
+        return;
+      }
+      
+      mediaRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(chunksRef.current, { type: "audio/webm" });
         const reader = new FileReader();
         reader.onloadend = async () => {
@@ -384,8 +388,11 @@ const Transcription = () => {
         };
         reader.readAsDataURL(audioBlob);
       };
-      mediaRecorderRef.current!.stop();
-      mediaRecorderRef.current!.stream.getTracks().forEach((track) => track.stop());
+      
+      mediaRecorderRef.current.stop();
+      if (mediaRecorderRef.current.stream) {
+        mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
+      }
       setIsRecording(false);
 
       // Clean up timer and animation
