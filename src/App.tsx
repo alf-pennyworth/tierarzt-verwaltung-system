@@ -19,10 +19,6 @@ import EmployeeDetail from "./pages/EmployeeDetail";
 import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
 import Medications from "./pages/Medications";
-import Appointments from "./pages/Appointments";
-import Billing from "./pages/Billing";
-import Inventory from "./pages/Inventory";
-import Telemedicine from "./pages/Telemedicine";
 
 const queryClient = new QueryClient();
 
@@ -48,78 +44,12 @@ const App = () => (
       <BrowserRouter>
         <Navigation />
         <Routes>
-          <Route path="/auth" element={<Auth />} />
-          
-          {/* Module routes */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Index />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/" element={<PatientList />} />
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
                 <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/patients"
-            element={
-              <ProtectedRoute>
-                <PatientList />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/patient/:id"
-            element={
-              <ProtectedRoute>
-                <PatientDetails />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/treatment/:id"
-            element={
-              <ProtectedRoute>
-                <TreatmentDetails />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/appointments"
-            element={
-              <ProtectedRoute>
-                <Appointments />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/billing"
-            element={
-              <ProtectedRoute>
-                <Billing />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/inventory"
-            element={
-              <ProtectedRoute>
-                <Inventory />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/medications"
-            element={
-              <ProtectedRoute>
-                <Medications />
               </ProtectedRoute>
             }
           />
@@ -140,22 +70,6 @@ const App = () => (
             }
           />
           <Route
-            path="/telemedicine"
-            element={
-              <ProtectedRoute>
-                <Telemedicine />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/transcription"
-            element={
-              <ProtectedRoute>
-                <Transcription />
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/reports"
             element={
               <ProtectedRoute>
@@ -171,7 +85,39 @@ const App = () => (
               </ProtectedRoute>
             }
           />
-          
+          <Route
+            path="/medications"
+            element={
+              <ProtectedRoute>
+                <Medications />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/patient/:id"
+            element={
+              <ProtectedRoute>
+                <PatientDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/treatment/:id"
+            element={
+              <ProtectedRoute>
+                <TreatmentDetails />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/transcription"
+            element={
+              <ProtectedRoute>
+                <Transcription />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/auth" element={<Auth />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
