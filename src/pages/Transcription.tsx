@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -83,8 +84,15 @@ const Transcription = () => {
   const [transcription, setTranscription] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [patientData, setPatientData] = useState<PatientData | null>(null);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioLevel, setAudioLevel] = useState(0);
+  
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const timerIntervalRef = useRef<number | null>(null);
+  const animationFrameIdRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  
   const { toast } = useToast();
   const location = useLocation();
   const state = location.state as LocationState;
@@ -322,9 +330,9 @@ const Transcription = () => {
         description: "Sprechen Sie jetzt...",
       });
 
-      const audioContextRef = new AudioContext();
-      const source = audioContextRef.createMediaStreamSource(stream);
-      const analyserRef = audioContextRef.createAnalyser();
+      audioContextRef.current = new AudioContext();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      const analyserRef = audioContextRef.current.createAnalyser();
       analyserRef.fftSize = 256;
       const bufferLength = analyserRef.frequencyBinCount;
       const dataArrayRef = new Uint8Array(bufferLength);
@@ -346,7 +354,7 @@ const Transcription = () => {
       animate();
 
       setRecordingTime(0);
-      timerIntervalRef.current = setInterval(() => {
+      timerIntervalRef.current = window.setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
     } catch (error) {
