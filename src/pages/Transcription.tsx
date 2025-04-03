@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 
+// Custom auto-resizing textarea component defined inline.
 const AutoResizingTextarea = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -89,13 +90,23 @@ const Transcription = () => {
   const location = useLocation();
   const state = location.state as LocationState;
   const navigate = useNavigate();
-  const { user, userInfo } = useAuth();
+  const { user, userInfo } = useAuth(); // Retrieve current user info including tenant (praxis_id)
 
   const [medicationOptions, setMedicationOptions] = useState<Medication[]>([]);
   const [packagingOptions, setPackagingOptions] = useState<PackagingOption[]>([]);
   const [isLoadingMedications, setIsLoadingMedications] = useState(false);
   const [isLoadingPackaging, setIsLoadingPackaging] = useState(false);
+  // When true, the medication dropdown (select control) is rendered.
   const [showMedicationDropdown, setShowMedicationDropdown] = useState(false);
+
+  // States for timer and audio visualization
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const dataArrayRef = useRef<Uint8Array | null>(null);
+  const animationFrameIdRef = useRef<number | null>(null);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [formData, setFormData] = useState({
     patientName: "",
@@ -151,6 +162,7 @@ const Transcription = () => {
     fetchPatientData();
   }, [state?.patientId, toast]);
 
+  // When the "medikament" field has a value (e.g. from transcription), render the dropdown.
   useEffect(() => {
     if (formData.medikament.trim().length >= 2) {
       setShowMedicationDropdown(true);
@@ -162,6 +174,7 @@ const Transcription = () => {
       if (formData.medikament.trim().length < 2 || !showMedicationDropdown) return;
       try {
         setIsLoadingMedications(true);
+        // Pass the current tenant's (praxis) id to filter medications.
         const medications = await searchMedications(formData.medikament, userInfo?.praxisId);
         console.log("Found medications:", medications);
         setMedicationOptions(medications);
@@ -201,19 +214,47 @@ const Transcription = () => {
     }
   };
 
+  // Gemini LLM function remains unchanged.
   const callGeminiLLM = async (transcribedText: string) => {
+    const prompt = `
+Extract the following details from the text:
+- medikament: the medication name mentioned.
+- medikamentTyp: based on the medication name, determine its type (for example, if the medikament is "amoxicillin", output "Antibiotikum").
+- diagnose: extract the diagnosis name. First, check if any part of the text matches a diagnosis from the "Standart Diagnoseschlüssel" by Prof. Staufenbiel; if not, then check for a match in the ICD system (but return the diagnosis name, not the code); if still nothing is found, assume a plausible diagnosis.
+- medikamentMenge: extract the medication amount with its unit (for example, "500 mg" or "2 ml").
+- soapNotes: generate a concise SOAP note based on the text. The note should briefly cover Subjective, Objective, Assessment, and Plan. The SOAP notes need to be in German.
+
+Return the result strictly as a JSON object with exactly these keys. For example:
+{
+  "medikament": "Amoxicillin",
+  "medikamentTyp": "Antibiotikum",
+  "diagnose": "Atemwegsinfektion",
+  "medikamentMenge": "500 mg",
+  "soapNotes": "Subjective: ... Objective: ... Assessment: ... Plan: ..."
+}
+
+Text: ${transcribedText}
+    `;
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`;
     try {
-      console.log("Calling Gemini LLM via Edge Function");
-      const { data, error } = await supabase.functions.invoke("gemini", {
-        body: { text: transcribedText },
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }],
+            },
+          ],
+        }),
       });
-      
-      if (error) {
-        console.error("Error calling Gemini Edge Function:", error);
-        throw error;
+      if (!response.ok) {
+        throw new Error(`Gemini API error: ${response.statusText}`);
       }
-      
-      console.log("Raw Gemini response from Edge Function:", data);
+      const data = await response.json();
+      console.log("Raw Gemini response:", data);
       return data;
     } catch (error) {
       console.error("Error calling Gemini LLM:", error);
@@ -305,6 +346,7 @@ const Transcription = () => {
     }
   };
 
+  // Start recording: set up MediaRecorder, audio visualization, and timer.
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -322,29 +364,31 @@ const Transcription = () => {
         description: "Sprechen Sie jetzt...",
       });
 
-      const audioContextRef = new AudioContext();
-      const source = audioContextRef.createMediaStreamSource(stream);
-      const analyserRef = audioContextRef.createAnalyser();
-      analyserRef.fftSize = 256;
-      const bufferLength = analyserRef.frequencyBinCount;
-      const dataArrayRef = new Uint8Array(bufferLength);
-      source.connect(analyserRef);
+      // Set up audio visualization using Web Audio API.
+      audioContextRef.current = new AudioContext();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 256;
+      const bufferLength = analyserRef.current.frequencyBinCount;
+      dataArrayRef.current = new Uint8Array(bufferLength);
+      source.connect(analyserRef.current);
 
       const animate = () => {
-        if (analyserRef && dataArrayRef) {
-          analyserRef.getByteTimeDomainData(dataArrayRef);
+        if (analyserRef.current && dataArrayRef.current) {
+          analyserRef.current.getByteTimeDomainData(dataArrayRef.current);
           let sum = 0;
-          for (let i = 0; i < dataArrayRef.length; i++) {
-            const value = dataArrayRef[i] - 128;
+          for (let i = 0; i < dataArrayRef.current.length; i++) {
+            const value = dataArrayRef.current[i] - 128;
             sum += value * value;
           }
-          const rms = Math.sqrt(sum / dataArrayRef.length);
+          const rms = Math.sqrt(sum / dataArrayRef.current.length);
           setAudioLevel(rms);
         }
         animationFrameIdRef.current = requestAnimationFrame(animate);
       };
       animate();
 
+      // Start timer.
       setRecordingTime(0);
       timerIntervalRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
@@ -359,6 +403,7 @@ const Transcription = () => {
     }
   };
 
+  // Stop recording: clean up MediaRecorder, audio context, visualization, and timer.
   const stopRecording = async () => {
     if (!mediaRecorderRef.current) return;
     return new Promise<void>((resolve) => {
@@ -377,6 +422,7 @@ const Transcription = () => {
       mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
       setIsRecording(false);
 
+      // Clean up audio visualization and timer.
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       if (animationFrameIdRef.current) cancelAnimationFrame(animationFrameIdRef.current);
       if (audioContextRef.current) {
@@ -400,10 +446,11 @@ const Transcription = () => {
       if (data.text) {
         console.log("Transcription text:", data.text);
         setTranscription(data.text);
+        // Call Gemini LLM to extract structured data including SOAP notes.
         const geminiResponse = await callGeminiLLM(data.text);
         console.log("Parsed Gemini response object:", geminiResponse);
-        if (geminiResponse && geminiResponse.data && geminiResponse.data.candidates && geminiResponse.data.candidates[0]?.content?.parts?.[0]?.text) {
-          let candidateText = geminiResponse.data.candidates[0].content.parts[0].text;
+        if (geminiResponse && geminiResponse.candidates && geminiResponse.candidates[0]?.content?.parts?.[0]?.text) {
+          let candidateText = geminiResponse.candidates[0].content.parts[0].text;
           console.log("Raw Gemini generated text:", candidateText);
           candidateText = candidateText.replace(/```json/g, "").replace(/```/g, "").trim();
           console.log("Cleaned Gemini generated text:", candidateText);
@@ -495,6 +542,7 @@ const Transcription = () => {
       });
     }
     fetchPackagingOptions(medicationName);
+    // Hide the dropdown after selection.
     setShowMedicationDropdown(false);
   };
 
@@ -522,7 +570,9 @@ const Transcription = () => {
       console.log("Searching for diagnosis:", formData.diagnose);
       const allDiagnoses = await getAllDiagnoses();
       console.log("All diagnoses:", allDiagnoses);
+      // Try to find a matching diagnosis from the table.
       const diagnoseData = await findDiagnoseByName(formData.diagnose);
+      // If found, use the id; if not, use the diagnosis text as a fallback.
       const diagnose_id = diagnoseData ? diagnoseData.id : null;
       const diagnose_fallback = diagnoseData ? null : formData.diagnose;
       const amountMatch = formData.medikamentMenge.match(/(\d+(?:[.,]\d+)?)/);
@@ -532,7 +582,7 @@ const Transcription = () => {
         .insert({
           diagnose_id,
           diagnose_fallback,
-          SOAP: formData.soapNotes,
+          SOAP: formData.soapNotes, // Save SOAP notes.
           medikament_id: formData.medikamentId || null,
           medikament_typ: formData.medikamentTyp,
           medikament_menge: amount,
@@ -610,6 +660,7 @@ const Transcription = () => {
         </CardHeader>
         <CardContent>
           <form className="space-y-4">
+            {/* First grid: most fields except SOAP Notes */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="patientName">Patientenname</Label>
@@ -703,6 +754,7 @@ const Transcription = () => {
                 <Input id="untersuchungsDatum" type="date" value={formData.untersuchungsDatum} onChange={handleInputChange} />
               </div>
             </div>
+            {/* SOAP Notes full-width auto-resizing textarea */}
             <div className="space-y-2">
               <Label htmlFor="soapNotes">SOAP Notes</Label>
               <AutoResizingTextarea
