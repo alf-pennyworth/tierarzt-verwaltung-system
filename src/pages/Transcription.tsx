@@ -10,13 +10,14 @@ import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { getAllDiagnoses, findDiagnoseByName } from "@/services/diagnoseService";
 import { searchMedications, getPackagingDescriptions, getMedicationTypeByName } from "@/services/medicationService";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/hooks/useAuth";
 
 // Custom auto-resizing textarea component defined inline.
 const AutoResizingTextarea = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => {
@@ -89,6 +90,7 @@ const Transcription = () => {
   const location = useLocation();
   const state = location.state as LocationState;
   const navigate = useNavigate();
+  const { user, userInfo } = useAuth(); // Retrieve current user info including tenant (praxis_id)
 
   const [medicationOptions, setMedicationOptions] = useState<Medication[]>([]);
   const [packagingOptions, setPackagingOptions] = useState<PackagingOption[]>([]);
@@ -160,7 +162,7 @@ const Transcription = () => {
     fetchPatientData();
   }, [state?.patientId, toast]);
 
-  // When the "medikament" field has a value (for example, from transcription), render the dropdown.
+  // When the "medikament" field has a value (e.g. from transcription), render the dropdown.
   useEffect(() => {
     if (formData.medikament.trim().length >= 2) {
       setShowMedicationDropdown(true);
@@ -172,7 +174,8 @@ const Transcription = () => {
       if (formData.medikament.trim().length < 2 || !showMedicationDropdown) return;
       try {
         setIsLoadingMedications(true);
-        const medications = await searchMedications(formData.medikament);
+        // Pass the current tenant's (praxis) id to filter medications.
+        const medications = await searchMedications(formData.medikament, userInfo?.praxisId);
         console.log("Found medications:", medications);
         setMedicationOptions(medications);
       } catch (error) {
@@ -187,7 +190,7 @@ const Transcription = () => {
       }
     };
     searchForMedications();
-  }, [formData.medikament, showMedicationDropdown, toast]);
+  }, [formData.medikament, showMedicationDropdown, toast, userInfo]);
 
   const fetchPackagingOptions = async (medicationName: string) => {
     if (!medicationName) {
@@ -211,7 +214,7 @@ const Transcription = () => {
     }
   };
 
-  // Gemini LLM function remains unchanged
+  // Gemini LLM function remains unchanged.
   const callGeminiLLM = async (transcribedText: string) => {
     const prompt = `
 Extract the following details from the text:
@@ -343,7 +346,7 @@ Text: ${transcribedText}
     }
   };
 
-  // Start recording: set up MediaRecorder, audio visualization, and timer
+  // Start recording: set up MediaRecorder, audio visualization, and timer.
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -361,7 +364,7 @@ Text: ${transcribedText}
         description: "Sprechen Sie jetzt...",
       });
 
-      // Set up audio visualization using Web Audio API
+      // Set up audio visualization using Web Audio API.
       audioContextRef.current = new AudioContext();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       analyserRef.current = audioContextRef.current.createAnalyser();
@@ -385,7 +388,7 @@ Text: ${transcribedText}
       };
       animate();
 
-      // Start timer
+      // Start timer.
       setRecordingTime(0);
       timerIntervalRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
@@ -400,7 +403,7 @@ Text: ${transcribedText}
     }
   };
 
-  // Stop recording: clean up MediaRecorder, audio context, visualization, and timer
+  // Stop recording: clean up MediaRecorder, audio context, visualization, and timer.
   const stopRecording = async () => {
     if (!mediaRecorderRef.current) return;
     return new Promise<void>((resolve) => {
@@ -419,7 +422,7 @@ Text: ${transcribedText}
       mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
       setIsRecording(false);
 
-      // Clean up audio visualization and timer
+      // Clean up audio visualization and timer.
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       if (animationFrameIdRef.current) cancelAnimationFrame(animationFrameIdRef.current);
       if (audioContextRef.current) {
@@ -443,7 +446,7 @@ Text: ${transcribedText}
       if (data.text) {
         console.log("Transcription text:", data.text);
         setTranscription(data.text);
-        // Call Gemini LLM to extract structured data including soapNotes
+        // Call Gemini LLM to extract structured data including SOAP notes.
         const geminiResponse = await callGeminiLLM(data.text);
         console.log("Parsed Gemini response object:", geminiResponse);
         if (geminiResponse && geminiResponse.candidates && geminiResponse.candidates[0]?.content?.parts?.[0]?.text) {
@@ -567,7 +570,7 @@ Text: ${transcribedText}
       console.log("Searching for diagnosis:", formData.diagnose);
       const allDiagnoses = await getAllDiagnoses();
       console.log("All diagnoses:", allDiagnoses);
-      // Try to find a matching diagnosis from the table
+      // Try to find a matching diagnosis from the table.
       const diagnoseData = await findDiagnoseByName(formData.diagnose);
       // If found, use the id; if not, use the diagnosis text as a fallback.
       const diagnose_id = diagnoseData ? diagnoseData.id : null;
@@ -579,7 +582,7 @@ Text: ${transcribedText}
         .insert({
           diagnose_id,
           diagnose_fallback,
-          SOAP: formData.soapNotes, // Save SOAP notes to the soap column.
+          SOAP: formData.soapNotes, // Save SOAP notes.
           medikament_id: formData.medikamentId || null,
           medikament_typ: formData.medikamentTyp,
           medikament_menge: amount,
@@ -742,7 +745,6 @@ Text: ${transcribedText}
                   </SelectContent>
                 </Select>
               </div>
-              {/* Two fields in one row */}
               <div className="space-y-2">
                 <Label htmlFor="medikamentMenge">Medikamentenmenge</Label>
                 <Input id="medikamentMenge" value={formData.medikamentMenge} onChange={handleInputChange} />
