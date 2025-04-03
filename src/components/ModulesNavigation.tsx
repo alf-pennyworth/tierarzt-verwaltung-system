@@ -1,6 +1,6 @@
 
 import { useNavigate } from "react-router-dom";
-import { LayoutDashboard, Apps, Users, UserCircle } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, Users, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -17,7 +17,7 @@ const ModulesNavigation = () => {
     {
       name: isMobile ? "Module" : "Module",
       href: "/",
-      icon: Apps,
+      icon: LayoutGrid,
     },
     {
       name: isMobile ? "Mitarbeiter" : "Mitarbeiterverzeichnis",
