@@ -36,68 +36,47 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Helper to determine whether to show navigation
+const WithNavigation = ({ 
+  children, 
+  showNav 
+}: { 
+  children: React.ReactNode;
+  showNav: boolean;
+}) => {
+  return (
+    <>
+      {showNav && <Navigation />}
+      {children}
+    </>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Navigation />
         <Routes>
-          <Route path="/" element={<PatientList />} />
           <Route
-            path="/dashboard"
+            path="/"
             element={
               <ProtectedRoute>
-                <Dashboard />
+                <WithNavigation showNav={false}>
+                  <Index />
+                </WithNavigation>
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/employees"
-            element={
-              <ProtectedRoute>
-                <Employees />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/employees/:id"
-            element={
-              <ProtectedRoute>
-                <EmployeeDetail />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/reports"
-            element={
-              <ProtectedRoute>
-                <Reports />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/medications"
-            element={
-              <ProtectedRoute>
-                <Medications />
-              </ProtectedRoute>
-            }
-          />
+          {/* Patient management routes with existing navigation */}
           <Route
             path="/patient/:id"
             element={
               <ProtectedRoute>
-                <PatientDetails />
+                <WithNavigation showNav={true}>
+                  <PatientDetails />
+                </WithNavigation>
               </ProtectedRoute>
             }
           />
@@ -105,7 +84,9 @@ const App = () => (
             path="/treatment/:id"
             element={
               <ProtectedRoute>
-                <TreatmentDetails />
+                <WithNavigation showNav={true}>
+                  <TreatmentDetails />
+                </WithNavigation>
               </ProtectedRoute>
             }
           />
@@ -113,7 +94,69 @@ const App = () => (
             path="/transcription"
             element={
               <ProtectedRoute>
-                <Transcription />
+                <WithNavigation showNav={true}>
+                  <Transcription />
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Dashboard />
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employees"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Employees />
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employees/:id"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <EmployeeDetail />
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Reports />
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Profile />
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/medications"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Medications />
+                </WithNavigation>
               </ProtectedRoute>
             }
           />
