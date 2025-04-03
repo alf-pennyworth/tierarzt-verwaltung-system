@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +13,8 @@ interface Medication {
   id: string;
   name: string;
   masseinheit: string;
+  zulassungsnummer?: string;
+  packungs_id?: string;
   eingangs_nr?: string;
   packungsbeschreibung?: string;
   medication_type_id?: string;
@@ -33,6 +34,9 @@ const Medications = () => {
   const [newMedication, setNewMedication] = useState({
     name: '',
     masseinheit: '',
+    zulassungsnummer: '',
+    packungs_id: '',
+    eingangs_nr: '',
     packungsbeschreibung: '',
     medication_type_id: '',
   });
@@ -99,6 +103,7 @@ const Medications = () => {
   const handleAddMedication = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Ensure required fields are present
     if (!newMedication.name || !newMedication.masseinheit) {
       toast({
         title: 'Eingabefehler',
@@ -126,6 +131,9 @@ const Medications = () => {
           {
             name: newMedication.name,
             masseinheit: newMedication.masseinheit,
+            zulassungsnummer: newMedication.zulassungsnummer || null,
+            packungs_id: newMedication.packungs_id || null,
+            eingangs_nr: newMedication.eingangs_nr || null,
             packungsbeschreibung: newMedication.packungsbeschreibung || null,
             medication_type_id: newMedication.medication_type_id || null,
             praxis_id: userInfo.praxisId,
@@ -150,6 +158,9 @@ const Medications = () => {
         setNewMedication({
           name: '',
           masseinheit: '',
+          zulassungsnummer: '',
+          packungs_id: '',
+          eingangs_nr: '',
           packungsbeschreibung: '',
           medication_type_id: '',
         });
@@ -200,32 +211,69 @@ const Medications = () => {
           <CardContent>
             <form onSubmit={handleAddMedication} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Name */}
                 <div className="space-y-2">
                   <Label htmlFor="name">Name *</Label>
                   <Input
                     id="name"
                     value={newMedication.name}
-                    onChange={(e) => setNewMedication({...newMedication, name: e.target.value})}
+                    onChange={(e) => setNewMedication({ ...newMedication, name: e.target.value })}
                     required
                   />
                 </div>
-                
+                {/* Maßeinheit */}
                 <div className="space-y-2">
                   <Label htmlFor="masseinheit">Maßeinheit *</Label>
                   <Input
                     id="masseinheit"
                     value={newMedication.masseinheit}
-                    onChange={(e) => setNewMedication({...newMedication, masseinheit: e.target.value})}
+                    onChange={(e) => setNewMedication({ ...newMedication, masseinheit: e.target.value })}
                     placeholder="z.B. mg, ml, Stück"
                     required
                   />
                 </div>
-                
+                {/* Zulassungsnummer */}
+                <div className="space-y-2">
+                  <Label htmlFor="zulassungsnummer">Zulassungsnummer</Label>
+                  <Input
+                    id="zulassungsnummer"
+                    value={newMedication.zulassungsnummer}
+                    onChange={(e) => setNewMedication({ ...newMedication, zulassungsnummer: e.target.value })}
+                  />
+                </div>
+                {/* Packungs-ID */}
+                <div className="space-y-2">
+                  <Label htmlFor="packungs_id">Packungs-ID</Label>
+                  <Input
+                    id="packungs_id"
+                    value={newMedication.packungs_id}
+                    onChange={(e) => setNewMedication({ ...newMedication, packungs_id: e.target.value })}
+                  />
+                </div>
+                {/* Eingangs-Nr. */}
+                <div className="space-y-2">
+                  <Label htmlFor="eingangs_nr">Eingangs-Nr.</Label>
+                  <Input
+                    id="eingangs_nr"
+                    value={newMedication.eingangs_nr}
+                    onChange={(e) => setNewMedication({ ...newMedication, eingangs_nr: e.target.value })}
+                  />
+                </div>
+                {/* Packungsbeschreibung */}
+                <div className="space-y-2">
+                  <Label htmlFor="packungsbeschreibung">Packungsbeschreibung</Label>
+                  <Input
+                    id="packungsbeschreibung"
+                    value={newMedication.packungsbeschreibung}
+                    onChange={(e) => setNewMedication({ ...newMedication, packungsbeschreibung: e.target.value })}
+                  />
+                </div>
+                {/* Medikamententyp */}
                 <div className="space-y-2">
                   <Label htmlFor="medication_type">Medikamententyp</Label>
                   <Select
                     value={newMedication.medication_type_id}
-                    onValueChange={(value) => setNewMedication({...newMedication, medication_type_id: value})}
+                    onValueChange={(value) => setNewMedication({ ...newMedication, medication_type_id: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Typ auswählen" />
@@ -238,15 +286,6 @@ const Medications = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="packungsbeschreibung">Packungsbeschreibung</Label>
-                  <Input
-                    id="packungsbeschreibung"
-                    value={newMedication.packungsbeschreibung}
-                    onChange={(e) => setNewMedication({...newMedication, packungsbeschreibung: e.target.value})}
-                  />
                 </div>
               </div>
               
@@ -286,14 +325,24 @@ const Medications = () => {
                   <p>
                     <span className="font-medium">Maßeinheit:</span> {medication.masseinheit}
                   </p>
-                  {medication.packungsbeschreibung && (
+                  {medication.zulassungsnummer && (
                     <p>
-                      <span className="font-medium">Packung:</span> {medication.packungsbeschreibung}
+                      <span className="font-medium">Zulassungsnummer:</span> {medication.zulassungsnummer}
+                    </p>
+                  )}
+                  {medication.packungs_id && (
+                    <p>
+                      <span className="font-medium">Packungs-ID:</span> {medication.packungs_id}
                     </p>
                   )}
                   {medication.eingangs_nr && (
                     <p>
                       <span className="font-medium">Eingangs-Nr.:</span> {medication.eingangs_nr}
+                    </p>
+                  )}
+                  {medication.packungsbeschreibung && (
+                    <p>
+                      <span className="font-medium">Packung:</span> {medication.packungsbeschreibung}
                     </p>
                   )}
                 </div>
