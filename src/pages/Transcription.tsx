@@ -330,6 +330,7 @@ const Transcription = () => {
         description: "Sprechen Sie jetzt...",
       });
 
+      // Initialize audio analysis for visualization
       audioContextRef.current = new AudioContext();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       const analyserRef = audioContextRef.current.createAnalyser();
@@ -338,6 +339,7 @@ const Transcription = () => {
       const dataArrayRef = new Uint8Array(bufferLength);
       source.connect(analyserRef);
 
+      // Animation loop for audio visualization
       const animate = () => {
         if (analyserRef && dataArrayRef) {
           analyserRef.getByteTimeDomainData(dataArrayRef);
@@ -353,6 +355,7 @@ const Transcription = () => {
       };
       animate();
 
+      // Start timer
       setRecordingTime(0);
       timerIntervalRef.current = window.setInterval(() => {
         setRecordingTime((prev) => prev + 1);
@@ -370,7 +373,7 @@ const Transcription = () => {
   const stopRecording = async () => {
     if (!mediaRecorderRef.current) return;
     return new Promise<void>((resolve) => {
-      mediaRecorderRef.current.onstop = async () => {
+      mediaRecorderRef.current!.onstop = async () => {
         const audioBlob = new Blob(chunksRef.current, { type: "audio/webm" });
         const reader = new FileReader();
         reader.onloadend = async () => {
@@ -381,12 +384,19 @@ const Transcription = () => {
         };
         reader.readAsDataURL(audioBlob);
       };
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
+      mediaRecorderRef.current!.stop();
+      mediaRecorderRef.current!.stream.getTracks().forEach((track) => track.stop());
       setIsRecording(false);
 
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-      if (animationFrameIdRef.current) cancelAnimationFrame(animationFrameIdRef.current);
+      // Clean up timer and animation
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+        animationFrameIdRef.current = null;
+      }
       if (audioContextRef.current) {
         audioContextRef.current.close();
         audioContextRef.current = null;
