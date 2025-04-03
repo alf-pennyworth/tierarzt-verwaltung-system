@@ -10,6 +10,7 @@ import {
   UserCircle,
   LayoutDashboard,
   Pill,
+  Apps,
 } from "lucide-react";
 
 const Navigation = () => {
@@ -21,6 +22,11 @@ const Navigation = () => {
       name: isMobile ? "Patienten" : "Patientenliste",
       href: "/",
       icon: ClipboardList,
+    },
+    {
+      name: isMobile ? "Module" : "Module",
+      href: "/",
+      icon: Apps,
     },
     {
       name: isMobile ? "Mitarbeiter" : "Mitarbeiterverzeichnis",

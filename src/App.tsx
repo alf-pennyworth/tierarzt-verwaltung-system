@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import Navigation from "./components/Navigation";
+import ModulesNavigation from "./components/ModulesNavigation";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -36,17 +36,19 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Helper to determine whether to show navigation
 const WithNavigation = ({ 
   children, 
-  showNav 
+  showNav,
+  isModulesPage = false
 }: { 
   children: React.ReactNode;
   showNav: boolean;
+  isModulesPage?: boolean;
 }) => {
   return (
     <>
-      {showNav && <Navigation />}
+      {showNav && !isModulesPage && <Navigation />}
+      {showNav && isModulesPage && <ModulesNavigation />}
       {children}
     </>
   );
@@ -63,13 +65,12 @@ const App = () => (
             path="/"
             element={
               <ProtectedRoute>
-                <WithNavigation showNav={false}>
+                <WithNavigation showNav={true} isModulesPage={true}>
                   <Index />
                 </WithNavigation>
               </ProtectedRoute>
             }
           />
-          {/* Patient management routes with existing navigation */}
           <Route
             path="/patient/:id"
             element={
