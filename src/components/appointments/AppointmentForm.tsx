@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { format, addMinutes } from "date-fns";
 import { useForm } from "react-hook-form";
@@ -69,6 +68,7 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [userDetails, setUserDetails] = useState<any>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const { userInfo, user } = useAuth();
   const { toast } = useToast();
 
@@ -83,7 +83,6 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
   });
 
   useEffect(() => {
-    // Fetch and display user details for debugging
     const fetchUserDetails = async () => {
       if (!user) return;
       
@@ -157,14 +156,13 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
 
     setIsLoading(true);
     setErrorDetails(null);
+    setSuccessMessage(null);
     
     try {
-      // Combine date and time
       const [hours, minutes] = values.time.split(':').map(Number);
       const startTime = new Date(values.date);
       startTime.setHours(hours, minutes, 0, 0);
       
-      // Calculate end time based on duration
       const durationMinutes = parseInt(values.duration, 10);
       const endTime = addMinutes(startTime, durationMinutes);
 
@@ -180,7 +178,6 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
 
       console.log("Creating appointment with data:", newAppointment);
       
-      // Use type assertion to tell TypeScript that this is a valid table
       const { data, error } = await supabase
         .from("appointments" as any)
         .insert(newAppointment)
@@ -210,12 +207,12 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
         throw error;
       }
 
+      setSuccessMessage(`Termin für ${format(startTime, "dd.MM.yyyy HH:mm")} wurde erfolgreich erstellt.`);
       toast({
         title: "Termin erstellt",
         description: `Termin für ${format(startTime, "dd.MM.yyyy HH:mm")} wurde erstellt.`,
       });
 
-      // First convert to unknown, then to Appointment to satisfy TypeScript
       onAppointmentCreated((data as unknown) as Appointment);
       form.reset({
         title: "",
@@ -238,6 +235,12 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
 
   return (
     <>
+      {successMessage && (
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-800 rounded-md">
+          {successMessage}
+        </div>
+      )}
+      
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <FormField
