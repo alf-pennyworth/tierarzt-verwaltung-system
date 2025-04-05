@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { format, addMinutes } from "date-fns";
 import { useForm } from "react-hook-form";
@@ -31,6 +30,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Patient {
   id: string;
@@ -65,6 +65,8 @@ interface AppointmentFormProps {
 const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
   const { userInfo, user } = useAuth();
   const { toast } = useToast();
 
@@ -116,6 +118,8 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
     }
 
     setIsLoading(true);
+    setErrorDetails(null);
+    
     try {
       // Combine date and time
       const [hours, minutes] = values.time.split(':').map(Number);
@@ -136,6 +140,8 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
         created_by: user.id,
       };
 
+      console.log("Creating appointment with data:", newAppointment);
+      
       // Use type assertion to tell TypeScript that this is a valid table
       const { data, error } = await supabase
         .from("appointments" as any)
@@ -156,7 +162,11 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
         `)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error details:", error);
+        setErrorDetails(JSON.stringify(error, null, 2));
+        throw error;
+      }
 
       toast({
         title: "Termin erstellt",
@@ -171,8 +181,9 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
         duration: "30",
         description: "",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating appointment:", error);
+      setShowErrorDialog(true);
       toast({
         variant: "destructive",
         title: "Fehler",
@@ -184,160 +195,179 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="patientId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Patient</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                defaultValue={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Patient auswählen" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {patients.map((patient) => (
-                    <SelectItem key={patient.id} value={patient.id}>
-                      {patient.name} {patient.rasse ? `(${patient.rasse})` : `(${patient.spezies})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="title"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Titel</FormLabel>
-              <FormControl>
-                <Input placeholder="z.B. Routineuntersuchung" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <FormField
             control={form.control}
-            name="date"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Datum</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
-                        )}
-                      >
-                        {field.value ? (
-                          format(field.value, "dd.MM.yyyy")
-                        ) : (
-                          <span>Datum auswählen</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      disabled={(date) => date < new Date()}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="time"
+            name="patientId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Uhrzeit</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input className="pl-10" placeholder="HH:MM" {...field} />
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="duration"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Dauer</FormLabel>
+                <FormLabel>Patient</FormLabel>
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value}
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Dauer auswählen" />
+                      <SelectValue placeholder="Patient auswählen" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="15">15 Minuten</SelectItem>
-                    <SelectItem value="30">30 Minuten</SelectItem>
-                    <SelectItem value="45">45 Minuten</SelectItem>
-                    <SelectItem value="60">60 Minuten</SelectItem>
+                    {patients.map((patient) => (
+                      <SelectItem key={patient.id} value={patient.id}>
+                        {patient.name} {patient.rasse ? `(${patient.rasse})` : `(${patient.spezies})`}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
-        </div>
 
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Beschreibung</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Weitere Informationen zum Termin"
-                  className="resize-none"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+          <FormField
+            control={form.control}
+            name="title"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Titel</FormLabel>
+                <FormControl>
+                  <Input placeholder="z.B. Routineuntersuchung" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        <Button type="submit" disabled={isLoading}>
-          {isLoading ? "Wird gespeichert..." : "Termin erstellen"}
-        </Button>
-      </form>
-    </Form>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Datum</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full pl-3 text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? (
+                            format(field.value, "dd.MM.yyyy")
+                          ) : (
+                            <span>Datum auswählen</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        disabled={(date) => date < new Date()}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="time"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Uhrzeit</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input className="pl-10" placeholder="HH:MM" {...field} />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="duration"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Dauer</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Dauer auswählen" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="15">15 Minuten</SelectItem>
+                      <SelectItem value="30">30 Minuten</SelectItem>
+                      <SelectItem value="45">45 Minuten</SelectItem>
+                      <SelectItem value="60">60 Minuten</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Beschreibung</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Weitere Informationen zum Termin"
+                    className="resize-none"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <Button type="submit" disabled={isLoading} className="w-full">
+            {isLoading ? "Wird gespeichert..." : "Termin erstellen"}
+          </Button>
+        </form>
+      </Form>
+
+      <Dialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fehlerdetails</DialogTitle>
+          </DialogHeader>
+          <div className="bg-secondary p-4 rounded-md max-h-96 overflow-auto">
+            <pre className="whitespace-pre-wrap text-xs">{errorDetails}</pre>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Diese Informationen können für die Fehlerbehebung hilfreich sein. Möglicherweise gibt es ein Problem mit der Datenbank-Konfiguration oder den Berechtigungen.
+          </p>
+          <Button onClick={() => setShowErrorDialog(false)} className="w-full">
+            Schließen
+          </Button>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

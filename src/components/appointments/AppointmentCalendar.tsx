@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { format, addHours, startOfDay, endOfDay, addDays } from "date-fns";
 import { de } from "date-fns/locale";
@@ -11,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Appointment } from "@/types/appointments";
 import { useAuth } from "@/hooks/useAuth";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface AppointmentCalendarProps {
   appointments: Appointment[];
@@ -23,6 +23,8 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
   const [date, setDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [fetchedAppointments, setFetchedAppointments] = useState<Appointment[]>([]);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
   const { toast } = useToast();
   const { userInfo } = useAuth();
 
@@ -38,6 +40,7 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
       
       console.log("Fetching appointments for", startTime, "to", endTime);
       console.log("Praxis ID:", userInfo.praxisId);
+      console.log("User info:", userInfo);
 
       const { data, error } = await supabase
         .from("appointments" as any)
@@ -61,7 +64,9 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
         .order("start_time", { ascending: true });
 
       if (error) {
-        console.error("Error loading appointments:", error);
+        console.error("Error details:", error);
+        setErrorDetails(JSON.stringify(error, null, 2));
+        setShowErrorDialog(true);
         throw error;
       }
       
@@ -180,6 +185,23 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
           );
         })}
       </div>
+
+      <Dialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fehlerdetails</DialogTitle>
+          </DialogHeader>
+          <div className="bg-secondary p-4 rounded-md max-h-96 overflow-auto">
+            <pre className="whitespace-pre-wrap text-xs">{errorDetails}</pre>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Diese Informationen können für die Fehlerbehebung hilfreich sein.
+          </p>
+          <Button onClick={() => setShowErrorDialog(false)} className="w-full">
+            Schließen
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
