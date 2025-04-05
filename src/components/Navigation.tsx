@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -20,7 +19,7 @@ const Navigation = () => {
   const navigationItems = [
     {
       name: isMobile ? "Patienten" : "Patientenliste",
-      href: "/patients",
+      href: "/",
       icon: ClipboardList,
     },
     {
