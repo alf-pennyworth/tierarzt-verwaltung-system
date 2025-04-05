@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { format, addMinutes } from "date-fns";
 import { useForm } from "react-hook-form";
@@ -67,6 +68,7 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [userDetails, setUserDetails] = useState<any>(null);
   const { userInfo, user } = useAuth();
   const { toast } = useToast();
 
@@ -81,8 +83,38 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
   });
 
   useEffect(() => {
+    // Fetch and display user details for debugging
+    const fetchUserDetails = async () => {
+      if (!user) return;
+      
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+          
+        if (profileError) throw profileError;
+        
+        setUserDetails({
+          userId: user.id,
+          userEmail: user.email,
+          profile: profileData,
+        });
+      } catch (error) {
+        console.error("Error fetching user details:", error);
+      }
+    };
+    
+    fetchUserDetails();
+  }, [user]);
+
+  useEffect(() => {
     const fetchPatients = async () => {
-      if (!userInfo?.praxisId) return;
+      if (!userInfo?.praxisId) {
+        console.log("No praxis ID available, skipping patient fetch");
+        return;
+      }
 
       try {
         const { data, error } = await supabase
@@ -109,6 +141,12 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!userInfo?.praxisId || !user?.id) {
+      setErrorDetails(JSON.stringify({ 
+        error: "User not authenticated properly",
+        userInfo: userInfo,
+        userId: user?.id
+      }, null, 2));
+      setShowErrorDialog(true);
       toast({
         variant: "destructive",
         title: "Fehler",
@@ -164,7 +202,11 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
 
       if (error) {
         console.error("Error details:", error);
-        setErrorDetails(JSON.stringify(error, null, 2));
+        setErrorDetails(JSON.stringify({
+          error,
+          userDetails: userDetails,
+          appointmentData: newAppointment
+        }, null, 2));
         throw error;
       }
 
@@ -358,6 +400,10 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
           </DialogHeader>
           <div className="bg-secondary p-4 rounded-md max-h-96 overflow-auto">
             <pre className="whitespace-pre-wrap text-xs">{errorDetails}</pre>
+          </div>
+          <div className="bg-muted p-3 rounded-md mt-2">
+            <h4 className="font-semibold mb-2">Benutzerdetails</h4>
+            <pre className="whitespace-pre-wrap text-xs">{userDetails ? JSON.stringify(userDetails, null, 2) : "Keine Benutzerdetails verfügbar"}</pre>
           </div>
           <p className="text-sm text-muted-foreground">
             Diese Informationen können für die Fehlerbehebung hilfreich sein. Möglicherweise gibt es ein Problem mit der Datenbank-Konfiguration oder den Berechtigungen.

@@ -1,7 +1,8 @@
+
 import { useEffect, useState } from "react";
 import { format, addHours, startOfDay, endOfDay, addDays } from "date-fns";
 import { de } from "date-fns/locale";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, PlusCircle } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, PlusCircle, Info } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -25,8 +26,50 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
   const [fetchedAppointments, setFetchedAppointments] = useState<Appointment[]>([]);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [showDebugDialog, setShowDebugDialog] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
   const { toast } = useToast();
-  const { userInfo } = useAuth();
+  const { userInfo, user } = useAuth();
+
+  // Collect debug information
+  useEffect(() => {
+    if (user) {
+      const collectDebugInfo = async () => {
+        try {
+          // Fetch user profile details
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id);
+            
+          // Fetch RLS policies for appointments table
+          const { data: rlsPolicies } = await supabase
+            .rpc('get_policies_for_table', { table_name: 'appointments' })
+            .catch(() => ({ data: "RLS policy fetch failed - requires admin rights" }));
+            
+          setDebugInfo({
+            userInfo,
+            user: {
+              id: user.id,
+              email: user.email,
+            },
+            profileData,
+            rlsPolicies,
+            timestamp: new Date().toISOString(),
+          });
+        } catch (error) {
+          console.error("Error collecting debug info:", error);
+          setDebugInfo({
+            error: "Failed to collect debug info",
+            userInfo,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      };
+      
+      collectDebugInfo();
+    }
+  }, [user, userInfo]);
 
   const loadAppointments = async (selectedDate: Date) => {
     try {
@@ -65,7 +108,15 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
 
       if (error) {
         console.error("Error details:", error);
-        setErrorDetails(JSON.stringify(error, null, 2));
+        setErrorDetails(JSON.stringify({
+          error,
+          query: {
+            praxisId: userInfo.praxisId,
+            startTime,
+            endTime
+          },
+          userInfo: userInfo
+        }, null, 2));
         setShowErrorDialog(true);
         throw error;
       }
@@ -133,6 +184,14 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
           <Button variant="outline" size="icon" onClick={handleNextDay}>
             <ChevronRight className="h-4 w-4" />
           </Button>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-muted-foreground hover:text-primary" 
+            onClick={() => setShowDebugDialog(true)}
+          >
+            <Info className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
@@ -198,6 +257,23 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
             Diese Informationen können für die Fehlerbehebung hilfreich sein.
           </p>
           <Button onClick={() => setShowErrorDialog(false)} className="w-full">
+            Schließen
+          </Button>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDebugDialog} onOpenChange={setShowDebugDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Debug-Informationen</DialogTitle>
+          </DialogHeader>
+          <div className="bg-secondary p-4 rounded-md max-h-96 overflow-auto">
+            <pre className="whitespace-pre-wrap text-xs">{JSON.stringify(debugInfo, null, 2)}</pre>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Diese Informationen können für die Fehlerbehebung der RLS-Berechtigungen hilfreich sein.
+          </p>
+          <Button onClick={() => setShowDebugDialog(false)} className="w-full">
             Schließen
           </Button>
         </DialogContent>
