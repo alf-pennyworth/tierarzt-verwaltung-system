@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { format, addMinutes } from "date-fns";
 import { useForm } from "react-hook-form";
@@ -136,8 +135,9 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
         created_by: user.id,
       };
 
+      // Use type assertion to tell TypeScript that this is a valid table
       const { data, error } = await supabase
-        .from("appointments")
+        .from("appointments" as any)
         .insert(newAppointment)
         .select(`
           id, 
@@ -162,7 +162,8 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
         description: `Termin für ${format(startTime, "dd.MM.yyyy HH:mm")} wurde erstellt.`,
       });
 
-      onAppointmentCreated(data);
+      // Use type assertion to tell TypeScript that the data is of the expected type
+      onAppointmentCreated(data as Appointment);
       form.reset({
         title: "",
         time: "09:00",

@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { format, addHours, startOfDay, endOfDay, addDays } from "date-fns";
 import { de } from "date-fns/locale";
@@ -40,7 +39,7 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
       console.log("Praxis ID:", userInfo.praxisId);
 
       const { data, error } = await supabase
-        .from("appointments")
+        .from("appointments" as any)
         .select(`
           id, 
           start_time, 
@@ -66,7 +65,7 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
       }
       
       console.log("Fetched appointments:", data);
-      setFetchedAppointments(data || []);
+      setFetchedAppointments(data as Appointment[] || []);
     } catch (error: any) {
       console.error("Error loading appointments:", error);
       toast({
