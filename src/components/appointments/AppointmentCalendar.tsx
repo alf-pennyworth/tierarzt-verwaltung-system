@@ -28,8 +28,16 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
 
   const loadAppointments = async (selectedDate: Date) => {
     try {
+      if (!userInfo?.praxisId) {
+        console.log("No praxis ID available, skipping appointment fetch");
+        return;
+      }
+      
       const startTime = startOfDay(selectedDate).toISOString();
       const endTime = endOfDay(selectedDate).toISOString();
+      
+      console.log("Fetching appointments for", startTime, "to", endTime);
+      console.log("Praxis ID:", userInfo.praxisId);
 
       const { data, error } = await supabase
         .from("appointments")
@@ -47,14 +55,19 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
             rasse
           )
         `)
-        .eq("praxis_id", userInfo?.praxisId)
+        .eq("praxis_id", userInfo.praxisId)
         .gte("start_time", startTime)
         .lte("start_time", endTime)
         .order("start_time", { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error loading appointments:", error);
+        throw error;
+      }
+      
+      console.log("Fetched appointments:", data);
       setFetchedAppointments(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading appointments:", error);
       toast({
         variant: "destructive",

@@ -9,6 +9,56 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      appointments: {
+        Row: {
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          description: string | null
+          end_time: string
+          id: string
+          patient_id: string
+          praxis_id: string
+          start_time: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          deleted_at?: string | null
+          description?: string | null
+          end_time: string
+          id?: string
+          patient_id: string
+          praxis_id: string
+          start_time: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          deleted_at?: string | null
+          description?: string | null
+          end_time?: string
+          id?: string
+          patient_id?: string
+          praxis_id?: string
+          start_time?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_appointment_patient"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       behandlungen: {
         Row: {
           created_at: string

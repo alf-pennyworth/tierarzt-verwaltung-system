@@ -65,7 +65,7 @@ interface AppointmentFormProps {
 const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { userInfo } = useAuth();
+  const { userInfo, user } = useAuth();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -106,11 +106,11 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
   }, [userInfo?.praxisId, toast]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!userInfo?.praxisId) {
+    if (!userInfo?.praxisId || !user?.id) {
       toast({
         variant: "destructive",
         title: "Fehler",
-        description: "Praxis ID nicht gefunden.",
+        description: "Benutzer nicht identifiziert.",
       });
       return;
     }
@@ -133,7 +133,7 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
         description: values.description || "",
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
-        created_by: userInfo.id,
+        created_by: user.id,
       };
 
       const { data, error } = await supabase
