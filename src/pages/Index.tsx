@@ -1,103 +1,93 @@
 
 import { useNavigate } from "react-router-dom";
-import {
-  Calendar,
-  CreditCard,
-  Package2,
-  Pill,
-  Users,
-  Video,
-  Mic,
-  FilePlus2,
-  LayoutDashboard,
-} from "lucide-react";
+import { CalendarClock, FileSpreadsheet, Pill, Stethoscope, User, FileAudio, Truck, Video } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
-const ModuleCard = ({
-  title,
-  icon: Icon,
-  onClick,
-}: {
-  title: string;
-  icon: React.ComponentType<{ className?: string }>;
-  onClick: () => void;
-}) => {
-  return (
-    <Card
-      className="hover:bg-muted/50 transition-colors cursor-pointer"
-      onClick={onClick}
-    >
-      <CardContent className="flex flex-col items-center justify-center p-6 h-full">
-        <Icon className="h-12 w-12 mb-4 text-primary" />
-        <h3 className="text-lg font-medium text-center">{title}</h3>
-      </CardContent>
-    </Card>
-  );
-};
+const MODULES = [
+  {
+    name: "Transkription",
+    icon: FileAudio,
+    route: "/transcription",
+    description: "Diktat und Transkription von Behandlungsnotizen",
+  },
+  {
+    name: "Terminplanung",
+    icon: CalendarClock,
+    route: "/appointments",
+    description: "Termine planen und verwalten",
+  },
+  {
+    name: "Abrechnung",
+    icon: FileSpreadsheet,
+    route: "/dashboard",
+    description: "Rechnungsstellung und Abrechnung",
+    comingSoon: true,
+  },
+  {
+    name: "Bestandsverwaltung",
+    icon: Truck,
+    route: "/dashboard",
+    description: "Bestände und Lieferungen verwalten",
+    comingSoon: true,
+  },
+  {
+    name: "Rezeptverwaltung",
+    icon: Pill,
+    route: "/dashboard",
+    description: "Verschreibungen und Rezepte",
+    comingSoon: true,
+  },
+  {
+    name: "Personalverwaltung",
+    icon: User,
+    route: "/dashboard",
+    description: "Mitarbeiter und Dienstpläne",
+    comingSoon: true,
+  },
+  {
+    name: "Telemedizin",
+    icon: Video,
+    route: "/dashboard",
+    description: "Virtuelle Sprechstunden",
+    comingSoon: true,
+  },
+  {
+    name: "Patientenmanagement",
+    icon: Stethoscope,
+    route: "/patients",
+    description: "Patientendaten und Behandlungen",
+  },
+];
 
 const Index = () => {
   const navigate = useNavigate();
 
-  const modules = [
-    {
-      title: "Patientenverwaltung",
-      icon: FilePlus2,
-      path: "/",
-    },
-    {
-      title: "Terminplanung",
-      icon: Calendar,
-      path: "/appointments",
-    },
-    {
-      title: "Abrechnung",
-      icon: CreditCard,
-      path: "/billing",
-    },
-    {
-      title: "Bestand & Vorräte",
-      icon: Package2,
-      path: "/inventory",
-    },
-    {
-      title: "Rezeptverwaltung",
-      icon: Pill,
-      path: "/prescriptions",
-    },
-    {
-      title: "Mitarbeiterverwaltung",
-      icon: Users,
-      path: "/employees",
-    },
-    {
-      title: "Telemedizin",
-      icon: Video,
-      path: "/telemedicine",
-    },
-    {
-      title: "Transkription",
-      icon: Mic,
-      path: "/transcription",
-    },
-  ];
-
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Praxis-Management-System</h1>
-        <p className="text-muted-foreground">
-          Wählen Sie ein Modul, um fortzufahren
-        </p>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {modules.map((module) => (
-          <ModuleCard
-            key={module.title}
-            title={module.title}
-            icon={module.icon}
-            onClick={() => navigate(module.path)}
-          />
+    <div className="container py-8">
+      <h1 className="text-3xl font-bold mb-8">Veterinary Management System</h1>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {MODULES.map((module) => (
+          <Card 
+            key={module.name}
+            className={`cursor-pointer hover:shadow-md transition-all ${
+              module.comingSoon ? "opacity-60" : ""
+            }`}
+            onClick={() => !module.comingSoon && navigate(module.route)}
+          >
+            <CardContent className="p-6 flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <module.icon className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="font-bold text-lg mb-2">{module.name}</h3>
+              <p className="text-sm text-muted-foreground">{module.description}</p>
+              {module.comingSoon && (
+                <span className="mt-3 px-3 py-1 bg-muted text-muted-foreground text-xs rounded-full">
+                  Coming Soon
+                </span>
+              )}
+            </CardContent>
+          </Card>
         ))}
       </div>
     </div>
