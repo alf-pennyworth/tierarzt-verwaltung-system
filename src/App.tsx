@@ -21,6 +21,7 @@ import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
 import Medications from "./pages/Medications";
 import AppointmentScheduling from "./pages/AppointmentScheduling";
+import Inventory from "./pages/Inventory";
 
 const queryClient = new QueryClient();
 
@@ -179,6 +180,16 @@ const App = () => (
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
                   <AppointmentScheduling />
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inventory/*"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Inventory />
                 </WithNavigation>
               </ProtectedRoute>
             }

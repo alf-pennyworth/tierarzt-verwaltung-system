@@ -236,6 +236,223 @@ export type Database = {
           },
         ]
       }
+      inventory_items: {
+        Row: {
+          category: string | null
+          created_at: string
+          current_stock: number
+          deleted_at: string | null
+          description: string | null
+          expiry_date: string | null
+          id: string
+          last_ordered: string | null
+          location: string | null
+          minimum_stock: number
+          name: string
+          praxis_id: string
+          sku: string | null
+          supplier: string | null
+          unit: string
+          unit_price: number | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          current_stock?: number
+          deleted_at?: string | null
+          description?: string | null
+          expiry_date?: string | null
+          id?: string
+          last_ordered?: string | null
+          location?: string | null
+          minimum_stock?: number
+          name: string
+          praxis_id: string
+          sku?: string | null
+          supplier?: string | null
+          unit: string
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          current_stock?: number
+          deleted_at?: string | null
+          description?: string | null
+          expiry_date?: string | null
+          id?: string
+          last_ordered?: string | null
+          location?: string | null
+          minimum_stock?: number
+          name?: string
+          praxis_id?: string
+          sku?: string | null
+          supplier?: string | null
+          unit?: string
+          unit_price?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      inventory_order_items: {
+        Row: {
+          id: string
+          item_id: string
+          notes: string | null
+          order_id: string
+          quantity: number
+          received_quantity: number | null
+          total_price: number
+          unit_price: number
+        }
+        Insert: {
+          id?: string
+          item_id: string
+          notes?: string | null
+          order_id: string
+          quantity: number
+          received_quantity?: number | null
+          total_price: number
+          unit_price: number
+        }
+        Update: {
+          id?: string
+          item_id?: string
+          notes?: string | null
+          order_id?: string
+          quantity?: number
+          received_quantity?: number | null
+          total_price?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_order_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_orders: {
+        Row: {
+          actual_delivery_date: string | null
+          created_at: string
+          created_by: string
+          expected_delivery_date: string | null
+          id: string
+          notes: string | null
+          order_date: string
+          order_number: string | null
+          praxis_id: string
+          status: string
+          supplier_id: string | null
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          actual_delivery_date?: string | null
+          created_at?: string
+          created_by: string
+          expected_delivery_date?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string
+          order_number?: string | null
+          praxis_id: string
+          status?: string
+          supplier_id?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          actual_delivery_date?: string | null
+          created_at?: string
+          created_by?: string
+          expected_delivery_date?: string | null
+          id?: string
+          notes?: string | null
+          order_date?: string
+          order_number?: string | null
+          praxis_id?: string
+          status?: string
+          supplier_id?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_orders_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_transactions: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          item_id: string
+          new_stock: number
+          notes: string | null
+          praxis_id: string
+          previous_stock: number
+          quantity: number
+          transaction_date: string
+          transaction_type: string
+          unit_price: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          item_id: string
+          new_stock: number
+          notes?: string | null
+          praxis_id: string
+          previous_stock: number
+          quantity: number
+          transaction_date?: string
+          transaction_type: string
+          unit_price?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          item_id?: string
+          new_stock?: number
+          notes?: string | null
+          praxis_id?: string
+          previous_stock?: number
+          quantity?: number
+          transaction_date?: string
+          transaction_type?: string
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_transactions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invites: {
         Row: {
           created_at: string | null
@@ -545,6 +762,51 @@ export type Database = {
           id?: string
           name?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          contact_person: string | null
+          created_at: string
+          deleted_at: string | null
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          praxis_id: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          contact_person?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          praxis_id: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          contact_person?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          praxis_id?: string
+          updated_at?: string
+          website?: string | null
         }
         Relationships: []
       }

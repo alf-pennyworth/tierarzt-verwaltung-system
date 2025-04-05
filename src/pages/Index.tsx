@@ -26,9 +26,8 @@ const MODULES = [
   {
     name: "Bestandsverwaltung",
     icon: Truck,
-    route: "/dashboard",
+    route: "/inventory",
     description: "Bestände und Lieferungen verwalten",
-    comingSoon: true,
   },
   {
     name: "Rezeptverwaltung",
