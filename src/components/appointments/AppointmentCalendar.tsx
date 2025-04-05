@@ -42,11 +42,9 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
             .select('*')
             .eq('id', user.id);
             
-          // Fetch RLS policies for appointments table
-          const { data: rlsPolicies } = await supabase
-            .rpc('get_policies_for_table', { table_name: 'appointments' })
-            .catch(() => ({ data: "RLS policy fetch failed - requires admin rights" }));
-            
+          // For RLS policies info, we need to make a custom function or handle this on the server side
+          // The RPC function is not properly typed, so we'll remove that call and handle it differently
+          
           setDebugInfo({
             userInfo,
             user: {
@@ -54,7 +52,6 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
               email: user.email,
             },
             profileData,
-            rlsPolicies,
             timestamp: new Date().toISOString(),
           });
         } catch (error) {
