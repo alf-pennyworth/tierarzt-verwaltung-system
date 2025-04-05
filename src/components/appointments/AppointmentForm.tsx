@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { format, addMinutes } from "date-fns";
 import { useForm } from "react-hook-form";
@@ -162,8 +163,8 @@ const AppointmentForm = ({ onAppointmentCreated }: AppointmentFormProps) => {
         description: `Termin für ${format(startTime, "dd.MM.yyyy HH:mm")} wurde erstellt.`,
       });
 
-      // Use type assertion to tell TypeScript that the data is of the expected type
-      onAppointmentCreated(data as Appointment);
+      // First convert to unknown, then to Appointment to satisfy TypeScript
+      onAppointmentCreated((data as unknown) as Appointment);
       form.reset({
         title: "",
         time: "09:00",

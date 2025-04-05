@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { format, addHours, startOfDay, endOfDay, addDays } from "date-fns";
 import { de } from "date-fns/locale";
@@ -65,7 +66,8 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
       }
       
       console.log("Fetched appointments:", data);
-      setFetchedAppointments(data as Appointment[] || []);
+      // First convert to unknown, then to Appointment[] to satisfy TypeScript
+      setFetchedAppointments((data as unknown) as Appointment[] || []);
     } catch (error: any) {
       console.error("Error loading appointments:", error);
       toast({
