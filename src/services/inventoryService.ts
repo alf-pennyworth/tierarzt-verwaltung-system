@@ -9,7 +9,9 @@ import {
 } from "@/types/inventory";
 
 // Inventory Items (using medikamente table)
-export const getInventoryItems = async (praxisId?: string) => {
+export const getInventoryItems = async ({ queryKey }: { queryKey: string[] }) => {
+  const [_, praxisId] = queryKey;
+  
   const query = supabase
     .from("medikamente")
     .select("*")
@@ -71,7 +73,9 @@ export const deleteInventoryItem = async (id: string) => {
   return true;
 };
 
-export const getLowStockItems = async (praxisId?: string) => {
+export const getLowStockItems = async ({ queryKey }: { queryKey: string[] }) => {
+  const [_, praxisId] = queryKey;
+  
   const query = supabase
     .from("medikamente")
     .select("*")
@@ -90,9 +94,11 @@ export const getLowStockItems = async (praxisId?: string) => {
   return data as MedikamentItem[];
 };
 
-export const getExpiringItems = async (daysThreshold: number = 30, praxisId?: string) => {
+export const getExpiringItems = async ({ queryKey }: { queryKey: string[] }) => {
+  const [_, daysThreshold = 30, praxisId] = queryKey;
+  
   const thresholdDate = new Date();
-  thresholdDate.setDate(thresholdDate.getDate() + daysThreshold);
+  thresholdDate.setDate(thresholdDate.getDate() + Number(daysThreshold));
   
   const query = supabase
     .from("medikamente")
@@ -428,7 +434,9 @@ export const getInventoryUnits = async () => {
 };
 
 // Dashboard stats
-export const getInventoryStats = async (praxisId?: string) => {
+export const getInventoryStats = async ({ queryKey }: { queryKey: string[] }) => {
+  const [_, praxisId] = queryKey;
+  
   const queryTotal = supabase
     .from("medikamente")
     .select("id", { count: "exact" })

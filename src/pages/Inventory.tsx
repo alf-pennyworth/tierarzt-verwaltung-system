@@ -18,7 +18,7 @@ const Inventory = () => {
   const location = useLocation();
   
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["inventoryStats"],
+    queryKey: ["inventoryStats", userInfo?.praxisId],
     queryFn: getInventoryStats,
     enabled: !!userInfo?.praxisId
   });

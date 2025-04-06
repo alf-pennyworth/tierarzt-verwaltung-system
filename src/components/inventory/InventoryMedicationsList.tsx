@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { getInventoryItems, createInventoryItem } from '@/services/inventoryService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -40,9 +41,7 @@ const InventoryMedicationsList = () => {
 
   const { data: medications = [], isLoading, refetch } = useQuery({
     queryKey: ['medications', userInfo?.praxisId],
-    queryFn: async () => {
-      return getInventoryItems(userInfo?.praxisId || undefined);
-    },
+    queryFn: getInventoryItems,
     enabled: !!user
   });
 

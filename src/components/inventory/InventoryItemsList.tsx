@@ -1,6 +1,6 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import { 
   getInventoryItems, 
   getInventoryCategories,
@@ -40,7 +40,6 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
 
 const InventoryItemsList = () => {
   const navigate = useNavigate();
@@ -71,8 +70,9 @@ const InventoryItemsList = () => {
   });
   
   const { data: items, isLoading, refetch } = useQuery({
-    queryKey: ["inventoryItems"],
-    queryFn: getInventoryItems
+    queryKey: ["inventoryItems", userInfo?.praxisId],
+    queryFn: getInventoryItems,
+    enabled: !!userInfo?.praxisId
   });
   
   const { data: categories = [] } = useQuery({

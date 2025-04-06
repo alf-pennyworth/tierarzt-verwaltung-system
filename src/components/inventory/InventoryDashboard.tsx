@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +6,7 @@ import {
   getExpiringItems,
   getOrders 
 } from "@/services/inventoryService";
+import { useAuth } from "@/hooks/useAuth";
 import { MedikamentItem, InventoryOrder } from "@/types/inventory";
 import { 
   Table, 
@@ -26,15 +26,18 @@ import { useNavigate } from "react-router-dom";
 
 const InventoryDashboard = () => {
   const navigate = useNavigate();
+  const { userInfo } = useAuth();
   
   const { data: lowStockItems, isLoading: lowStockLoading } = useQuery({
-    queryKey: ["lowStockItems"],
-    queryFn: getLowStockItems
+    queryKey: ["lowStockItems", userInfo?.praxisId],
+    queryFn: getLowStockItems,
+    enabled: !!userInfo?.praxisId
   });
   
   const { data: expiringItems, isLoading: expiringLoading } = useQuery({
-    queryKey: ["expiringItems"],
-    queryFn: () => getExpiringItems(60) // Show items expiring in the next 60 days
+    queryKey: ["expiringItems", 60, userInfo?.praxisId],
+    queryFn: getExpiringItems,
+    enabled: !!userInfo?.praxisId
   });
   
   const { data: pendingOrders, isLoading: ordersLoading } = useQuery({
@@ -42,7 +45,8 @@ const InventoryDashboard = () => {
     queryFn: async () => {
       const allOrders = await getOrders();
       return allOrders.filter(order => ['pending', 'ordered'].includes(order.status));
-    }
+    },
+    enabled: !!userInfo?.praxisId
   });
 
   return (
