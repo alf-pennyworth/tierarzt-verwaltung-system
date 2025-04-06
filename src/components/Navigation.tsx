@@ -9,8 +9,8 @@ import {
   FileBarChart,
   UserCircle,
   LayoutDashboard,
-  Pill,
   LayoutGrid,
+  Truck,
 } from "lucide-react";
 
 const Navigation = () => {
@@ -34,9 +34,9 @@ const Navigation = () => {
       icon: Users,
     },
     {
-      name: isMobile ? "Medikamente" : "Medikamente",
-      href: "/medications",
-      icon: Pill,
+      name: isMobile ? "Bestand" : "Bestandsverwaltung",
+      href: "/inventory",
+      icon: Truck,
     },
     {
       name: "Berichte",

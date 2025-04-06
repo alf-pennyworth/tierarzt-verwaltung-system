@@ -1,18 +1,20 @@
 
-export interface InventoryItem {
+export interface MedikamentItem {
   id: string;
   praxis_id: string;
   name: string;
+  masseinheit: string;
+  zulassungsnummer?: string;
+  packungs_id?: string;
+  eingangs_nr?: string;
+  packungsbeschreibung?: string;
+  medication_type_id?: string;
   description?: string;
-  category?: string;
-  sku?: string;
   current_stock: number;
   minimum_stock: number;
-  unit: string;
   unit_price?: number;
   expiry_date?: string;
   location?: string;
-  supplier?: string;
   last_ordered?: string;
   created_at: string;
   updated_at: string;

@@ -19,7 +19,6 @@ import Employees from "./pages/Employees";
 import EmployeeDetail from "./pages/EmployeeDetail";
 import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
-import Medications from "./pages/Medications";
 import AppointmentScheduling from "./pages/AppointmentScheduling";
 import Inventory from "./pages/Inventory";
 
@@ -160,16 +159,6 @@ const App = () => (
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
                   <Profile />
-                </WithNavigation>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/medications"
-            element={
-              <ProtectedRoute>
-                <WithNavigation showNav={true}>
-                  <Medications />
                 </WithNavigation>
               </ProtectedRoute>
             }

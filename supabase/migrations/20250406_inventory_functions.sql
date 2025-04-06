@@ -41,8 +41,8 @@ BEGIN
     unit_price_param
   ) RETURNING id INTO transaction_id;
   
-  -- Update the item's current_stock
-  UPDATE public.inventory_items
+  -- Update the medikamente's current_stock
+  UPDATE public.medikamente
   SET current_stock = new_stock_param,
       updated_at = NOW()
   WHERE id = item_id_param;
@@ -92,7 +92,7 @@ BEGIN
     -- Skip if received_qty is 0
     IF received_qty > 0 THEN
       -- Get current item stock
-      SELECT current_stock INTO current_stock FROM public.inventory_items WHERE id = item_id;
+      SELECT current_stock INTO current_stock FROM public.medikamente WHERE id = item_id;
       
       -- Calculate new stock level
       new_stock := current_stock + received_qty;
@@ -149,13 +149,28 @@ END;
 $$;
 
 -- Helper function for finding minimum between two values
-CREATE OR REPLACE FUNCTION public.greatest(a INTEGER, b INTEGER)
-RETURNS INTEGER AS $$
+CREATE OR REPLACE FUNCTION public.min_stock(current_stock INTEGER, min_stock INTEGER)
+RETURNS BOOLEAN AS $$
 BEGIN
-  IF a > b THEN
-    RETURN a;
-  ELSE
-    RETURN b;
-  END IF;
+  RETURN current_stock <= min_stock;
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
+
+-- Add current_stock, minimum_stock columns to medikamente if they don't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+    AND table_name = 'medikamente'
+    AND column_name = 'current_stock'
+  ) THEN
+    ALTER TABLE public.medikamente ADD COLUMN current_stock INTEGER DEFAULT 0 NOT NULL;
+    ALTER TABLE public.medikamente ADD COLUMN minimum_stock INTEGER DEFAULT 0 NOT NULL;
+    ALTER TABLE public.medikamente ADD COLUMN unit_price NUMERIC;
+    ALTER TABLE public.medikamente ADD COLUMN expiry_date DATE;
+    ALTER TABLE public.medikamente ADD COLUMN location TEXT;
+    ALTER TABLE public.medikamente ADD COLUMN last_ordered DATE;
+  END IF;
+END $$;

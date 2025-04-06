@@ -1,7 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { 
-  InventoryItem, 
   InventoryTransaction, 
   Supplier, 
   InventoryOrder, 
@@ -9,55 +8,55 @@ import {
   TransactionType
 } from "@/types/inventory";
 
-// Inventory Items
+// Inventory Items (now using medikamente table)
 export const getInventoryItems = async () => {
   const { data, error } = await supabase
-    .from("inventory_items")
+    .from("medikamente")
     .select("*")
     .is("deleted_at", null)
     .order("name");
 
   if (error) throw error;
-  return data as InventoryItem[];
+  return data;
 };
 
 export const getInventoryItem = async (id: string) => {
   const { data, error } = await supabase
-    .from("inventory_items")
+    .from("medikamente")
     .select("*")
     .eq("id", id)
     .single();
 
   if (error) throw error;
-  return data as InventoryItem;
+  return data;
 };
 
-export const createInventoryItem = async (item: Omit<InventoryItem, "id" | "created_at" | "updated_at">) => {
+export const createInventoryItem = async (item: any) => {
   const { data, error } = await supabase
-    .from("inventory_items")
+    .from("medikamente")
     .insert(item)
     .select()
     .single();
 
   if (error) throw error;
-  return data as InventoryItem;
+  return data;
 };
 
-export const updateInventoryItem = async (id: string, item: Partial<InventoryItem>) => {
+export const updateInventoryItem = async (id: string, item: any) => {
   const { data, error } = await supabase
-    .from("inventory_items")
+    .from("medikamente")
     .update(item)
     .eq("id", id)
     .select()
     .single();
 
   if (error) throw error;
-  return data as InventoryItem;
+  return data;
 };
 
 export const deleteInventoryItem = async (id: string) => {
   const { error } = await supabase
-    .from("inventory_items")
+    .from("medikamente")
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", id);
 
@@ -67,14 +66,14 @@ export const deleteInventoryItem = async (id: string) => {
 
 export const getLowStockItems = async () => {
   const { data, error } = await supabase
-    .from("inventory_items")
+    .from("medikamente")
     .select("*")
     .is("deleted_at", null)
-    .lte("current_stock", supabase.rpc("greatest", { a: 0, b: "minimum_stock" }))
+    .lte("current_stock", supabase.rpc("min_stock", { current_stock: 'current_stock', min_stock: 'minimum_stock' }))
     .order("name");
 
   if (error) throw error;
-  return data as InventoryItem[];
+  return data;
 };
 
 export const getExpiringItems = async (daysThreshold: number = 30) => {
@@ -82,14 +81,14 @@ export const getExpiringItems = async (daysThreshold: number = 30) => {
   thresholdDate.setDate(thresholdDate.getDate() + daysThreshold);
   
   const { data, error } = await supabase
-    .from("inventory_items")
+    .from("medikamente")
     .select("*")
     .is("deleted_at", null)
     .lt("expiry_date", thresholdDate.toISOString())
     .order("expiry_date");
 
   if (error) throw error;
-  return data as InventoryItem[];
+  return data;
 };
 
 // Inventory Transactions
@@ -115,14 +114,14 @@ export const createTransaction = async (
 ) => {
   // First get the current stock
   const { data: item, error: itemError } = await supabase
-    .from("inventory_items")
+    .from("medikamente")
     .select("current_stock")
     .eq("id", itemId)
     .single();
 
   if (itemError) throw itemError;
   
-  const previousStock = item.current_stock;
+  const previousStock = item?.current_stock || 0;
   let newStock = previousStock;
   
   // Calculate new stock based on transaction type
@@ -139,17 +138,20 @@ export const createTransaction = async (
   }
   
   // Call the stored procedure to update inventory
-  const { data, error } = await supabase.rpc("create_inventory_transaction", {
-    item_id_param: itemId,
-    transaction_type_param: transactionType,
-    quantity_param: quantity,
-    previous_stock_param: previousStock,
-    new_stock_param: newStock,
-    praxis_id_param: praxisId,
-    notes_param: notes || null,
-    created_by_param: createdBy,
-    unit_price_param: unitPrice || null
-  });
+  const { data, error } = await supabase.rpc(
+    "create_inventory_transaction",
+    {
+      item_id_param: itemId,
+      transaction_type_param: transactionType,
+      quantity_param: quantity,
+      previous_stock_param: previousStock,
+      new_stock_param: newStock,
+      praxis_id_param: praxisId,
+      notes_param: notes || null,
+      created_by_param: createdBy,
+      unit_price_param: unitPrice || null
+    }
+  );
 
   if (error) throw error;
   return data;
@@ -222,7 +224,7 @@ export const getOrders = async () => {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return data;
+  return data as (InventoryOrder & { supplier: { name: string } })[];
 };
 
 export const getOrder = async (id: string) => {
@@ -236,7 +238,7 @@ export const getOrder = async (id: string) => {
     .single();
 
   if (error) throw error;
-  return data;
+  return data as (InventoryOrder & { supplier: { id: string; name: string } });
 };
 
 export const getOrderItems = async (orderId: string) => {
@@ -244,12 +246,12 @@ export const getOrderItems = async (orderId: string) => {
     .from("inventory_order_items")
     .select(`
       *,
-      item:item_id (id, name, unit)
+      item:item_id (id, name, masseinheit)
     `)
     .eq("order_id", orderId);
 
   if (error) throw error;
-  return data;
+  return data as (OrderItem & { item: { id: string; name: string; masseinheit: string } })[];
 };
 
 export const createOrder = async (
@@ -279,7 +281,7 @@ export const createOrder = async (
 
   if (itemsError) throw itemsError;
 
-  return data;
+  return data as InventoryOrder;
 };
 
 export const updateOrderStatus = async (id: string, status: 'pending' | 'ordered' | 'delivered' | 'cancelled', actualDeliveryDate?: string) => {
@@ -296,7 +298,7 @@ export const updateOrderStatus = async (id: string, status: 'pending' | 'ordered
     .single();
 
   if (error) throw error;
-  return data;
+  return data as InventoryOrder;
 };
 
 export const receiveOrderItems = async (
@@ -304,10 +306,13 @@ export const receiveOrderItems = async (
   items: Array<{ id: string, received_quantity: number }>
 ) => {
   // Call the stored procedure to process the receipt
-  const { error } = await supabase.rpc("process_order_receipt", {
-    order_id_param: orderId,
-    items_param: items
-  });
+  const { error } = await supabase.rpc(
+    "process_order_receipt",
+    {
+      order_id_param: orderId,
+      items_param: items
+    }
+  );
 
   if (error) throw error;
   return true;
@@ -316,39 +321,38 @@ export const receiveOrderItems = async (
 // Categories and Units (for dropdowns and filtering)
 export const getInventoryCategories = async () => {
   const { data, error } = await supabase
-    .from("inventory_items")
-    .select("category")
-    .is("deleted_at", null)
-    .not("category", "is", null);
+    .from("medication_types")
+    .select("id, name")
+    .order("name");
 
   if (error) throw error;
-  return [...new Set(data.map(item => item.category))];
+  return data;
 };
 
 export const getInventoryUnits = async () => {
   const { data, error } = await supabase
-    .from("inventory_items")
-    .select("unit")
+    .from("medikamente")
+    .select("masseinheit")
     .is("deleted_at", null);
 
   if (error) throw error;
-  return [...new Set(data.map(item => item.unit))];
+  return [...new Set(data.map(item => item.masseinheit))];
 };
 
 // Dashboard stats
 export const getInventoryStats = async () => {
   const { data: totalItems, error: totalError } = await supabase
-    .from("inventory_items")
+    .from("medikamente")
     .select("id", { count: "exact" })
     .is("deleted_at", null);
 
   if (totalError) throw totalError;
 
   const { data: lowStock, error: lowError } = await supabase
-    .from("inventory_items")
+    .from("medikamente")
     .select("id", { count: "exact" })
     .is("deleted_at", null)
-    .lte("current_stock", supabase.rpc("greatest", { a: 0, b: "minimum_stock" }));
+    .lte("current_stock", supabase.rpc("min_stock", { current_stock: 'current_stock', min_stock: 'minimum_stock' }));
 
   if (lowError) throw lowError;
 

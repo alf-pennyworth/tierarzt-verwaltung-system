@@ -1,19 +1,21 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { getInventoryStats } from "@/services/inventoryService";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2, PackageOpen, AlertTriangle, Truck, Activity } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import InventoryItemsList from "@/components/inventory/InventoryItemsList";
 import InventorySuppliersList from "@/components/inventory/InventorySuppliersList";
 import InventoryOrdersList from "@/components/inventory/InventoryOrdersList";
 import InventoryDashboard from "@/components/inventory/InventoryDashboard";
+import InventoryNavigation from "@/components/inventory/InventoryNavigation";
+import InventoryMedicationsList from "@/components/inventory/InventoryMedicationsList";
 
 const Inventory = () => {
-  const [activeTab, setActiveTab] = useState("dashboard");
   const { userInfo } = useAuth();
+  const location = useLocation();
   
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["inventoryStats"],
@@ -33,72 +35,67 @@ const Inventory = () => {
     );
   }
 
+  // Check if we're on the main inventory page
+  const isMainPage = location.pathname === "/inventory";
+
   return (
-    <div className="container py-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">Bestandsverwaltung</h1>
-          <p className="text-muted-foreground mt-1">
-            Verwalten Sie Ihren Praxisbestand, Bestellungen und Lieferanten
-          </p>
+    <div>
+      <div className="py-8 bg-muted/30">
+        <div className="container">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+            <div>
+              <h1 className="text-3xl font-bold">Bestandsverwaltung</h1>
+              <p className="text-muted-foreground mt-1">
+                Verwalten Sie Ihren Praxisbestand, Bestellungen und Lieferanten
+              </p>
+            </div>
+            
+            {statsLoading ? (
+              <div className="flex items-center">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                <span>Daten werden geladen...</span>
+              </div>
+            ) : stats && isMainPage ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <StatCard 
+                  title="Artikel"
+                  value={stats.totalItems}
+                  icon={<PackageOpen className="h-4 w-4" />}
+                />
+                <StatCard 
+                  title="Niedriger Bestand"
+                  value={stats.lowStockItems}
+                  icon={<AlertTriangle className="h-4 w-4" />}
+                  alert={stats.lowStockItems > 0}
+                />
+                <StatCard 
+                  title="Offene Bestellungen"
+                  value={stats.pendingOrders}
+                  icon={<Truck className="h-4 w-4" />}
+                />
+                <StatCard 
+                  title="Transaktionen (30d)"
+                  value={stats.recentTransactions}
+                  icon={<Activity className="h-4 w-4" />}
+                />
+              </div>
+            ) : null}
+          </div>
         </div>
-        
-        {statsLoading ? (
-          <div className="flex items-center">
-            <Loader2 className="h-5 w-5 animate-spin mr-2" />
-            <span>Daten werden geladen...</span>
-          </div>
-        ) : stats ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard 
-              title="Artikel"
-              value={stats.totalItems}
-              icon={<PackageOpen className="h-4 w-4" />}
-            />
-            <StatCard 
-              title="Niedriger Bestand"
-              value={stats.lowStockItems}
-              icon={<AlertTriangle className="h-4 w-4" />}
-              alert={stats.lowStockItems > 0}
-            />
-            <StatCard 
-              title="Offene Bestellungen"
-              value={stats.pendingOrders}
-              icon={<Truck className="h-4 w-4" />}
-            />
-            <StatCard 
-              title="Transaktionen (30d)"
-              value={stats.recentTransactions}
-              icon={<Activity className="h-4 w-4" />}
-            />
-          </div>
-        ) : null}
       </div>
       
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="dashboard">Übersicht</TabsTrigger>
-          <TabsTrigger value="items">Artikel</TabsTrigger>
-          <TabsTrigger value="orders">Bestellungen</TabsTrigger>
-          <TabsTrigger value="suppliers">Lieferanten</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="dashboard" className="space-y-4">
-          <InventoryDashboard />
-        </TabsContent>
-        
-        <TabsContent value="items" className="space-y-4">
-          <InventoryItemsList />
-        </TabsContent>
-        
-        <TabsContent value="orders" className="space-y-4">
-          <InventoryOrdersList />
-        </TabsContent>
-        
-        <TabsContent value="suppliers" className="space-y-4">
-          <InventorySuppliersList />
-        </TabsContent>
-      </Tabs>
+      <InventoryNavigation />
+      
+      <div className="container py-4">
+        <Routes>
+          <Route path="/" element={<InventoryDashboard />} />
+          <Route path="/items" element={<InventoryItemsList />} />
+          <Route path="/medications" element={<InventoryMedicationsList />} />
+          <Route path="/orders" element={<InventoryOrdersList />} />
+          <Route path="/suppliers" element={<InventorySuppliersList />} />
+          <Route path="*" element={<Navigate to="/inventory" replace />} />
+        </Routes>
+      </div>
     </div>
   );
 };
