@@ -13,20 +13,6 @@ import { Loader2, Plus, Search, RefreshCw, Package, AlertTriangle } from 'lucide
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { MedikamentItem } from '@/types/inventory';
 
-interface Medication {
-  id: string;
-  name: string;
-  masseinheit: string;
-  zulassungsnummer?: string;
-  packungs_id?: string;
-  eingangs_nr?: string;
-  packungsbeschreibung?: string;
-  medication_type_id?: string;
-  current_stock?: number;
-  minimum_stock?: number;
-  unit_price?: number;
-}
-
 interface MedicationType {
   id: string;
   name: string;
@@ -71,7 +57,7 @@ const InventoryMedicationsList = () => {
         throw error;
       }
       
-      return data || [];
+      return (data || []) as MedikamentItem[];
     },
     enabled: !!user
   });
@@ -94,7 +80,7 @@ const InventoryMedicationsList = () => {
   });
 
   const createMedicationMutation = useMutation({
-    mutationFn: async (newMed: any) => {
+    mutationFn: async (newMed: Partial<MedikamentItem>) => {
       const { data, error } = await supabase
         .from('medikamente')
         .insert([newMed])
@@ -328,7 +314,7 @@ const InventoryMedicationsList = () => {
                         <SelectValue placeholder="Typ auswählen" />
                       </SelectTrigger>
                       <SelectContent>
-                        {medicationTypes.map((type) => (
+                        {medicationTypes.map((type: MedicationType) => (
                           <SelectItem key={type.id} value={type.id}>
                             {type.name}
                           </SelectItem>

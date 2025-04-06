@@ -71,7 +71,7 @@ export const getLowStockItems = async () => {
     .from("medikamente")
     .select("*")
     .is("deleted_at", null)
-    .lte("current_stock", supabase.rpc('current_minimum_stock'))
+    .lte("current_stock", supabase.rpc("current_minimum_stock"))
     .order("name");
 
   if (error) throw error;
@@ -125,7 +125,8 @@ export const createTransaction = async (
   
   if (!item) throw new Error("Item not found");
   
-  const previousStock = item.current_stock || 0;
+  // Use type assertion to access current_stock
+  const previousStock = (item as any).current_stock || 0;
   let newStock = previousStock;
   
   // Calculate new stock based on transaction type
@@ -371,7 +372,7 @@ export const receiveOrderItems = async (
     .from("inventory_order_items")
     .select("*")
     .eq("order_id", orderId)
-    .lt("received_quantity", supabase.fn.coalesce('quantity', 0));
+    .lt("received_quantity", "quantity");
     
   if (pendingError) throw pendingError;
   
@@ -418,7 +419,7 @@ export const getInventoryStats = async () => {
     .from("medikamente")
     .select("id", { count: "exact" })
     .is("deleted_at", null)
-    .lte("current_stock", supabase.fn.coalesce('minimum_stock', 0));
+    .lte("current_stock", "minimum_stock");
 
   if (lowError) throw lowError;
 
