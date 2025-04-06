@@ -95,10 +95,12 @@ export const getLowStockItems = async ({ queryKey }: { queryKey: string[] }) => 
 };
 
 export const getExpiringItems = async ({ queryKey }: { queryKey: string[] }) => {
-  const [_, daysThreshold = 30, praxisId] = queryKey;
+  const [_, daysThresholdString = "30", praxisId] = queryKey;
+  
+  const daysThreshold = parseInt(daysThresholdString, 10);
   
   const thresholdDate = new Date();
-  thresholdDate.setDate(thresholdDate.getDate() + Number(daysThreshold));
+  thresholdDate.setDate(thresholdDate.getDate() + daysThreshold);
   
   const query = supabase
     .from("medikamente")

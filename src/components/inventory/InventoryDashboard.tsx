@@ -30,13 +30,13 @@ const InventoryDashboard = () => {
   
   const { data: lowStockItems, isLoading: lowStockLoading } = useQuery({
     queryKey: ["lowStockItems", userInfo?.praxisId],
-    queryFn: getLowStockItems,
+    queryFn: ({ queryKey }) => getLowStockItems({ queryKey }),
     enabled: !!userInfo?.praxisId
   });
   
   const { data: expiringItems, isLoading: expiringLoading } = useQuery({
-    queryKey: ["expiringItems", 60, userInfo?.praxisId],
-    queryFn: getExpiringItems,
+    queryKey: ["expiringItems", "60", userInfo?.praxisId],
+    queryFn: ({ queryKey }) => getExpiringItems({ queryKey }),
     enabled: !!userInfo?.praxisId
   });
   
