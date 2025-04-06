@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { 
   MedikamentItem,
@@ -66,12 +65,11 @@ export const deleteInventoryItem = async (id: string) => {
 };
 
 export const getLowStockItems = async () => {
-  // Using simple comparison instead of RPC function for now
   const { data, error } = await supabase
     .from("medikamente")
     .select("*")
     .is("deleted_at", null)
-    .lte("current_stock", supabase.rpc("current_minimum_stock"))
+    .lt("current_stock", "minimum_stock")
     .order("name");
 
   if (error) throw error;
@@ -126,7 +124,7 @@ export const createTransaction = async (
   if (!item) throw new Error("Item not found");
   
   // Use type assertion to access current_stock
-  const previousStock = (item as any).current_stock || 0;
+  const previousStock = (item as MedikamentItem).current_stock || 0;
   let newStock = previousStock;
   
   // Calculate new stock based on transaction type

@@ -80,10 +80,11 @@ const InventoryMedicationsList = () => {
   });
 
   const createMedicationMutation = useMutation({
-    mutationFn: async (newMed: Partial<MedikamentItem>) => {
+    // Fix: explicitly define the parameters and don't pass an array to insert
+    mutationFn: async (newMed: Partial<MedikamentItem> & { name: string; masseinheit: string }) => {
       const { data, error } = await supabase
         .from('medikamente')
-        .insert([newMed])
+        .insert(newMed)
         .select();
       
       if (error) throw error;

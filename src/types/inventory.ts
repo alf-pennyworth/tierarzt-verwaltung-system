@@ -1,4 +1,3 @@
-
 export interface MedikamentItem {
   id: string;
   praxis_id: string;

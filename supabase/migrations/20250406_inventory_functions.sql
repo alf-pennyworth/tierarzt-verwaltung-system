@@ -21,7 +21,7 @@ BEGIN
   END IF;
 END $$;
 
--- Helper function for comparing stock levels
+-- Helper function for comparing stock levels directly in queries
 CREATE OR REPLACE FUNCTION public.current_minimum_stock()
 RETURNS boolean
 LANGUAGE SQL STABLE 
@@ -36,24 +36,3 @@ CREATE OR REPLACE TRIGGER medikamente_updated_at_trigger
 BEFORE UPDATE ON public.medikamente
 FOR EACH ROW
 EXECUTE FUNCTION public.update_updated_at_column();
-
--- Ensure inventory_transactions table exists
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'inventory_transactions') THEN
-    CREATE TABLE public.inventory_transactions (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      praxis_id UUID NOT NULL,
-      item_id UUID NOT NULL REFERENCES public.medikamente(id),
-      transaction_type TEXT NOT NULL CHECK (transaction_type IN ('purchase', 'use', 'adjustment', 'expired', 'return')),
-      quantity INT NOT NULL,
-      previous_stock INT NOT NULL,
-      new_stock INT NOT NULL,
-      unit_price NUMERIC,
-      notes TEXT,
-      created_by UUID NOT NULL,
-      created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
-      transaction_date DATE DEFAULT CURRENT_DATE NOT NULL
-    );
-  END IF;
-END $$;
