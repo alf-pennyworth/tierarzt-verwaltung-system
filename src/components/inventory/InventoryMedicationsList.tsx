@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -80,7 +79,6 @@ const InventoryMedicationsList = () => {
   });
 
   const createMedicationMutation = useMutation({
-    // Fix: explicitly define the parameters and don't pass an array to insert
     mutationFn: async (newMed: Partial<MedikamentItem> & { name: string; masseinheit: string }) => {
       const { data, error } = await supabase
         .from('medikamente')

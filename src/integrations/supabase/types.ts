@@ -523,44 +523,71 @@ export type Database = {
       }
       medikamente: {
         Row: {
+          category: string | null
           created_at: string
+          current_stock: number
           deleted_at: string | null
+          description: string | null
           eingangs_nr: string | null
+          expiry_date: string | null
           id: string
+          last_ordered: string | null
+          location: string | null
           masseinheit: string
           medication_type_id: string | null
+          minimum_stock: number
           name: string
           packungs_id: string | null
           packungsbeschreibung: string | null
           praxis_id: string | null
+          sku: string | null
+          unit_price: number | null
           updated_at: string
           zulassungsnummer: string | null
         }
         Insert: {
+          category?: string | null
           created_at?: string
+          current_stock?: number
           deleted_at?: string | null
+          description?: string | null
           eingangs_nr?: string | null
+          expiry_date?: string | null
           id?: string
+          last_ordered?: string | null
+          location?: string | null
           masseinheit: string
           medication_type_id?: string | null
+          minimum_stock?: number
           name: string
           packungs_id?: string | null
           packungsbeschreibung?: string | null
           praxis_id?: string | null
+          sku?: string | null
+          unit_price?: number | null
           updated_at?: string
           zulassungsnummer?: string | null
         }
         Update: {
+          category?: string | null
           created_at?: string
+          current_stock?: number
           deleted_at?: string | null
+          description?: string | null
           eingangs_nr?: string | null
+          expiry_date?: string | null
           id?: string
+          last_ordered?: string | null
+          location?: string | null
           masseinheit?: string
           medication_type_id?: string | null
+          minimum_stock?: number
           name?: string
           packungs_id?: string | null
           packungsbeschreibung?: string | null
           praxis_id?: string | null
+          sku?: string | null
+          unit_price?: number | null
           updated_at?: string
           zulassungsnummer?: string | null
         }

@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { 
   MedikamentItem,
@@ -123,8 +124,7 @@ export const createTransaction = async (
   
   if (!item) throw new Error("Item not found");
   
-  // Use type assertion to access current_stock
-  const previousStock = (item as MedikamentItem).current_stock || 0;
+  const previousStock = item.current_stock ?? 0;
   let newStock = previousStock;
   
   // Calculate new stock based on transaction type
