@@ -23,7 +23,7 @@ export interface InventoryTransaction {
   id: string;
   praxis_id: string;
   item_id: string;
-  transaction_type: string;
+  transaction_type: TransactionType;
   quantity: number;
   previous_stock: number;
   new_stock: number;

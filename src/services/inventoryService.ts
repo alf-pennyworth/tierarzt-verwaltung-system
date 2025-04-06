@@ -256,7 +256,7 @@ export const createOrder = async (
   order: Omit<InventoryOrder, "id" | "created_at" | "updated_at">,
   items: Array<Omit<OrderItem, "id" | "order_id">>
 ) => {
-  // Start a database transaction
+  // Create the order
   const { data, error } = await supabase
     .from("inventory_orders")
     .insert(order)
@@ -282,7 +282,7 @@ export const createOrder = async (
   return data as InventoryOrder;
 };
 
-export const updateOrderStatus = async (id: string, status: string, actualDeliveryDate?: string) => {
+export const updateOrderStatus = async (id: string, status: 'pending' | 'ordered' | 'delivered' | 'cancelled', actualDeliveryDate?: string) => {
   const updates: Partial<InventoryOrder> = { status };
   if (status === 'delivered' && actualDeliveryDate) {
     updates.actual_delivery_date = actualDeliveryDate;

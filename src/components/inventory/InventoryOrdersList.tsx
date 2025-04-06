@@ -117,8 +117,8 @@ const InventoryOrdersList = () => {
     
     // Update total price when quantity or unit_price changes
     if (field === "quantity" || field === "unit_price") {
-      const qty = field === "quantity" ? value : newItems[index].quantity;
-      const price = field === "unit_price" ? value : newItems[index].unit_price;
+      const qty = field === "quantity" ? Number(value) : newItems[index].quantity;
+      const price = field === "unit_price" ? Number(value) : newItems[index].unit_price;
       newItems[index].total_price = parseFloat((qty * price).toFixed(2));
     }
     
@@ -514,5 +514,91 @@ const OrderStatusBadge = ({ status }: { status: string }) => {
       return <Badge variant="outline">{status}</Badge>;
   }
 };
+
+// Missing handleSubmit implementation
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!formData.supplier_id) {
+    toast({
+      title: "Fehlende Informationen",
+      description: "Bitte wählen Sie einen Lieferanten aus.",
+      variant: "destructive",
+    });
+    return;
+  }
+  
+  if (orderItems.length === 0) {
+    toast({
+      title: "Fehlende Informationen",
+      description: "Bitte fügen Sie mindestens einen Artikel zur Bestellung hinzu.",
+      variant: "destructive",
+    });
+    return;
+  }
+  
+  // Validate all items have an id, quantity > 0, and unit_price >= 0
+  const invalidItem = orderItems.find(
+    item => !item.item_id || item.quantity <= 0
+  );
+  
+  if (invalidItem) {
+    toast({
+      title: "Fehlende Informationen",
+      description: "Bitte füllen Sie alle Artikeldetails aus und stellen Sie sicher, dass die Menge größer als 0 ist.",
+      variant: "destructive",
+    });
+    return;
+  }
+  
+  try {
+    await createOrder(
+      {
+        ...formData,
+        praxis_id: userInfo?.praxisId!,
+        created_by: user!.id,
+        status: "pending",
+        total_amount: getOrderTotal()
+      },
+      orderItems
+    );
+    
+    toast({
+      title: "Bestellung erstellt",
+      description: "Die Bestellung wurde erfolgreich erstellt."
+    });
+    
+    // Reset form and close dialog
+    setFormData({
+      supplier_id: "",
+      order_number: "",
+      order_date: format(new Date(), "yyyy-MM-dd"),
+      expected_delivery_date: "",
+      notes: "",
+    });
+    setOrderItems([]);
+    setShowDialog(false);
+    refetch();
+  } catch (error) {
+    console.error("Error creating order:", error);
+    toast({
+      title: "Fehler",
+      description: "Beim Erstellen der Bestellung ist ein Fehler aufgetreten.",
+      variant: "destructive",
+    });
+  }
+};
+
+// Filter orders based on search term and status
+const filteredOrders = orders?.filter(order => {
+  const matchesSearch = searchTerm === "" || 
+    order.id.includes(searchTerm) ||
+    (order.order_number && order.order_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (order.supplier && order.supplier.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  
+  const matchesStatus = statusFilter === "" || order.status === statusFilter;
+  
+  return matchesSearch && matchesStatus;
+});
 
 export default InventoryOrdersList;
