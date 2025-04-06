@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getInventoryItems, createInventoryItem } from '@/services/inventoryService';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -39,24 +39,9 @@ const InventoryMedicationsList = () => {
   const { toast } = useToast();
 
   const { data: medications = [], isLoading, refetch } = useQuery({
-    queryKey: ['medications'],
+    queryKey: ['medications', userInfo?.praxisId],
     queryFn: async () => {
-      let query = supabase
-        .from('medikamente')
-        .select('*')
-        .order('name');
-      
-      if (userInfo?.praxisId) {
-        query = query.eq('praxis_id', userInfo.praxisId);
-      }
-      
-      const { data, error } = await query;
-      
-      if (error) {
-        throw error;
-      }
-      
-      return (data || []) as MedikamentItem[];
+      return getInventoryItems(userInfo?.praxisId || undefined);
     },
     enabled: !!user
   });
@@ -80,16 +65,10 @@ const InventoryMedicationsList = () => {
 
   const createMedicationMutation = useMutation({
     mutationFn: async (newMed: Partial<MedikamentItem> & { name: string; masseinheit: string }) => {
-      const { data, error } = await supabase
-        .from('medikamente')
-        .insert(newMed)
-        .select();
-      
-      if (error) throw error;
-      return data;
+      return createInventoryItem(newMed);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['medications'] });
+      queryClient.invalidateQueries({ queryKey: ['medications', userInfo?.praxisId] });
       toast({
         title: 'Erfolg',
         description: 'Medikament erfolgreich hinzugefügt',

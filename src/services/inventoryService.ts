@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { 
   MedikamentItem,
@@ -10,12 +9,19 @@ import {
 } from "@/types/inventory";
 
 // Inventory Items (using medikamente table)
-export const getInventoryItems = async () => {
-  const { data, error } = await supabase
+export const getInventoryItems = async (praxisId?: string) => {
+  const query = supabase
     .from("medikamente")
     .select("*")
     .is("deleted_at", null)
     .order("name");
+  
+  // Filter by praxis_id if provided
+  if (praxisId) {
+    query.eq("praxis_id", praxisId);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data as MedikamentItem[];
@@ -65,28 +71,42 @@ export const deleteInventoryItem = async (id: string) => {
   return true;
 };
 
-export const getLowStockItems = async () => {
-  const { data, error } = await supabase
+export const getLowStockItems = async (praxisId?: string) => {
+  const query = supabase
     .from("medikamente")
     .select("*")
     .is("deleted_at", null)
     .lt("current_stock", "minimum_stock")
     .order("name");
+  
+  // Filter by praxis_id if provided
+  if (praxisId) {
+    query.eq("praxis_id", praxisId);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data as MedikamentItem[];
 };
 
-export const getExpiringItems = async (daysThreshold: number = 30) => {
+export const getExpiringItems = async (daysThreshold: number = 30, praxisId?: string) => {
   const thresholdDate = new Date();
   thresholdDate.setDate(thresholdDate.getDate() + daysThreshold);
   
-  const { data, error } = await supabase
+  const query = supabase
     .from("medikamente")
     .select("*")
     .is("deleted_at", null)
     .lt("expiry_date", thresholdDate.toISOString())
     .order("expiry_date");
+
+  // Filter by praxis_id if provided
+  if (praxisId) {
+    query.eq("praxis_id", praxisId);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
   return data as MedikamentItem[];
@@ -408,27 +428,48 @@ export const getInventoryUnits = async () => {
 };
 
 // Dashboard stats
-export const getInventoryStats = async () => {
-  const { data: totalItems, error: totalError } = await supabase
+export const getInventoryStats = async (praxisId?: string) => {
+  const queryTotal = supabase
     .from("medikamente")
     .select("id", { count: "exact" })
     .is("deleted_at", null);
+  
+  // Filter by praxis_id if provided
+  if (praxisId) {
+    queryTotal.eq("praxis_id", praxisId);
+  }
+  
+  const { data: totalItems, error: totalError } = await queryTotal;
 
   if (totalError) throw totalError;
 
   // Using simple comparison for low stock
-  const { data: lowStock, error: lowError } = await supabase
+  const queryLow = supabase
     .from("medikamente")
     .select("id", { count: "exact" })
     .is("deleted_at", null)
     .lte("current_stock", "minimum_stock");
+  
+  // Filter by praxis_id if provided
+  if (praxisId) {
+    queryLow.eq("praxis_id", praxisId);
+  }
+  
+  const { data: lowStock, error: lowError } = await queryLow;
 
   if (lowError) throw lowError;
 
-  const { data: pendingOrders, error: pendingError } = await supabase
+  const queryPending = supabase
     .from("inventory_orders")
     .select("id", { count: "exact" })
     .in("status", ["pending", "ordered"]);
+  
+  // Filter by praxis_id if provided
+  if (praxisId) {
+    queryPending.eq("praxis_id", praxisId);
+  }
+  
+  const { data: pendingOrders, error: pendingError } = await queryPending;
 
   if (pendingError) throw pendingError;
 
@@ -436,10 +477,17 @@ export const getInventoryStats = async () => {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   
-  const { data: recentTransactions, error: transError } = await supabase
+  const queryTrans = supabase
     .from("inventory_transactions")
     .select("id", { count: "exact" })
     .gte("created_at", thirtyDaysAgo.toISOString());
+  
+  // Filter by praxis_id if provided
+  if (praxisId) {
+    queryTrans.eq("praxis_id", praxisId);
+  }
+  
+  const { data: recentTransactions, error: transError } = await queryTrans;
 
   if (transError) throw transError;
 
