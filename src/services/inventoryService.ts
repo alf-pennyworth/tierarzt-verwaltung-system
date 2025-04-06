@@ -9,7 +9,7 @@ import {
   TransactionType
 } from "@/types/inventory";
 
-// Inventory Items (now using medikamente table)
+// Inventory Items (using medikamente table)
 export const getInventoryItems = async () => {
   const { data, error } = await supabase
     .from("medikamente")
@@ -32,7 +32,7 @@ export const getInventoryItem = async (id: string) => {
   return data as MedikamentItem;
 };
 
-export const createInventoryItem = async (item: Partial<MedikamentItem>) => {
+export const createInventoryItem = async (item: Partial<MedikamentItem> & { name: string; masseinheit: string }) => {
   const { data, error } = await supabase
     .from("medikamente")
     .insert(item)
@@ -71,7 +71,7 @@ export const getLowStockItems = async () => {
     .from("medikamente")
     .select("*")
     .is("deleted_at", null)
-    .lte("current_stock", supabase.rpc("current_minimum_stock"))
+    .lte("current_stock", supabase.rpc('current_minimum_stock'))
     .order("name");
 
   if (error) throw error;
@@ -123,7 +123,9 @@ export const createTransaction = async (
 
   if (itemError) throw itemError;
   
-  const previousStock = item?.current_stock || 0;
+  if (!item) throw new Error("Item not found");
+  
+  const previousStock = item.current_stock || 0;
   let newStock = previousStock;
   
   // Calculate new stock based on transaction type
@@ -369,7 +371,7 @@ export const receiveOrderItems = async (
     .from("inventory_order_items")
     .select("*")
     .eq("order_id", orderId)
-    .lt("received_quantity", supabase.raw("quantity"));
+    .lt("received_quantity", supabase.fn.coalesce('quantity', 0));
     
   if (pendingError) throw pendingError;
   
@@ -416,7 +418,7 @@ export const getInventoryStats = async () => {
     .from("medikamente")
     .select("id", { count: "exact" })
     .is("deleted_at", null)
-    .lt("current_stock", supabase.raw("minimum_stock"));
+    .lte("current_stock", supabase.fn.coalesce('minimum_stock', 0));
 
   if (lowError) throw lowError;
 

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -364,7 +365,7 @@ const InventoryMedicationsList = () => {
         </div>
       ) : filteredMedications.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredMedications.map((medication) => (
+          {filteredMedications.map((medication: MedikamentItem) => (
             <Card key={medication.id}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center justify-between">
