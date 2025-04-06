@@ -70,7 +70,7 @@ export const getLowStockItems = async () => {
     .from("inventory_items")
     .select("*")
     .is("deleted_at", null)
-    .lte("current_stock", supabase.rpc("greatest", { a: 0, b: supabase.raw("minimum_stock") }))
+    .lte("current_stock", supabase.rpc("greatest", { a: 0, b: "minimum_stock" }))
     .order("name");
 
   if (error) throw error;
@@ -138,7 +138,7 @@ export const createTransaction = async (
       break;
   }
   
-  // Start a transaction to ensure both operations complete together
+  // Call the stored procedure to update inventory
   const { data, error } = await supabase.rpc("create_inventory_transaction", {
     item_id_param: itemId,
     transaction_type_param: transactionType,
@@ -222,7 +222,7 @@ export const getOrders = async () => {
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return data as (InventoryOrder & { supplier: { name: string } })[];
+  return data;
 };
 
 export const getOrder = async (id: string) => {
@@ -236,7 +236,7 @@ export const getOrder = async (id: string) => {
     .single();
 
   if (error) throw error;
-  return data as (InventoryOrder & { supplier: { id: string, name: string } });
+  return data;
 };
 
 export const getOrderItems = async (orderId: string) => {
@@ -249,7 +249,7 @@ export const getOrderItems = async (orderId: string) => {
     .eq("order_id", orderId);
 
   if (error) throw error;
-  return data as (OrderItem & { item: { id: string, name: string, unit: string } })[];
+  return data;
 };
 
 export const createOrder = async (
@@ -279,7 +279,7 @@ export const createOrder = async (
 
   if (itemsError) throw itemsError;
 
-  return data as InventoryOrder;
+  return data;
 };
 
 export const updateOrderStatus = async (id: string, status: 'pending' | 'ordered' | 'delivered' | 'cancelled', actualDeliveryDate?: string) => {
@@ -296,14 +296,14 @@ export const updateOrderStatus = async (id: string, status: 'pending' | 'ordered
     .single();
 
   if (error) throw error;
-  return data as InventoryOrder;
+  return data;
 };
 
 export const receiveOrderItems = async (
   orderId: string,
   items: Array<{ id: string, received_quantity: number }>
 ) => {
-  // Start a transaction using RPC
+  // Call the stored procedure to process the receipt
   const { error } = await supabase.rpc("process_order_receipt", {
     order_id_param: orderId,
     items_param: items
@@ -348,7 +348,7 @@ export const getInventoryStats = async () => {
     .from("inventory_items")
     .select("id", { count: "exact" })
     .is("deleted_at", null)
-    .lte("current_stock", supabase.rpc("greatest", { a: 0, b: supabase.raw("minimum_stock") }));
+    .lte("current_stock", supabase.rpc("greatest", { a: 0, b: "minimum_stock" }));
 
   if (lowError) throw lowError;
 
