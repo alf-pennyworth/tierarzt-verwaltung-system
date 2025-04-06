@@ -120,10 +120,14 @@ export const createTransaction = async (
     .eq("id", itemId)
     .single();
 
-  if (itemError) throw itemError;
+  if (itemError) {
+    console.error("Error fetching item:", itemError);
+    throw new Error(`Failed to get current stock: ${itemError.message}`);
+  }
   
   if (!item) throw new Error("Item not found");
   
+  // Safely access current_stock with proper type checking
   const previousStock = item.current_stock ?? 0;
   let newStock = previousStock;
   
