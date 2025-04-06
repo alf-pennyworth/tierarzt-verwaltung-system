@@ -7,7 +7,7 @@ import {
   getInventoryUnits,
   createInventoryItem
 } from "@/services/inventoryService";
-import { InventoryItem } from "@/types/inventory";
+import { MedikamentItem } from "@/types/inventory";
 import { 
   Table, 
   TableBody, 
@@ -64,7 +64,7 @@ const InventoryItemsList = () => {
     sku: "",
     current_stock: 0,
     minimum_stock: 0,
-    unit: "",
+    masseinheit: "",
     unit_price: undefined as number | undefined,
     location: "",
     expiry_date: "",
@@ -103,7 +103,7 @@ const InventoryItemsList = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.unit) {
+    if (!formData.name || !formData.masseinheit) {
       toast({
         title: "Fehlende Informationen",
         description: "Name und Einheit sind erforderlich.",
@@ -114,7 +114,15 @@ const InventoryItemsList = () => {
     
     try {
       await createInventoryItem({
-        ...formData,
+        name: formData.name,
+        description: formData.description,
+        sku: formData.sku,
+        current_stock: formData.current_stock,
+        minimum_stock: formData.minimum_stock,
+        masseinheit: formData.masseinheit,
+        unit_price: formData.unit_price,
+        location: formData.location,
+        expiry_date: formData.expiry_date,
         praxis_id: userInfo?.praxisId!
       });
       
@@ -131,7 +139,7 @@ const InventoryItemsList = () => {
         sku: "",
         current_stock: 0,
         minimum_stock: 0,
-        unit: "",
+        masseinheit: "",
         unit_price: undefined,
         location: "",
         expiry_date: "",
@@ -153,8 +161,8 @@ const InventoryItemsList = () => {
     // Basic search filter
     const matchesSearch = searchTerm === "" || 
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+      (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase()));
     
     // Category filter
     const matchesCategory = categoryFilter === "" || item.category === categoryFilter;
@@ -197,7 +205,7 @@ const InventoryItemsList = () => {
             <SelectContent>
               <SelectItem value="">Alle Kategorien</SelectItem>
               {categories.map((category) => (
-                <SelectItem key={category} value={category}>{category}</SelectItem>
+                <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -250,7 +258,7 @@ const InventoryItemsList = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((category) => (
-                        <SelectItem key={category} value={category}>{category}</SelectItem>
+                        <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
                       ))}
                       <SelectItem value="other">Sonstige</SelectItem>
                     </SelectContent>
@@ -292,13 +300,13 @@ const InventoryItemsList = () => {
                 </div>
                 
                 <div>
-                  <Label htmlFor="unit">Einheit *</Label>
+                  <Label htmlFor="masseinheit">Einheit *</Label>
                   <Select 
-                    value={formData.unit} 
-                    onValueChange={(value) => handleSelectChange("unit", value)}
+                    value={formData.masseinheit} 
+                    onValueChange={(value) => handleSelectChange("masseinheit", value)}
                     required
                   >
-                    <SelectTrigger id="unit">
+                    <SelectTrigger id="masseinheit">
                       <SelectValue placeholder="Wählen..." />
                     </SelectTrigger>
                     <SelectContent>
@@ -410,9 +418,9 @@ const InventoryItemsList = () => {
                   )}
                 </TableCell>
                 <TableCell className={item.current_stock <= item.minimum_stock ? "text-amber-600 font-medium" : ""}>
-                  {item.current_stock} {item.unit}
+                  {item.current_stock} {item.masseinheit}
                 </TableCell>
-                <TableCell>{item.minimum_stock} {item.unit}</TableCell>
+                <TableCell>{item.minimum_stock} {item.masseinheit}</TableCell>
                 <TableCell>{item.location || "-"}</TableCell>
                 <TableCell>
                   {item.expiry_date ? (

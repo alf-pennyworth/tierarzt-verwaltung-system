@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Package, ListOrdered, Truck, BarChart3, Pills } from "lucide-react";
+import { Package, ListOrdered, Truck, BarChart3, Pill } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -29,7 +29,7 @@ const InventoryNavigation = () => {
     {
       name: "Medikamente",
       path: "medications",
-      icon: Pills,
+      icon: Pill,
     },
     {
       name: "Bestellungen",

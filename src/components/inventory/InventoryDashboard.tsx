@@ -7,7 +7,7 @@ import {
   getExpiringItems,
   getOrders 
 } from "@/services/inventoryService";
-import { InventoryItem, InventoryOrder } from "@/types/inventory";
+import { MedikamentItem, InventoryOrder } from "@/types/inventory";
 import { 
   Table, 
   TableBody, 
@@ -88,10 +88,10 @@ const InventoryDashboard = () => {
                     <TableCell>{item.name}</TableCell>
                     <TableCell>
                       <span className={item.current_stock === 0 ? "text-red-600 font-medium" : ""}>
-                        {item.current_stock} {item.unit}
+                        {item.current_stock} {item.masseinheit}
                       </span>
                     </TableCell>
-                    <TableCell>{item.minimum_stock} {item.unit}</TableCell>
+                    <TableCell>{item.minimum_stock} {item.masseinheit}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -154,7 +154,7 @@ const InventoryDashboard = () => {
                     <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" 
                       onClick={() => navigate(`/inventory/items/${item.id}`)}>
                       <TableCell>{item.name}</TableCell>
-                      <TableCell>{item.current_stock} {item.unit}</TableCell>
+                      <TableCell>{item.current_stock} {item.masseinheit}</TableCell>
                       <TableCell>
                         <span className={daysUntilExpiry <= 14 ? "text-red-600 font-medium" : ""}>
                           {format(expiryDate, "dd.MM.yyyy")}

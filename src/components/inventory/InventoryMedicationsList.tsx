@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Search, RefreshCw, Package } from 'lucide-react';
+import { Loader2, Plus, Search, RefreshCw, Package, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { MedikamentItem } from '@/types/inventory';
 
 interface Medication {
   id: string;
@@ -154,7 +154,6 @@ const InventoryMedicationsList = () => {
   const handleAddMedication = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Ensure required fields are present
     if (!newMedication.name || !newMedication.masseinheit) {
       toast({
         title: 'Eingabefehler',
@@ -230,7 +229,6 @@ const InventoryMedicationsList = () => {
               </DialogHeader>
               <form onSubmit={handleAddMedication} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Name */}
                   <div className="space-y-2">
                     <Label htmlFor="name">Name *</Label>
                     <Input
@@ -241,7 +239,6 @@ const InventoryMedicationsList = () => {
                       required
                     />
                   </div>
-                  {/* Maßeinheit */}
                   <div className="space-y-2">
                     <Label htmlFor="masseinheit">Maßeinheit *</Label>
                     <Input
@@ -253,7 +250,6 @@ const InventoryMedicationsList = () => {
                       required
                     />
                   </div>
-                  {/* Current Stock */}
                   <div className="space-y-2">
                     <Label htmlFor="current_stock">Aktueller Bestand</Label>
                     <Input
@@ -264,7 +260,6 @@ const InventoryMedicationsList = () => {
                       onChange={handleInputChange}
                     />
                   </div>
-                  {/* Minimum Stock */}
                   <div className="space-y-2">
                     <Label htmlFor="minimum_stock">Mindestbestand</Label>
                     <Input
@@ -275,7 +270,6 @@ const InventoryMedicationsList = () => {
                       onChange={handleInputChange}
                     />
                   </div>
-                  {/* Unit Price */}
                   <div className="space-y-2">
                     <Label htmlFor="unit_price">Preis pro Einheit (€)</Label>
                     <Input
@@ -287,7 +281,6 @@ const InventoryMedicationsList = () => {
                       onChange={handleInputChange}
                     />
                   </div>
-                  {/* Zulassungsnummer */}
                   <div className="space-y-2">
                     <Label htmlFor="zulassungsnummer">Zulassungsnummer</Label>
                     <Input
@@ -297,7 +290,6 @@ const InventoryMedicationsList = () => {
                       onChange={handleInputChange}
                     />
                   </div>
-                  {/* Packungs-ID */}
                   <div className="space-y-2">
                     <Label htmlFor="packungs_id">Packungs-ID</Label>
                     <Input
@@ -307,7 +299,6 @@ const InventoryMedicationsList = () => {
                       onChange={handleInputChange}
                     />
                   </div>
-                  {/* Eingangs-Nr. */}
                   <div className="space-y-2">
                     <Label htmlFor="eingangs_nr">Eingangs-Nr.</Label>
                     <Input
@@ -317,7 +308,6 @@ const InventoryMedicationsList = () => {
                       onChange={handleInputChange}
                     />
                   </div>
-                  {/* Packungsbeschreibung */}
                   <div className="space-y-2">
                     <Label htmlFor="packungsbeschreibung">Packungsbeschreibung</Label>
                     <Input
@@ -327,7 +317,6 @@ const InventoryMedicationsList = () => {
                       onChange={handleInputChange}
                     />
                   </div>
-                  {/* Medikamententyp */}
                   <div className="space-y-2">
                     <Label htmlFor="medication_type">Medikamententyp</Label>
                     <Select
