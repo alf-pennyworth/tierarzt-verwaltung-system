@@ -177,6 +177,10 @@ const CreateOrderDialog = ({ open, onOpenChange, onSuccess }: CreateOrderDialogP
     // Calculate total amount
     const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
 
+    // Get user ID from the correct property in userInfo object
+    // Fixing the error by using sub, which is the user identifier in the auth system
+    const userId = userInfo.sub || "";
+    
     const orderData = {
       praxis_id: userInfo.praxisId,
       supplier_id: data.supplier_id,
@@ -186,7 +190,7 @@ const CreateOrderDialog = ({ open, onOpenChange, onSuccess }: CreateOrderDialogP
       notes: data.notes || null,
       status: "pending" as const,
       total_amount: totalAmount,
-      created_by: userInfo.userId || ""
+      created_by: userId
     };
 
     const orderItems = items.map(item => ({
