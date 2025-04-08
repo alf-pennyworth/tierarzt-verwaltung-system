@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 
 interface UserInfo {
+  id: string | null; // Adding the id property to fix the TypeScript error
   isAdmin: boolean;
   praxisId: string | null;
   praxisName: string | undefined;
@@ -49,6 +50,7 @@ export const useAuth = () => {
         console.log("Praxis name:", data?.praxis?.name);
 
         setUserInfo({
+          id: userId, // Set the ID to the userId parameter
           isAdmin,
           praxisId,
           praxisName: data?.praxis?.name || undefined,
