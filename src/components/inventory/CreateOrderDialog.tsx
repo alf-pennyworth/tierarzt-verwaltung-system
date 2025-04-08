@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { 
@@ -144,6 +145,7 @@ const CreateOrderDialog = ({ open, onOpenChange, onSuccess }: CreateOrderDialogP
       total_price: totalPrice
     };
 
+    console.log("Adding item to order:", newItem);
     setItems(prev => [...prev, newItem]);
     setSelectedItem("");
     setQuantity(1);
@@ -175,7 +177,10 @@ const CreateOrderDialog = ({ open, onOpenChange, onSuccess }: CreateOrderDialogP
 
     const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
 
-    const userId = userInfo.id || '';
+    // Ensure we have a valid UUID for created_by
+    const userId = userInfo?.id || '';
+    
+    console.log("Submitting order with user ID:", userId);
     
     const orderData = {
       praxis_id: userInfo.praxisId,
@@ -196,6 +201,8 @@ const CreateOrderDialog = ({ open, onOpenChange, onSuccess }: CreateOrderDialogP
       total_price: item.total_price
     }));
 
+    console.log("Creating order:", { order: orderData, items: orderItems });
+    
     createOrderMutation.mutate({
       order: orderData,
       items: orderItems
