@@ -328,23 +328,46 @@ export const createOrder = async ({
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error("Error creating order:", error);
+    throw error;
+  }
 
   const orderId = data.id;
   
-  // Add the order items
-  const orderItems = items.map(item => ({
-    ...item,
-    order_id: orderId
-  }));
+  try {
+    // Add the order items - use the medikamente table
+    const orderItems = items.map(item => ({
+      ...item,
+      order_id: orderId
+    }));
 
-  const { error: itemsError } = await supabase
-    .from("inventory_order_items")
-    .insert(orderItems);
+    const { error: itemsError } = await supabase
+      .from("inventory_order_items")
+      .insert(orderItems);
 
-  if (itemsError) throw itemsError;
+    if (itemsError) {
+      console.error("Error creating order items:", itemsError);
+      throw itemsError;
+    }
 
-  return data as InventoryOrder;
+    return data as InventoryOrder;
+  } catch (itemError) {
+    // If adding items fails, we should clean up the order to prevent orphaned orders
+    console.error("Error adding order items:", itemError);
+    
+    // Delete the order we just created
+    const { error: deleteError } = await supabase
+      .from("inventory_orders")
+      .delete()
+      .eq("id", orderId);
+      
+    if (deleteError) {
+      console.error("Failed to clean up order after item error:", deleteError);
+    }
+    
+    throw itemError;
+  }
 };
 
 export const updateOrderStatus = async (id: string, status: 'pending' | 'ordered' | 'delivered' | 'cancelled', actualDeliveryDate?: string) => {

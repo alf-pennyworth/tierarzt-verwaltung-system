@@ -175,7 +175,7 @@ const CreateOrderDialog = ({ open, onOpenChange, onSuccess }: CreateOrderDialogP
 
     const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
 
-    const userId = userInfo.id || userInfo.email || null;
+    const userId = userInfo.id || '';
     
     const orderData = {
       praxis_id: userInfo.praxisId,
