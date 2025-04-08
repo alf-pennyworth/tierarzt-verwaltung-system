@@ -12,6 +12,7 @@ import InventoryOrdersList from "@/components/inventory/InventoryOrdersList";
 import InventoryDashboard from "@/components/inventory/InventoryDashboard";
 import InventoryNavigation from "@/components/inventory/InventoryNavigation";
 import InventoryMedicationsList from "@/components/inventory/InventoryMedicationsList";
+import OrderDetail from "@/components/inventory/OrderDetail";
 
 const Inventory = () => {
   const { userInfo } = useAuth();
@@ -92,6 +93,7 @@ const Inventory = () => {
           <Route path="/items" element={<InventoryItemsList />} />
           <Route path="/medications" element={<InventoryMedicationsList />} />
           <Route path="/orders" element={<InventoryOrdersList />} />
+          <Route path="/orders/:id" element={<OrderDetail />} />
           <Route path="/suppliers" element={<InventorySuppliersList />} />
           <Route path="*" element={<Navigate to="/inventory" replace />} />
         </Routes>

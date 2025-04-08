@@ -16,10 +16,12 @@ import {
   CalendarClock, RefreshCw 
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import CreateOrderDialog from "./CreateOrderDialog";
 
 const InventoryOrdersList = () => {
   const navigate = useNavigate();
   const [filter, setFilter] = useState("all");
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   
   const { data: orders = [], isLoading, refetch } = useQuery({
     queryKey: ["inventoryOrders"],
@@ -80,7 +82,7 @@ const InventoryOrdersList = () => {
           <Button variant="outline" size="icon" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4" />
           </Button>
-          <Button onClick={() => navigate("/inventory/orders/new")}>
+          <Button onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-2" /> Neue Bestellung
           </Button>
         </div>
@@ -155,11 +157,17 @@ const InventoryOrdersList = () => {
               : "Es wurden noch keine Bestellungen aufgezeichnet"
             }
           </p>
-          <Button onClick={() => navigate("/inventory/orders/new")}>
+          <Button onClick={() => setShowCreateDialog(true)}>
             <Plus className="h-4 w-4 mr-2" /> Neue Bestellung erstellen
           </Button>
         </div>
       )}
+      
+      <CreateOrderDialog 
+        open={showCreateDialog} 
+        onOpenChange={setShowCreateDialog} 
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 };

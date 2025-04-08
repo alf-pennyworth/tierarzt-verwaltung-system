@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { 
   MedikamentItem,
@@ -303,10 +304,13 @@ export const getOrderItems = async (orderId: string) => {
   return data as unknown as (OrderItem & { item: { id: string; name: string; masseinheit: string } })[];
 };
 
-export const createOrder = async (
+export const createOrder = async ({
+  order,
+  items
+}: {
   order: Omit<InventoryOrder, "id" | "created_at" | "updated_at">,
   items: Array<Omit<OrderItem, "id" | "order_id">>
-) => {
+}) => {
   // Create the order
   const { data, error } = await supabase
     .from("inventory_orders")
