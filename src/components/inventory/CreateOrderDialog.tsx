@@ -178,8 +178,8 @@ const CreateOrderDialog = ({ open, onOpenChange, onSuccess }: CreateOrderDialogP
     const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
 
     // Get user ID from the correct property in userInfo object
-    // Fixing the error by using sub, which is the user identifier in the auth system
-    const userId = userInfo.sub || "";
+    // We need to use a property that exists in the UserInfo type
+    const userId = userInfo.email || ""; // Using email as a fallback identifier
     
     const orderData = {
       praxis_id: userInfo.praxisId,
