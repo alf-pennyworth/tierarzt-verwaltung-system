@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -47,7 +48,7 @@ const InventoryItemsList = () => {
   const { toast } = useToast();
   const { userInfo } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all"); // Changed from empty string to "all"
   const [showDialog, setShowDialog] = useState(false);
   
   // Extract filter from URL if present
@@ -71,7 +72,7 @@ const InventoryItemsList = () => {
   
   const { data: items, isLoading, refetch } = useQuery({
     queryKey: ["inventoryItems", userInfo?.praxisId],
-    queryFn: getInventoryItems,
+    queryFn: ({ queryKey }) => getInventoryItems({ queryKey }),
     enabled: !!userInfo?.praxisId
   });
   
@@ -165,7 +166,7 @@ const InventoryItemsList = () => {
       (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase()));
     
     // Category filter
-    const matchesCategory = categoryFilter === "" || item.category === categoryFilter;
+    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter; // Changed from empty string to "all"
     
     // Special URL filters
     let matchesUrlFilter = true;
@@ -203,7 +204,7 @@ const InventoryItemsList = () => {
               <SelectValue placeholder="Kategorie" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Alle Kategorien</SelectItem>
+              <SelectItem value="all">Alle Kategorien</SelectItem> {/* Changed from empty string to "all" */}
               {categories.map((category) => (
                 <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
               ))}
@@ -443,7 +444,7 @@ const InventoryItemsList = () => {
           <Package2 className="h-16 w-16 text-muted-foreground/40 mb-4" />
           <h3 className="text-xl font-medium mb-2">Keine Artikel gefunden</h3>
           <p className="text-muted-foreground mb-6 max-w-md">
-            {searchTerm || categoryFilter || filterParam
+            {searchTerm || categoryFilter !== "all" || filterParam // Changed from empty string to "all"
               ? "Keine Artikel entsprechen den Filterkriterien. Versuchen Sie, die Filter anzupassen."
               : "Es wurden noch keine Artikel hinzugefügt. Fügen Sie einen neuen Artikel hinzu, um zu beginnen."}
           </p>
