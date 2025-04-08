@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { 
@@ -174,12 +173,9 @@ const CreateOrderDialog = ({ open, onOpenChange, onSuccess }: CreateOrderDialogP
       return;
     }
 
-    // Calculate total amount
     const totalAmount = items.reduce((sum, item) => sum + item.total_price, 0);
 
-    // Get user ID from the correct property in userInfo object
-    // We need to use a property that exists in the UserInfo type
-    const userId = userInfo.email || ""; // Using email as a fallback identifier
+    const userId = userInfo.id || userInfo.email || null;
     
     const orderData = {
       praxis_id: userInfo.praxisId,

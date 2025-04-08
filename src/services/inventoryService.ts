@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { 
   MedikamentItem,
@@ -311,10 +310,21 @@ export const createOrder = async ({
   order: Omit<InventoryOrder, "id" | "created_at" | "updated_at">,
   items: Array<Omit<OrderItem, "id" | "order_id">>
 }) => {
+  // Modify the order object to handle non-UUID values for created_by
+  // This is a workaround when we don't have a valid UUID
+  const orderData = { ...order };
+  
+  // If created_by is not a valid UUID format (like an email), set it to null
+  // The database will handle this with defaults or constraints
+  if (orderData.created_by && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(orderData.created_by)) {
+    console.log("Created by is not a valid UUID format:", orderData.created_by);
+    orderData.created_by = null;
+  }
+
   // Create the order
   const { data, error } = await supabase
     .from("inventory_orders")
-    .insert(order)
+    .insert(orderData)
     .select()
     .single();
 
