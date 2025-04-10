@@ -197,7 +197,7 @@ const InventoryItemsList = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Alle Kategorien</SelectItem>
-              {categories.map((category) => (
+              {categories.map((category: string) => (
                 <SelectItem key={category} value={category}>
                   {category}
                 </SelectItem>
@@ -252,7 +252,7 @@ const InventoryItemsList = () => {
                       <SelectValue placeholder="Wählen..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((category) => (
+                      {categories.map((category: string) => (
                         <SelectItem key={category} value={category}>
                           {category}
                         </SelectItem>
@@ -308,7 +308,7 @@ const InventoryItemsList = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {units.length > 0 ? (
-                        units.map((unit) => (
+                        units.map((unit: string) => (
                           <SelectItem key={unit} value={unit}>
                             {unit}
                           </SelectItem>

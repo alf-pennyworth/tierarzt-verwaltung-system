@@ -46,7 +46,7 @@ export const getLowStockItems = async ({ queryKey }: { queryKey: string[] }) => 
     .from("medikamente")
     .select("*")
     .is("deleted_at", null)
-    .lt("current_stock", "minimum_stock") // Removed .raw()
+    .lt("current_stock", "minimum_stock") // No raw() method needed
     .order("name");
   
   if (praxisId) {
@@ -118,7 +118,7 @@ export const getInventoryStats = async ({ queryKey }: { queryKey: string[] }) =>
       .from("medikamente")
       .select("*", { count: "exact", head: true })
       .is("deleted_at", null)
-      .lt("current_stock", "minimum_stock") // Removed .raw()
+      .lt("current_stock", "minimum_stock") // No raw() method needed
       .eq("praxis_id", praxisId);
     
     if (lowStockError) throw lowStockError;
@@ -183,9 +183,21 @@ export const createSupplier = async (supplier: Partial<Supplier>) => {
     throw new Error("Supplier name and praxis_id are required");
   }
   
+  // FIX: Use a type assertion to satisfy TypeScript
+  const supplierData = {
+    name: supplier.name,
+    praxis_id: supplier.praxis_id,
+    contact_person: supplier.contact_person,
+    email: supplier.email,
+    phone: supplier.phone,
+    address: supplier.address,
+    website: supplier.website,
+    notes: supplier.notes
+  };
+  
   const { data, error } = await supabase
     .from("suppliers")
-    .insert(supplier) // Fix: Don't wrap in array
+    .insert(supplierData)
     .select();
   
   if (error) {
@@ -246,7 +258,7 @@ export const getOrderItems = async (orderId: string) => {
     .from("inventory_order_items")
     .select(`
       *,
-      item:medikamente!item_id(id, name, masseinheit)
+      item:medikamente(id, name, masseinheit)
     `)
     .eq("order_id", orderId);
   
@@ -278,10 +290,23 @@ export const createOrder = async ({
     throw new Error("Order created_by is required");
   }
   
+  // FIX: Create a complete order object with only the required fields
+  const orderData = {
+    praxis_id: order.praxis_id,
+    created_by: order.created_by,
+    supplier_id: order.supplier_id,
+    order_date: order.order_date || new Date().toISOString().split('T')[0],
+    expected_delivery_date: order.expected_delivery_date,
+    order_number: order.order_number,
+    notes: order.notes,
+    status: order.status || "pending",
+    total_amount: order.total_amount
+  };
+  
   // Start a transaction
   const { data: orderData, error: orderError } = await supabase
     .from("inventory_orders")
-    .insert(order) // Fix: don't wrap in array
+    .insert(orderData)
     .select();
   
   if (orderError) {
@@ -531,9 +556,29 @@ export const createInventoryItem = async (item: Partial<MedikamentItem>) => {
     throw new Error("Item name and masseinheit are required");
   }
   
+  // FIX: Create a complete object with required fields explicitly defined
+  const itemData = {
+    name: item.name,
+    masseinheit: item.masseinheit,
+    praxis_id: item.praxis_id,
+    current_stock: item.current_stock ?? 0,
+    minimum_stock: item.minimum_stock ?? 0,
+    category: item.category,
+    description: item.description,
+    unit_price: item.unit_price,
+    expiry_date: item.expiry_date,
+    location: item.location,
+    sku: item.sku,
+    zulassungsnummer: item.zulassungsnummer,
+    packungs_id: item.packungs_id,
+    eingangs_nr: item.eingangs_nr,
+    packungsbeschreibung: item.packungsbeschreibung,
+    medication_type_id: item.medication_type_id
+  };
+  
   const { data, error } = await supabase
     .from("medikamente")
-    .insert(item) // Fix: don't wrap in array
+    .insert(itemData)
     .select();
   
   if (error) {
