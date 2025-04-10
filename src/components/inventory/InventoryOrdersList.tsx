@@ -13,19 +13,29 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { 
   ShoppingCart, ChevronRight, Plus, 
-  CalendarClock, RefreshCw 
+  CalendarClock, RefreshCw, AlertTriangle
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 import CreateOrderDialog from "./CreateOrderDialog";
 
 const InventoryOrdersList = () => {
   const navigate = useNavigate();
   const [filter, setFilter] = useState("all");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const { toast } = useToast();
   
-  const { data: orders = [], isLoading, refetch } = useQuery({
+  const { data: orders = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["inventoryOrders"],
-    queryFn: getOrders
+    queryFn: getOrders,
+    onError: (err) => {
+      console.error("Failed to fetch orders:", err);
+      toast({
+        title: "Fehler",
+        description: "Beim Laden der Bestellungen ist ein Fehler aufgetreten",
+        variant: "destructive",
+      });
+    }
   });
   
   // Filter orders based on status
@@ -91,6 +101,17 @@ const InventoryOrdersList = () => {
       {isLoading ? (
         <div className="flex justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      ) : isError ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
+          <h3 className="text-xl font-medium mb-2">Fehler beim Laden</h3>
+          <p className="text-muted-foreground mb-6">
+            Die Bestellungen konnten nicht geladen werden
+          </p>
+          <Button onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-2" /> Erneut versuchen
+          </Button>
         </div>
       ) : filteredOrders.length > 0 ? (
         <div className="grid gap-4">

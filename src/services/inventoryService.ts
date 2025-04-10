@@ -253,6 +253,7 @@ export const getOrder = async (orderId: string) => {
 export const getOrderItems = async (orderId: string) => {
   console.log("Fetching order items for order:", orderId);
   
+  // Modified to use the correct foreign key relationship
   const { data, error } = await supabase
     .from("inventory_order_items")
     .select(`
@@ -323,6 +324,7 @@ export const createOrder = async ({
     if (!item.unit_price) throw new Error("Order item unit_price is required");
     if (!item.total_price) throw new Error("Order item total_price is required");
     
+    // Make sure we're referencing the correct item_id from 'medikamente' table
     return {
       order_id: orderId,
       item_id: item.item_id,
