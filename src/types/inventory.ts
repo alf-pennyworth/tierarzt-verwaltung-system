@@ -1,3 +1,4 @@
+
 export interface MedikamentItem {
   id: string;
   praxis_id: string;
@@ -67,6 +68,7 @@ export interface InventoryOrder {
   created_by: string;
   created_at: string;
   updated_at: string;
+  supplier?: Supplier; // Adding supplier relation
 }
 
 export interface OrderItem {
@@ -78,6 +80,7 @@ export interface OrderItem {
   total_price: number;
   received_quantity?: number;
   notes?: string;
+  item?: MedikamentItem; // Adding relation to item
 }
 
 export type TransactionType = 'purchase' | 'use' | 'adjustment' | 'expired' | 'return';
