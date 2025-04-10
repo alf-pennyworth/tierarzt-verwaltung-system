@@ -185,7 +185,7 @@ export const createSupplier = async (supplier: Partial<Supplier>) => {
   
   const { data, error } = await supabase
     .from("suppliers")
-    .insert([supplier]) // Insert a single object, not an array
+    .insert(supplier) // Fix: Don't wrap in array
     .select();
   
   if (error) {
@@ -246,7 +246,7 @@ export const getOrderItems = async (orderId: string) => {
     .from("inventory_order_items")
     .select(`
       *,
-      item:item_id(id, name, masseinheit)
+      item:medikamente!item_id(id, name, masseinheit)
     `)
     .eq("order_id", orderId);
   
@@ -256,7 +256,8 @@ export const getOrderItems = async (orderId: string) => {
   }
   
   console.log(`Fetched ${data?.length || 0} order items`);
-  return data as OrderItem[];
+  // Use type assertion to handle the complex join result
+  return data as unknown as OrderItem[];
 };
 
 export const createOrder = async ({ 
@@ -280,7 +281,7 @@ export const createOrder = async ({
   // Start a transaction
   const { data: orderData, error: orderError } = await supabase
     .from("inventory_orders")
-    .insert(order) // Insert a single object, not an array
+    .insert(order) // Fix: don't wrap in array
     .select();
   
   if (orderError) {
@@ -299,12 +300,12 @@ export const createOrder = async ({
     if (!item.total_price) throw new Error("Order item total_price is required");
     
     return {
-      ...item,
       order_id: orderId,
       item_id: item.item_id,
       quantity: item.quantity,
       unit_price: item.unit_price,
-      total_price: item.total_price
+      total_price: item.total_price,
+      notes: item.notes
     };
   });
   
@@ -389,7 +390,7 @@ export const receiveOrderItems = async (
       // Get the order item details to create the inventory transaction
       const { data: orderItemData, error: itemError } = await supabase
         .from("inventory_order_items")
-        .select("*, item:item_id(*)")
+        .select("*, item:medikamente!item_id(*)")
         .eq("id", item.id)
         .single();
       
@@ -422,7 +423,7 @@ export const receiveOrderItems = async (
         // Create inventory transaction record
         const { error: transactionError } = await supabase
           .from("inventory_transactions")
-          .insert([{
+          .insert({
             praxis_id: orderData.praxis_id,
             item_id: orderItemData.item_id,
             transaction_type: 'purchase',
@@ -433,7 +434,7 @@ export const receiveOrderItems = async (
             notes: `Received from order #${orderId.substring(0, 8)}`,
             created_by: orderData.created_by,
             transaction_date: new Date().toISOString().split('T')[0]
-          }]);
+          });
         
         if (transactionError) throw transactionError;
       }
@@ -494,7 +495,7 @@ export const getInventoryCategories = async () => {
   );
   
   console.log(`Fetched ${uniqueCategories.length} unique categories`);
-  return uniqueCategories;
+  return uniqueCategories as string[];
 };
 
 export const getInventoryUnits = async () => {
@@ -518,7 +519,7 @@ export const getInventoryUnits = async () => {
   );
   
   console.log(`Fetched ${uniqueUnits.length} unique units`);
-  return uniqueUnits;
+  return uniqueUnits as string[];
 };
 
 // Create inventory item (using medikamente table)
@@ -532,7 +533,7 @@ export const createInventoryItem = async (item: Partial<MedikamentItem>) => {
   
   const { data, error } = await supabase
     .from("medikamente")
-    .insert([item]) // Insert a single object, not an array
+    .insert(item) // Fix: don't wrap in array
     .select();
   
   if (error) {
@@ -543,4 +544,3 @@ export const createInventoryItem = async (item: Partial<MedikamentItem>) => {
   console.log("Inventory item created successfully:", data?.[0]);
   return data?.[0] as MedikamentItem;
 };
-

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,15 +47,13 @@ const InventoryItemsList = () => {
   const { toast } = useToast();
   const { userInfo } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all"); // Changed from empty string to "all"
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [showDialog, setShowDialog] = useState(false);
   
-  // Extract filter from URL if present
   const queryParams = new URLSearchParams(location.search);
   const tabParam = queryParams.get("tab");
   const filterParam = queryParams.get("filter");
   
-  // Form state for new item
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -132,7 +129,6 @@ const InventoryItemsList = () => {
         description: `${formData.name} wurde erfolgreich hinzugefügt.`
       });
       
-      // Reset form and close dialog
       setFormData({
         name: "",
         description: "",
@@ -157,18 +153,14 @@ const InventoryItemsList = () => {
     }
   };
   
-  // Filter items based on search term, category, and URL parameters
   const filteredItems = items?.filter(item => {
-    // Basic search filter
     const matchesSearch = searchTerm === "" || 
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    // Category filter
-    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter; // Changed from empty string to "all"
+    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
     
-    // Special URL filters
     let matchesUrlFilter = true;
     if (filterParam === "low-stock") {
       matchesUrlFilter = item.current_stock <= item.minimum_stock;
@@ -177,7 +169,7 @@ const InventoryItemsList = () => {
       
       const expiryDate = new Date(item.expiry_date);
       const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + 60); // Items expiring in next 60 days
+      futureDate.setDate(futureDate.getDate() + 60);
       matchesUrlFilter = expiryDate <= futureDate;
     }
     
@@ -204,9 +196,11 @@ const InventoryItemsList = () => {
               <SelectValue placeholder="Kategorie" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Alle Kategorien</SelectItem> {/* Changed from empty string to "all" */}
+              <SelectItem value="all">Alle Kategorien</SelectItem>
               {categories.map((category) => (
-                <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
+                <SelectItem key={category} value={category}>
+                  {category}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -259,7 +253,9 @@ const InventoryItemsList = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.name}>{category.name}</SelectItem>
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
                       ))}
                       <SelectItem value="other">Sonstige</SelectItem>
                     </SelectContent>
@@ -313,7 +309,9 @@ const InventoryItemsList = () => {
                     <SelectContent>
                       {units.length > 0 ? (
                         units.map((unit) => (
-                          <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                          <SelectItem key={unit} value={unit}>
+                            {unit}
+                          </SelectItem>
                         ))
                       ) : (
                         <>
@@ -444,7 +442,7 @@ const InventoryItemsList = () => {
           <Package2 className="h-16 w-16 text-muted-foreground/40 mb-4" />
           <h3 className="text-xl font-medium mb-2">Keine Artikel gefunden</h3>
           <p className="text-muted-foreground mb-6 max-w-md">
-            {searchTerm || categoryFilter !== "all" || filterParam // Changed from empty string to "all"
+            {searchTerm || categoryFilter !== "all" || filterParam
               ? "Keine Artikel entsprechen den Filterkriterien. Versuchen Sie, die Filter anzupassen."
               : "Es wurden noch keine Artikel hinzugefügt. Fügen Sie einen neuen Artikel hinzu, um zu beginnen."}
           </p>
