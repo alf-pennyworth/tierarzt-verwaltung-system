@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { 
   MedikamentItem, 
@@ -253,7 +254,7 @@ export const getOrder = async (orderId: string) => {
 export const getOrderItems = async (orderId: string) => {
   console.log("Fetching order items for order:", orderId);
   
-  // Modified to use the correct foreign key relationship
+  // Use the correct foreign key relationship
   const { data, error } = await supabase
     .from("inventory_order_items")
     .select(`
@@ -268,7 +269,6 @@ export const getOrderItems = async (orderId: string) => {
   }
   
   console.log(`Fetched ${data?.length || 0} order items`);
-  // Use type assertion to handle the complex join result
   return data as unknown as OrderItem[];
 };
 
@@ -324,7 +324,7 @@ export const createOrder = async ({
     if (!item.unit_price) throw new Error("Order item unit_price is required");
     if (!item.total_price) throw new Error("Order item total_price is required");
     
-    // Make sure we're referencing the correct item_id from 'medikamente' table
+    // Reference the correct item_id from 'medikamente' table
     return {
       order_id: orderId,
       item_id: item.item_id,
@@ -435,7 +435,7 @@ export const receiveOrderItems = async (
         const previousStock = inventoryItem.current_stock;
         const newStock = previousStock + item.received_quantity;
         
-        // Update the inventory item stock
+        // Update the medikamente item stock
         const { error: stockUpdateError } = await supabase
           .from("medikamente")
           .update({ 

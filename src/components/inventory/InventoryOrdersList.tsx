@@ -28,13 +28,15 @@ const InventoryOrdersList = () => {
   const { data: orders = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["inventoryOrders"],
     queryFn: getOrders,
-    onError: (err) => {
-      console.error("Failed to fetch orders:", err);
-      toast({
-        title: "Fehler",
-        description: "Beim Laden der Bestellungen ist ein Fehler aufgetreten",
-        variant: "destructive",
-      });
+    meta: {
+      onError: (err: Error) => {
+        console.error("Failed to fetch orders:", err);
+        toast({
+          title: "Fehler",
+          description: "Beim Laden der Bestellungen ist ein Fehler aufgetreten",
+          variant: "destructive",
+        });
+      }
     }
   });
   
