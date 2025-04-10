@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { 
   MedikamentItem, 
@@ -183,7 +182,7 @@ export const createSupplier = async (supplier: Partial<Supplier>) => {
     throw new Error("Supplier name and praxis_id are required");
   }
   
-  // FIX: Use a type assertion to satisfy TypeScript
+  // Use a type assertion to satisfy TypeScript
   const supplierData = {
     name: supplier.name,
     praxis_id: supplier.praxis_id,
@@ -290,8 +289,8 @@ export const createOrder = async ({
     throw new Error("Order created_by is required");
   }
   
-  // FIX: Create a complete order object with only the required fields
-  const orderData = {
+  // Create a complete order object with only the required fields
+  const orderPayload = {
     praxis_id: order.praxis_id,
     created_by: order.created_by,
     supplier_id: order.supplier_id,
@@ -306,7 +305,7 @@ export const createOrder = async ({
   // Start a transaction
   const { data: orderData, error: orderError } = await supabase
     .from("inventory_orders")
-    .insert(orderData)
+    .insert(orderPayload)
     .select();
   
   if (orderError) {
@@ -556,7 +555,7 @@ export const createInventoryItem = async (item: Partial<MedikamentItem>) => {
     throw new Error("Item name and masseinheit are required");
   }
   
-  // FIX: Create a complete object with required fields explicitly defined
+  // Create a complete object with required fields explicitly defined
   const itemData = {
     name: item.name,
     masseinheit: item.masseinheit,
