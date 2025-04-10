@@ -1,4 +1,13 @@
 
+import { supabase } from '@/integrations/supabase/client';
+import { 
+  MedikamentItem, 
+  Supplier, 
+  InventoryOrder, 
+  OrderItem, 
+  InventoryTransaction 
+} from '@/types/inventory';
+
 // Inventory Items (using medikamente table)
 export const getInventoryItems = async ({ queryKey }: { queryKey: string[] }) => {
   const [_, praxisId] = queryKey;
@@ -25,4 +34,481 @@ export const getInventoryItems = async ({ queryKey }: { queryKey: string[] }) =>
   
   console.log(`Fetched ${data?.length || 0} inventory items`);
   return data as MedikamentItem[];
+};
+
+// Get low stock items
+export const getLowStockItems = async ({ queryKey }: { queryKey: string[] }) => {
+  const [_, praxisId] = queryKey;
+  
+  console.log("Fetching low stock items for praxis:", praxisId);
+  
+  const query = supabase
+    .from("medikamente")
+    .select("*")
+    .is("deleted_at", null)
+    .lt("current_stock", supabase.raw("minimum_stock"))
+    .order("name");
+  
+  if (praxisId) {
+    query.eq("praxis_id", praxisId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching low stock items:", error);
+    throw error;
+  }
+  
+  console.log(`Fetched ${data?.length || 0} low stock items`);
+  return data as MedikamentItem[];
+};
+
+// Get expiring items
+export const getExpiringItems = async ({ queryKey }: { queryKey: string[] }) => {
+  const [_, daysUntilExpiry, praxisId] = queryKey;
+  const days = parseInt(daysUntilExpiry) || 30;
+  
+  console.log(`Fetching items expiring within ${days} days for praxis:`, praxisId);
+  
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() + days);
+  
+  const query = supabase
+    .from("medikamente")
+    .select("*")
+    .is("deleted_at", null)
+    .not("expiry_date", "is", null)
+    .lte("expiry_date", expiryDate.toISOString().split('T')[0])
+    .order("expiry_date");
+  
+  if (praxisId) {
+    query.eq("praxis_id", praxisId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching expiring items:", error);
+    throw error;
+  }
+  
+  console.log(`Fetched ${data?.length || 0} expiring items`);
+  return data as MedikamentItem[];
+};
+
+// Get inventory statistics
+export const getInventoryStats = async ({ queryKey }: { queryKey: string[] }) => {
+  const [_, praxisId] = queryKey;
+  
+  console.log("Fetching inventory statistics for praxis:", praxisId);
+  
+  try {
+    // Get total items count
+    const { count: totalItems, error: countError } = await supabase
+      .from("medikamente")
+      .select("*", { count: "exact", head: true })
+      .is("deleted_at", null)
+      .eq("praxis_id", praxisId);
+    
+    if (countError) throw countError;
+    
+    // Get low stock items count
+    const { count: lowStockItems, error: lowStockError } = await supabase
+      .from("medikamente")
+      .select("*", { count: "exact", head: true })
+      .is("deleted_at", null)
+      .lt("current_stock", supabase.raw("minimum_stock"))
+      .eq("praxis_id", praxisId);
+    
+    if (lowStockError) throw lowStockError;
+    
+    // Get pending orders count
+    const { count: pendingOrders, error: pendingOrdersError } = await supabase
+      .from("inventory_orders")
+      .select("*", { count: "exact", head: true })
+      .in("status", ["pending", "ordered"])
+      .eq("praxis_id", praxisId);
+    
+    if (pendingOrdersError) throw pendingOrdersError;
+    
+    // Get recent transactions count (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const { count: recentTransactions, error: transactionsError } = await supabase
+      .from("inventory_transactions")
+      .select("*", { count: "exact", head: true })
+      .gte("transaction_date", thirtyDaysAgo.toISOString().split('T')[0])
+      .eq("praxis_id", praxisId);
+    
+    if (transactionsError) throw transactionsError;
+    
+    return {
+      totalItems: totalItems || 0,
+      lowStockItems: lowStockItems || 0,
+      pendingOrders: pendingOrders || 0,
+      recentTransactions: recentTransactions || 0
+    };
+  } catch (error) {
+    console.error("Error fetching inventory statistics:", error);
+    throw error;
+  }
+};
+
+// Suppliers
+export const getSuppliers = async () => {
+  console.log("Fetching suppliers");
+  
+  const { data, error } = await supabase
+    .from("suppliers")
+    .select("*")
+    .is("deleted_at", null)
+    .order("name");
+  
+  if (error) {
+    console.error("Error fetching suppliers:", error);
+    throw error;
+  }
+  
+  console.log(`Fetched ${data?.length || 0} suppliers`);
+  return data as Supplier[];
+};
+
+export const createSupplier = async (supplier: Partial<Supplier>) => {
+  console.log("Creating supplier:", supplier);
+  
+  const { data, error } = await supabase
+    .from("suppliers")
+    .insert([supplier])
+    .select();
+  
+  if (error) {
+    console.error("Error creating supplier:", error);
+    throw error;
+  }
+  
+  console.log("Supplier created successfully:", data?.[0]);
+  return data?.[0] as Supplier;
+};
+
+// Orders
+export const getOrders = async () => {
+  console.log("Fetching orders");
+  
+  const { data, error } = await supabase
+    .from("inventory_orders")
+    .select(`
+      *,
+      supplier:suppliers(*)
+    `)
+    .order("order_date", { ascending: false });
+  
+  if (error) {
+    console.error("Error fetching orders:", error);
+    throw error;
+  }
+  
+  console.log(`Fetched ${data?.length || 0} orders`);
+  return data as InventoryOrder[];
+};
+
+export const getOrder = async (orderId: string) => {
+  console.log("Fetching order:", orderId);
+  
+  const { data, error } = await supabase
+    .from("inventory_orders")
+    .select(`
+      *,
+      supplier:suppliers(*)
+    `)
+    .eq("id", orderId)
+    .single();
+  
+  if (error) {
+    console.error("Error fetching order:", error);
+    throw error;
+  }
+  
+  console.log("Order retrieved:", data);
+  return data as InventoryOrder;
+};
+
+export const getOrderItems = async (orderId: string) => {
+  console.log("Fetching order items for order:", orderId);
+  
+  const { data, error } = await supabase
+    .from("inventory_order_items")
+    .select(`
+      *,
+      item:item_id(id, name, masseinheit)
+    `)
+    .eq("order_id", orderId);
+  
+  if (error) {
+    console.error("Error fetching order items:", error);
+    throw error;
+  }
+  
+  console.log(`Fetched ${data?.length || 0} order items`);
+  return data as OrderItem[];
+};
+
+export const createOrder = async ({ 
+  order, 
+  items 
+}: { 
+  order: Partial<InventoryOrder>; 
+  items: Partial<OrderItem>[] 
+}) => {
+  console.log("Creating order:", { order, items });
+  
+  // Start a transaction
+  const { data: orderData, error: orderError } = await supabase
+    .from("inventory_orders")
+    .insert([order])
+    .select();
+  
+  if (orderError) {
+    console.error("Error creating order:", orderError);
+    throw orderError;
+  }
+  
+  const orderId = orderData[0].id;
+  console.log("Order created with ID:", orderId);
+  
+  // Add order items with the order ID
+  const orderItems = items.map(item => ({
+    ...item,
+    order_id: orderId
+  }));
+  
+  const { data: itemsData, error: itemsError } = await supabase
+    .from("inventory_order_items")
+    .insert(orderItems)
+    .select();
+  
+  if (itemsError) {
+    console.error("Error creating order items:", itemsError);
+    throw itemsError;
+  }
+  
+  console.log(`Created ${itemsData?.length || 0} order items`);
+  
+  return {
+    order: orderData[0],
+    items: itemsData
+  };
+};
+
+export const updateOrderStatus = async (
+  orderId: string, 
+  status: 'pending' | 'ordered' | 'delivered' | 'cancelled',
+  actualDeliveryDate?: string
+) => {
+  console.log(`Updating order ${orderId} status to ${status}`);
+  
+  const updateData: any = { status };
+  
+  if (status === 'delivered' && actualDeliveryDate) {
+    updateData.actual_delivery_date = actualDeliveryDate;
+  }
+  
+  const { data, error } = await supabase
+    .from("inventory_orders")
+    .update(updateData)
+    .eq("id", orderId)
+    .select();
+  
+  if (error) {
+    console.error("Error updating order status:", error);
+    throw error;
+  }
+  
+  console.log("Order status updated successfully:", data?.[0]);
+  return data?.[0] as InventoryOrder;
+};
+
+export const receiveOrderItems = async (
+  orderId: string, 
+  items: Array<{ id: string, received_quantity: number }>
+) => {
+  console.log(`Receiving items for order ${orderId}:`, items);
+  
+  // Start a transaction
+  try {
+    // 1. Get the order to check its status
+    const { data: orderData, error: orderError } = await supabase
+      .from("inventory_orders")
+      .select("*")
+      .eq("id", orderId)
+      .single();
+    
+    if (orderError) throw orderError;
+    
+    if (orderData.status === 'delivered' || orderData.status === 'cancelled') {
+      throw new Error(`Cannot receive items for an order with status ${orderData.status}`);
+    }
+    
+    // 2. Update received quantities for the items
+    for (const item of items) {
+      // Update the order item
+      const { error: updateError } = await supabase
+        .from("inventory_order_items")
+        .update({ received_quantity: item.received_quantity })
+        .eq("id", item.id);
+      
+      if (updateError) throw updateError;
+      
+      // Get the order item details to create the inventory transaction
+      const { data: orderItemData, error: itemError } = await supabase
+        .from("inventory_order_items")
+        .select("*, item:item_id(*)")
+        .eq("id", item.id)
+        .single();
+      
+      if (itemError) throw itemError;
+      
+      if (item.received_quantity > 0) {
+        // Get current stock for the item
+        const { data: inventoryItem, error: inventoryError } = await supabase
+          .from("medikamente")
+          .select("current_stock")
+          .eq("id", orderItemData.item_id)
+          .single();
+        
+        if (inventoryError) throw inventoryError;
+        
+        const previousStock = inventoryItem.current_stock;
+        const newStock = previousStock + item.received_quantity;
+        
+        // Update the inventory item stock
+        const { error: stockUpdateError } = await supabase
+          .from("medikamente")
+          .update({ 
+            current_stock: newStock,
+            last_ordered: new Date().toISOString().split('T')[0]
+          })
+          .eq("id", orderItemData.item_id);
+        
+        if (stockUpdateError) throw stockUpdateError;
+        
+        // Create inventory transaction record
+        const { error: transactionError } = await supabase
+          .from("inventory_transactions")
+          .insert([{
+            praxis_id: orderData.praxis_id,
+            item_id: orderItemData.item_id,
+            transaction_type: 'purchase',
+            quantity: item.received_quantity,
+            previous_stock: previousStock,
+            new_stock: newStock,
+            unit_price: orderItemData.unit_price,
+            notes: `Received from order #${orderId.substring(0, 8)}`,
+            created_by: orderData.created_by,
+            transaction_date: new Date().toISOString().split('T')[0]
+          }]);
+        
+        if (transactionError) throw transactionError;
+      }
+    }
+    
+    // 3. Check if all items are received, update order status if needed
+    const { data: allOrderItems, error: allItemsError } = await supabase
+      .from("inventory_order_items")
+      .select("quantity, received_quantity")
+      .eq("order_id", orderId);
+    
+    if (allItemsError) throw allItemsError;
+    
+    const allReceived = allOrderItems.every(item => 
+      item.received_quantity >= item.quantity
+    );
+    
+    // If all items are received, mark the order as delivered
+    if (allReceived) {
+      const { error: statusError } = await supabase
+        .from("inventory_orders")
+        .update({ 
+          status: 'delivered',
+          actual_delivery_date: new Date().toISOString().split('T')[0]
+        })
+        .eq("id", orderId);
+      
+      if (statusError) throw statusError;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error receiving order items:", error);
+    throw error;
+  }
+};
+
+// Inventory categories and units
+export const getInventoryCategories = async () => {
+  console.log("Fetching inventory categories");
+  
+  // Fetch distinct categories from medikamente table
+  const { data, error } = await supabase
+    .from("medikamente")
+    .select("category")
+    .is("deleted_at", null)
+    .not("category", "is", null)
+    .order("category");
+  
+  if (error) {
+    console.error("Error fetching inventory categories:", error);
+    throw error;
+  }
+  
+  // Extract unique categories
+  const uniqueCategories = Array.from(
+    new Set(data.filter(item => item.category).map(item => item.category))
+  );
+  
+  console.log(`Fetched ${uniqueCategories.length} unique categories`);
+  return uniqueCategories;
+};
+
+export const getInventoryUnits = async () => {
+  console.log("Fetching inventory units");
+  
+  // Fetch distinct units from medikamente table (masseinheit field)
+  const { data, error } = await supabase
+    .from("medikamente")
+    .select("masseinheit")
+    .is("deleted_at", null)
+    .order("masseinheit");
+  
+  if (error) {
+    console.error("Error fetching inventory units:", error);
+    throw error;
+  }
+  
+  // Extract unique units
+  const uniqueUnits = Array.from(
+    new Set(data.filter(item => item.masseinheit).map(item => item.masseinheit))
+  );
+  
+  console.log(`Fetched ${uniqueUnits.length} unique units`);
+  return uniqueUnits;
+};
+
+// Create inventory item (using medikamente table)
+export const createInventoryItem = async (item: Partial<MedikamentItem>) => {
+  console.log("Creating inventory item:", item);
+  
+  const { data, error } = await supabase
+    .from("medikamente")
+    .insert([item])
+    .select();
+  
+  if (error) {
+    console.error("Error creating inventory item:", error);
+    throw error;
+  }
+  
+  console.log("Inventory item created successfully:", data?.[0]);
+  return data?.[0] as MedikamentItem;
 };
