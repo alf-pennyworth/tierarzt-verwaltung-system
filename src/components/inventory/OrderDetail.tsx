@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -119,7 +118,6 @@ const OrderDetail = () => {
     }
   });
   
-  // Initialize received quantities with existing values or ordered quantities
   useEffect(() => {
     if (orderItems.length > 0) {
       const initialItems = orderItems.reduce((acc, item) => {
@@ -328,20 +326,20 @@ const OrderDetail = () => {
                     </TableRow>
                   ))}
                 </TableBody>
-                <TableRow className="bg-muted/50">
-                  <TableCell colSpan={4} className="text-right font-medium">Gesamtbetrag</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {orderItems.reduce((sum, item) => sum + item.total_price, 0).toFixed(2)} €
-                  </TableCell>
-                  {isOrdered && <TableCell />}
-                </TableRow>
               </Table>
+              <div className="bg-muted/50 px-4 py-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Gesamtbetrag</span>
+                  <span className="font-medium">
+                    {orderItems.reduce((sum, item) => sum + item.total_price, 0).toFixed(2)} €
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
       
-      {/* Receive Dialog */}
       <AlertDialog open={showReceiveDialog} onOpenChange={setShowReceiveDialog}>
         <AlertDialogContent className="sm:max-w-[600px]">
           <AlertDialogHeader>
@@ -403,7 +401,6 @@ const OrderDetail = () => {
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* Cancel Dialog */}
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

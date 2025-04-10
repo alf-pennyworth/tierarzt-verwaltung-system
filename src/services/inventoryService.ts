@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { 
   MedikamentItem, 
@@ -403,7 +402,10 @@ export const receiveOrderItems = async (
       .eq("id", orderId)
       .single();
     
-    if (orderError) throw orderError;
+    if (orderError) {
+      console.error("Error fetching order:", orderError);
+      throw orderError;
+    }
     
     if (orderData.status === 'delivered' || orderData.status === 'cancelled') {
       throw new Error(`Cannot receive items for an order with status ${orderData.status}`);
@@ -411,13 +413,24 @@ export const receiveOrderItems = async (
     
     // 2. Update received quantities for the items
     for (const item of items) {
+      // Skip items with zero quantity
+      if (item.received_quantity <= 0) {
+        console.log(`Skipping item ${item.id} with zero quantity`);
+        continue;
+      }
+      
+      console.log(`Processing item ${item.id} with quantity ${item.received_quantity}`);
+      
       // Update the order item
       const { error: updateError } = await supabase
         .from("inventory_order_items")
         .update({ received_quantity: item.received_quantity })
         .eq("id", item.id);
       
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error("Error updating order item:", updateError);
+        throw updateError;
+      }
       
       // Get the order item details to create the inventory transaction
       const { data: orderItemData, error: itemError } = await supabase
@@ -426,49 +439,67 @@ export const receiveOrderItems = async (
         .eq("id", item.id)
         .single();
       
-      if (itemError) throw itemError;
+      if (itemError) {
+        console.error("Error fetching order item details:", itemError);
+        throw itemError;
+      }
       
-      if (item.received_quantity > 0) {
-        // Get current stock for the item
-        const { data: inventoryItem, error: inventoryError } = await supabase
-          .from("medikamente")
-          .select("current_stock")
-          .eq("id", orderItemData.item_id)
-          .single();
-        
-        if (inventoryError) throw inventoryError;
-        
-        const previousStock = inventoryItem.current_stock;
-        const newStock = previousStock + item.received_quantity;
-        
-        // Update the medikamente item stock
-        const { error: stockUpdateError } = await supabase
-          .from("medikamente")
-          .update({ 
-            current_stock: newStock,
-            last_ordered: new Date().toISOString().split('T')[0]
-          })
-          .eq("id", orderItemData.item_id);
-        
-        if (stockUpdateError) throw stockUpdateError;
-        
-        // Create inventory transaction record
-        const { error: transactionError } = await supabase
-          .from("inventory_transactions")
-          .insert({
-            praxis_id: orderData.praxis_id,
-            item_id: orderItemData.item_id,
-            transaction_type: 'purchase',
-            quantity: item.received_quantity,
-            previous_stock: previousStock,
-            new_stock: newStock,
-            unit_price: orderItemData.unit_price,
-            notes: `Received from order #${orderId.substring(0, 8)}`,
-            created_by: orderData.created_by,
-            transaction_date: new Date().toISOString().split('T')[0]
-          });
-        
-        if (transactionError) throw transactionError;
+      console.log("Order item data:", orderItemData);
+      
+      // Get current stock for the item
+      const { data: inventoryItem, error: inventoryError } = await supabase
+        .from("medikamente")
+        .select("current_stock")
+        .eq("id", orderItemData.item_id)
+        .single();
+      
+      if (inventoryError) {
+        console.error("Error fetching current stock:", inventoryError);
+        throw inventoryError;
+      }
+      
+      const previousStock = inventoryItem.current_stock;
+      const newStock = previousStock + item.received_quantity;
+      
+      console.log(`Updating stock for item ${orderItemData.item_id}: ${previousStock} -> ${newStock}`);
+      
+      // Update the medikamente item stock
+      const { error: stockUpdateError } = await supabase
+        .from("medikamente")
+        .update({ 
+          current_stock: newStock,
+          last_ordered: new Date().toISOString().split('T')[0]
+        })
+        .eq("id", orderItemData.item_id);
+      
+      if (stockUpdateError) {
+        console.error("Error updating stock:", stockUpdateError);
+        throw stockUpdateError;
+      }
+      
+      // Create inventory transaction record
+      const transactionPayload = {
+        praxis_id: orderData.praxis_id,
+        item_id: orderItemData.item_id,
+        transaction_type: 'purchase',
+        quantity: item.received_quantity,
+        previous_stock: previousStock,
+        new_stock: newStock,
+        unit_price: orderItemData.unit_price,
+        notes: `Received from order #${orderId.substring(0, 8)}`,
+        created_by: orderData.created_by,
+        transaction_date: new Date().toISOString().split('T')[0]
+      };
+      
+      console.log("Creating transaction:", transactionPayload);
+      
+      const { error: transactionError } = await supabase
+        .from("inventory_transactions")
+        .insert(transactionPayload);
+      
+      if (transactionError) {
+        console.error("Error creating transaction:", transactionError);
+        throw transactionError;
       }
     }
     
@@ -478,14 +509,23 @@ export const receiveOrderItems = async (
       .select("quantity, received_quantity")
       .eq("order_id", orderId);
     
-    if (allItemsError) throw allItemsError;
+    if (allItemsError) {
+      console.error("Error fetching all order items:", allItemsError);
+      throw allItemsError;
+    }
+    
+    console.log("All order items:", allOrderItems);
     
     const allReceived = allOrderItems.every(item => 
       item.received_quantity >= item.quantity
     );
     
+    console.log("All received:", allReceived);
+    
     // If all items are received, mark the order as delivered
     if (allReceived) {
+      console.log("All items received, marking order as delivered");
+      
       const { error: statusError } = await supabase
         .from("inventory_orders")
         .update({ 
@@ -494,9 +534,13 @@ export const receiveOrderItems = async (
         })
         .eq("id", orderId);
       
-      if (statusError) throw statusError;
+      if (statusError) {
+        console.error("Error updating order status:", statusError);
+        throw statusError;
+      }
     }
     
+    console.log("Items received successfully");
     return true;
   } catch (error) {
     console.error("Error receiving order items:", error);
