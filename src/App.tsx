@@ -21,6 +21,7 @@ import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
 import AppointmentScheduling from "./pages/AppointmentScheduling";
 import Inventory from "./pages/Inventory";
+import Telemedizin from "./pages/Telemedizin";
 
 const queryClient = new QueryClient();
 
@@ -179,6 +180,16 @@ const App = () => (
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
                   <Inventory />
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/telemedizin/*"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Telemedizin />
                 </WithNavigation>
               </ProtectedRoute>
             }

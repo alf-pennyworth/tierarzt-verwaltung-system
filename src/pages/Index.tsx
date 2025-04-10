@@ -46,9 +46,8 @@ const MODULES = [
   {
     name: "Telemedizin",
     icon: Video,
-    route: "/dashboard",
-    description: "Virtuelle Sprechstunden",
-    comingSoon: true,
+    route: "/telemedizin",
+    description: "Virtuelle Sprechstunden und Patientenkommunikation",
   },
   {
     name: "Patientenmanagement",

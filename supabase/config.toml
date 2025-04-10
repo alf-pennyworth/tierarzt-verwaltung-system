@@ -7,3 +7,6 @@ import_map = "functions/transcribe/import_map.json"
 
 [functions.match-text]
 verify_jwt = false
+
+[functions.telemedizin-signaling]
+verify_jwt = false
