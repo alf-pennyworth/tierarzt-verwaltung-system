@@ -254,7 +254,7 @@ export const getOrder = async (orderId: string) => {
 export const getOrderItems = async (orderId: string) => {
   console.log("Fetching order items for order:", orderId);
   
-  // Use the correct foreign key relationship
+  // Use the correct foreign key relationship to medikamente table
   const { data, error } = await supabase
     .from("inventory_order_items")
     .select(`
@@ -302,8 +302,10 @@ export const createOrder = async ({
     status: order.status || "pending",
     total_amount: order.total_amount
   };
+
+  console.log("Order payload:", orderPayload);
   
-  // Start a transaction
+  // Create the order first
   const { data: orderData, error: orderError } = await supabase
     .from("inventory_orders")
     .insert(orderPayload)
@@ -324,6 +326,8 @@ export const createOrder = async ({
     if (!item.unit_price) throw new Error("Order item unit_price is required");
     if (!item.total_price) throw new Error("Order item total_price is required");
     
+    console.log("Validating item:", item);
+    
     // Reference the correct item_id from 'medikamente' table
     return {
       order_id: orderId,
@@ -334,6 +338,8 @@ export const createOrder = async ({
       notes: item.notes
     };
   });
+  
+  console.log("Validated items:", validatedItems);
   
   // Add order items with the order ID
   const { data: itemsData, error: itemsError } = await supabase

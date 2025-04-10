@@ -181,6 +181,7 @@ const CreateOrderDialog = ({ open, onOpenChange, onSuccess }: CreateOrderDialogP
     const userId = userInfo?.id || '';
     
     console.log("Submitting order with user ID:", userId);
+    console.log("Items being ordered:", items);
     
     const orderData = {
       praxis_id: userInfo.praxisId,
@@ -201,7 +202,7 @@ const CreateOrderDialog = ({ open, onOpenChange, onSuccess }: CreateOrderDialogP
       total_price: item.total_price
     }));
 
-    console.log("Creating order:", { order: orderData, items: orderItems });
+    console.log("Creating order with data:", { order: orderData, items: orderItems });
     
     createOrderMutation.mutate({
       order: orderData,
