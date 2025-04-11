@@ -147,12 +147,17 @@ export type Database = {
       }
       besitzer: {
         Row: {
+          auth_id: string | null
           betriebsnummer: string | null
           created_at: string
           deleted_at: string | null
           email: string | null
           id: string
+          invitation_accepted_at: string | null
+          invitation_sent_at: string | null
+          invitation_token: string | null
           name: string
+          password_hash: string | null
           postleitzahl: string | null
           praxis_id: string
           stadt: string | null
@@ -161,12 +166,17 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auth_id?: string | null
           betriebsnummer?: string | null
           created_at?: string
           deleted_at?: string | null
           email?: string | null
           id?: string
+          invitation_accepted_at?: string | null
+          invitation_sent_at?: string | null
+          invitation_token?: string | null
           name: string
+          password_hash?: string | null
           postleitzahl?: string | null
           praxis_id: string
           stadt?: string | null
@@ -175,12 +185,17 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auth_id?: string | null
           betriebsnummer?: string | null
           created_at?: string
           deleted_at?: string | null
           email?: string | null
           id?: string
+          invitation_accepted_at?: string | null
+          invitation_sent_at?: string | null
+          invitation_token?: string | null
           name?: string
+          password_hash?: string | null
           postleitzahl?: string | null
           praxis_id?: string
           stadt?: string | null
@@ -608,6 +623,51 @@ export type Database = {
           },
         ]
       }
+      owner_sessions: {
+        Row: {
+          accessed_at: string | null
+          besitzer_id: string
+          consultation_id: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          token: string
+        }
+        Insert: {
+          accessed_at?: string | null
+          besitzer_id: string
+          consultation_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token: string
+        }
+        Update: {
+          accessed_at?: string | null
+          besitzer_id?: string
+          consultation_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_sessions_besitzer_id_fkey"
+            columns: ["besitzer_id"]
+            isOneToOne: false
+            referencedRelation: "besitzer"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_sessions_consultation_id_fkey"
+            columns: ["consultation_id"]
+            isOneToOne: false
+            referencedRelation: "video_consultations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient: {
         Row: {
           behandelnder_arzt: string | null
@@ -927,6 +987,8 @@ export type Database = {
           description: string | null
           doctor_id: string
           id: string
+          owner_invited: boolean | null
+          owner_joined: boolean | null
           patient_id: string
           praxis_id: string
           room_id: string
@@ -943,6 +1005,8 @@ export type Database = {
           description?: string | null
           doctor_id: string
           id?: string
+          owner_invited?: boolean | null
+          owner_joined?: boolean | null
           patient_id: string
           praxis_id: string
           room_id: string
@@ -959,6 +1023,8 @@ export type Database = {
           description?: string | null
           doctor_id?: string
           id?: string
+          owner_invited?: boolean | null
+          owner_joined?: boolean | null
           patient_id?: string
           praxis_id?: string
           room_id?: string
@@ -1005,6 +1071,10 @@ export type Database = {
         Args: { praxis_id_param: string; email_param: string }
         Returns: Json
       }
+      create_owner_session: {
+        Args: { besitzer_id_param: string; consultation_id_param: string }
+        Returns: string
+      }
       format_number_de: {
         Args: { n: number }
         Returns: string
@@ -1016,6 +1086,13 @@ export type Database = {
       mark_invite_used: {
         Args: { token_param: string }
         Returns: undefined
+      }
+      validate_owner_session: {
+        Args: { token_param: string }
+        Returns: {
+          besitzer_id: string
+          consultation_id: string
+        }[]
       }
       verify_invite: {
         Args: { token_param: string }

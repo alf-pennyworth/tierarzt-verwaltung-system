@@ -21,6 +21,8 @@ export interface VideoConsultation {
   description?: string;
   actual_start?: string;
   actual_end?: string;
+  owner_invited?: boolean;
+  owner_joined?: boolean;
 }
 
 export interface Message {
@@ -50,4 +52,11 @@ export interface TelemedizinFile {
   file_size: number;
   storage_path: string;
   created_at: string;
+}
+
+export interface OwnerSession {
+  besitzer_id: string;
+  consultation_id: string;
+  token: string;
+  expires_at: string;
 }

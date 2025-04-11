@@ -9,6 +9,8 @@ import VideoConsultationsList from "@/components/telemedizin/VideoConsultationsL
 import ChatList from "@/components/telemedizin/ChatList";
 import ConsultationRoom from "@/components/telemedizin/ConsultationRoom";
 import ScheduleConsultation from "@/components/telemedizin/ScheduleConsultation";
+import OwnerConsultationJoin from "@/components/telemedizin/OwnerConsultationJoin";
+import OwnerConsultationRoom from "@/components/telemedizin/OwnerConsultationRoom";
 import { Calendar, MessageSquare, VideoIcon } from "lucide-react";
 
 const Telemedizin = () => {
@@ -61,6 +63,9 @@ const TelemedizinRoutes = () => {
       <Route path="/" element={<Telemedizin />} />
       <Route path="/schedule" element={<ScheduleConsultation />} />
       <Route path="/room/:id" element={<ConsultationRoom />} />
+      {/* Owner routes - these don't require vet authentication */}
+      <Route path="/owner/join" element={<OwnerConsultationJoin />} />
+      <Route path="/owner/room/:id" element={<OwnerConsultationRoom />} />
     </Routes>
   );
 };
