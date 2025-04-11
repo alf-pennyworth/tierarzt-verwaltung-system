@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -135,7 +134,7 @@ const ScheduleConsultation = () => {
       const roomId = Math.random().toString(36).substring(2, 15);
 
       const { data, error } = await supabase
-        .from("video_consultations")
+        .from('video_consultations')
         .insert({
           patient_id: values.patientId,
           doctor_id: user.id,

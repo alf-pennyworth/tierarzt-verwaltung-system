@@ -8,23 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/use-toast";
 import { MessageSquareText, User } from "lucide-react";
-
-interface Message {
-  id: string;
-  sender_id: string;
-  recipient_id: string;
-  content: string;
-  created_at: string;
-  sender: {
-    vorname: string;
-    nachname: string;
-  };
-  recipient: {
-    vorname: string;
-    nachname: string;
-  };
-  is_read: boolean;
-}
+import { Message } from "@/types/telemedizin";
 
 interface ChatGroup {
   participantId: string;
@@ -44,8 +28,9 @@ const ChatList = () => {
       try {
         if (!user) return;
         
+        // Using the Supabase client with explicit typing
         const { data: sentMessages, error: sentError } = await supabase
-          .from("telemedizin_messages")
+          .from('telemedizin_messages')
           .select(`
             id,
             sender_id,
@@ -60,7 +45,7 @@ const ChatList = () => {
           .order("created_at", { ascending: false });
 
         const { data: receivedMessages, error: receivedError } = await supabase
-          .from("telemedizin_messages")
+          .from('telemedizin_messages')
           .select(`
             id,
             sender_id,
@@ -89,29 +74,36 @@ const ChatList = () => {
         const chatGroups = new Map<string, ChatGroup>();
 
         allMessages.forEach(message => {
-          const isUserSender = message.sender_id === user.id;
-          const participantId = isUserSender ? message.recipient_id : message.sender_id;
+          // Type assertion to help TypeScript recognize message as Message type
+          const typedMessage = message as unknown as Message;
+          
+          const isUserSender = typedMessage.sender_id === user.id;
+          const participantId = isUserSender ? typedMessage.recipient_id : typedMessage.sender_id;
+          
+          const senderData = typedMessage.sender || { vorname: "", nachname: "" };
+          const recipientData = typedMessage.recipient || { vorname: "", nachname: "" };
+          
           const participantName = isUserSender 
-            ? `${message.recipient.vorname} ${message.recipient.nachname}`
-            : `${message.sender.vorname} ${message.sender.nachname}`;
+            ? `${recipientData.vorname} ${recipientData.nachname}`
+            : `${senderData.vorname} ${senderData.nachname}`;
           
           if (!chatGroups.has(participantId)) {
             chatGroups.set(participantId, {
               participantId,
               participantName,
-              lastMessage: message,
-              unreadCount: (message.recipient_id === user.id && !message.is_read) ? 1 : 0
+              lastMessage: typedMessage,
+              unreadCount: (typedMessage.recipient_id === user.id && !typedMessage.is_read) ? 1 : 0
             });
           } else {
             const group = chatGroups.get(participantId)!;
             
             // Update last message if this message is newer
-            if (new Date(message.created_at) > new Date(group.lastMessage.created_at)) {
-              group.lastMessage = message;
+            if (new Date(typedMessage.created_at) > new Date(group.lastMessage.created_at)) {
+              group.lastMessage = typedMessage;
             }
             
             // Update unread count
-            if (message.recipient_id === user.id && !message.is_read) {
+            if (typedMessage.recipient_id === user.id && !typedMessage.is_read) {
               group.unreadCount++;
             }
           }

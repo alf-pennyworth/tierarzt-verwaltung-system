@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,40 +25,13 @@ import {
   PhoneOff
 } from "lucide-react";
 import { format } from "date-fns";
-
-interface Consultation {
-  id: string;
-  title: string;
-  description: string;
-  scheduled_start: string;
-  scheduled_end: string;
-  status: string;
-  room_id: string;
-  patient: {
-    id: string;
-    name: string;
-    spezies: string;
-  };
-  doctor: {
-    id: string;
-    vorname: string;
-    nachname: string;
-  };
-}
-
-interface Message {
-  id: string;
-  sender_id: string;
-  recipient_id: string;
-  content: string;
-  created_at: string;
-}
+import { VideoConsultation, Message } from "@/types/telemedizin";
 
 const ConsultationRoom = () => {
   const { id } = useParams<{ id: string }>();
   const { user, userInfo } = useAuth();
   const navigate = useNavigate();
-  const [consultation, setConsultation] = useState<Consultation | null>(null);
+  const [consultation, setConsultation] = useState<VideoConsultation | null>(null);
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -86,7 +58,7 @@ const ConsultationRoom = () => {
         if (!id) return;
 
         const { data, error } = await supabase
-          .from("video_consultations")
+          .from('video_consultations')
           .select(`
             id,
             title,
@@ -120,7 +92,7 @@ const ConsultationRoom = () => {
           return;
         }
 
-        setConsultation(data);
+        setConsultation(data as unknown as VideoConsultation);
 
         // Fetch messages for this consultation
         fetchMessages(data.id);
@@ -137,7 +109,7 @@ const ConsultationRoom = () => {
   // Fetch messages
   const fetchMessages = async (consultationId: string) => {
     const { data, error } = await supabase
-      .from("telemedizin_messages")
+      .from('telemedizin_messages')
       .select("*")
       .eq("consultation_id", consultationId)
       .order("created_at", { ascending: true });
@@ -147,17 +119,19 @@ const ConsultationRoom = () => {
       return;
     }
 
-    setMessages(data || []);
+    setMessages(data as unknown as Message[]);
     
-    // Mark messages as read
     if (data && data.length > 0) {
       const unreadMessages = data
-        .filter(msg => msg.recipient_id === user?.id && !msg.is_read)
-        .map(msg => msg.id);
+        .filter(msg => {
+          const typedMsg = msg as unknown as Message;
+          return typedMsg.recipient_id === user?.id && !typedMsg.is_read;
+        })
+        .map(msg => (msg as unknown as Message).id);
         
       if (unreadMessages.length > 0) {
         await supabase
-          .from("telemedizin_messages")
+          .from('telemedizin_messages')
           .update({ is_read: true })
           .in("id", unreadMessages);
       }
@@ -480,7 +454,6 @@ const ConsultationRoom = () => {
   const getOtherParticipantId = () => {
     if (!consultation || !user) return null;
     
-    // If current user is the doctor, return patient ID, otherwise return doctor ID
     return user.id === consultation.doctor.id ? consultation.patient.id : consultation.doctor.id;
   };
 
@@ -507,10 +480,9 @@ const ConsultationRoom = () => {
   // End call
   const endCall = async () => {
     try {
-      // Update consultation status to "completed"
       if (consultation) {
         await supabase
-          .from("video_consultations")
+          .from('video_consultations')
           .update({ 
             status: "completed",
             actual_end: new Date().toISOString()
@@ -518,17 +490,14 @@ const ConsultationRoom = () => {
           .eq("id", consultation.id);
       }
       
-      // Clean up media tracks
       if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
       }
       
-      // Close peer connection
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
       }
       
-      // Close WebSocket
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({
           type: "leave",
@@ -553,7 +522,7 @@ const ConsultationRoom = () => {
       if (!recipientId) return;
 
       const { data, error } = await supabase
-        .from("telemedizin_messages")
+        .from('telemedizin_messages')
         .insert({
           consultation_id: consultation.id,
           sender_id: user.id,
@@ -573,7 +542,7 @@ const ConsultationRoom = () => {
         return;
       }
 
-      setMessages([...messages, data]);
+      setMessages([...messages, data as unknown as Message]);
       setNewMessage("");
     } catch (error) {
       console.error("Error:", error);
@@ -601,13 +570,11 @@ const ConsultationRoom = () => {
           filter: `consultation_id=eq.${consultation.id}` 
         }, 
         (payload) => {
-          // Only add message if it's not from the current user
           if (payload.new.sender_id !== user?.id) {
-            setMessages(prev => [...prev, payload.new as Message]);
+            setMessages(prev => [...prev, payload.new as unknown as Message]);
             
-            // Mark as read
             supabase
-              .from("telemedizin_messages")
+              .from('telemedizin_messages')
               .update({ is_read: true })
               .eq("id", payload.new.id);
           }
@@ -648,7 +615,6 @@ const ConsultationRoom = () => {
   return (
     <div className="container p-0 md:p-4">
       <div className="flex flex-col h-[calc(100vh-4rem)]">
-        {/* Header */}
         <div className="flex justify-between items-center p-4 border-b">
           <div className="flex items-center space-x-2">
             <Button variant="outline" size="icon" onClick={() => navigate("/telemedizin")}>
@@ -672,9 +638,7 @@ const ConsultationRoom = () => {
           </Button>
         </div>
         
-        {/* Main content */}
         <div className="flex-1 flex flex-col md:flex-row">
-          {/* Mobile tabs */}
           <div className="md:hidden border-b">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
@@ -690,12 +654,10 @@ const ConsultationRoom = () => {
             </Tabs>
           </div>
           
-          {/* Video section - visible on all screen sizes for desktop, only on video tab for mobile */}
           <div 
             className={`flex-1 ${activeTab === "video" || window.innerWidth >= 768 ? "block" : "hidden"} md:block p-4`}
           >
             <div className="relative h-full rounded-lg overflow-hidden bg-black flex items-center justify-center">
-              {/* Remote video */}
               <video 
                 ref={remoteVideoRef}
                 autoPlay 
@@ -703,7 +665,6 @@ const ConsultationRoom = () => {
                 className={`w-full h-full object-cover ${isConnected ? "block" : "hidden"}`}
               />
               
-              {/* Waiting for connection message */}
               {!isConnected && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
                   {isConnecting ? (
@@ -722,7 +683,6 @@ const ConsultationRoom = () => {
                 </div>
               )}
               
-              {/* Local video (picture-in-picture) */}
               <div className="absolute bottom-4 right-4 w-1/4 max-w-[180px] h-auto rounded-lg overflow-hidden border-2 border-white shadow-lg">
                 <video 
                   ref={localVideoRef}
@@ -739,7 +699,6 @@ const ConsultationRoom = () => {
               </div>
             </div>
             
-            {/* Controls */}
             <div className="flex justify-center items-center space-x-4 mt-4">
               <Button 
                 variant={isVideoEnabled ? "default" : "outline"} 
@@ -768,7 +727,6 @@ const ConsultationRoom = () => {
             </div>
           </div>
           
-          {/* Chat section - only visible on chat tab for mobile, always visible for desktop */}
           <div 
             className={`${activeTab === "chat" || window.innerWidth >= 768 ? "block" : "hidden"} md:block w-full md:w-80 border-l bg-background flex flex-col`}
           >
@@ -779,7 +737,6 @@ const ConsultationRoom = () => {
               </p>
             </div>
             
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
@@ -814,7 +771,6 @@ const ConsultationRoom = () => {
               <div ref={messagesEndRef} />
             </div>
             
-            {/* Message input */}
             <div className="border-t p-3">
               <form 
                 className="flex"

@@ -9,21 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/use-toast";
 import { Clock, Video, VideoOff } from "lucide-react";
-
-interface VideoConsultation {
-  id: string;
-  title: string;
-  scheduled_start: string;
-  scheduled_end: string;
-  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
-  patient: {
-    name: string;
-  };
-  doctor: {
-    vorname: string;
-    nachname: string;
-  };
-}
+import { VideoConsultation } from "@/types/telemedizin";
 
 const VideoConsultationsList = () => {
   const [consultations, setConsultations] = useState<VideoConsultation[]>([]);
@@ -37,15 +23,16 @@ const VideoConsultationsList = () => {
         if (!user) return;
         
         const { data, error } = await supabase
-          .from("video_consultations")
+          .from('video_consultations')
           .select(`
             id,
             title,
             scheduled_start,
             scheduled_end,
             status,
-            patient:patient_id (name),
-            doctor:doctor_id (vorname, nachname)
+            room_id,
+            patient:patient_id (id, name, spezies),
+            doctor:doctor_id (id, vorname, nachname)
           `)
           .order("scheduled_start", { ascending: true });
 
@@ -59,7 +46,8 @@ const VideoConsultationsList = () => {
           return;
         }
 
-        setConsultations(data || []);
+        // Type assertion to help TypeScript recognize the data
+        setConsultations(data as unknown as VideoConsultation[]);
       } catch (error) {
         console.error("Error:", error);
       } finally {
@@ -73,7 +61,7 @@ const VideoConsultationsList = () => {
   const joinConsultation = async (id: string) => {
     try {
       const { data, error } = await supabase
-        .from("video_consultations")
+        .from('video_consultations')
         .update({ status: "in-progress", actual_start: new Date().toISOString() })
         .eq("id", id)
         .select()
