@@ -1,6 +1,6 @@
 
 import { useNavigate } from "react-router-dom";
-import { CalendarClock, FileSpreadsheet, Pill, Stethoscope, User, FileAudio, Truck, Video, Users } from "lucide-react";
+import { CalendarClock, FileSpreadsheet, Pill, Stethoscope, User, FileAudio, Truck, Video } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 const MODULES = [
@@ -55,13 +55,6 @@ const MODULES = [
     route: "/patients",
     description: "Patientendaten und Behandlungen",
   },
-  {
-    name: "Tierbesitzer Portal",
-    icon: Users,
-    route: "/owner",
-    description: "Zugang zum Portal für Tierbesitzer",
-    external: true,
-  },
 ];
 
 const Index = () => {
@@ -69,12 +62,7 @@ const Index = () => {
 
   const handleModuleClick = (module: typeof MODULES[0]) => {
     if (module.comingSoon) return;
-    
-    if (module.external) {
-      window.open(`${window.location.origin}/owner`, '_blank');
-    } else {
-      navigate(module.route);
-    }
+    navigate(module.route);
   };
 
   return (
@@ -99,11 +87,6 @@ const Index = () => {
               {module.comingSoon && (
                 <span className="mt-3 px-3 py-1 bg-muted text-muted-foreground text-xs rounded-full">
                   Coming Soon
-                </span>
-              )}
-              {module.external && (
-                <span className="mt-3 px-3 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                  Externes Portal
                 </span>
               )}
             </CardContent>

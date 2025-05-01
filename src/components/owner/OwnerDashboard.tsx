@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar, MessageSquare, Video, PawPrint, User, LogOut } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 const OwnerDashboard = () => {
   const [ownerName, setOwnerName] = useState<string>("");

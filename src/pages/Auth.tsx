@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -278,7 +277,7 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
@@ -287,7 +286,13 @@ const Auth = () => {
         throw error;
       }
 
-      navigate("/");
+      // Check user role in metadata and redirect accordingly
+      if (data.user?.user_metadata?.role === 'owner') {
+        navigate('/owner/dashboard');
+      } else {
+        navigate('/');
+      }
+      
     } catch (error: any) {
       console.error("Login error:", error);
       toast({
@@ -299,6 +304,22 @@ const Auth = () => {
       setIsLoading(false);
     }
   };
+
+  // Check for existing session and redirect based on role
+  const checkSession = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session?.user) {
+      // Check user role in metadata and redirect accordingly
+      if (session.user.user_metadata?.role === 'owner') {
+        navigate('/owner/dashboard');
+      } else {
+        navigate('/');
+      }
+    }
+  };
+
+  checkSession();
 
   if (isLoading && !inviteData && inviteToken) {
     return (

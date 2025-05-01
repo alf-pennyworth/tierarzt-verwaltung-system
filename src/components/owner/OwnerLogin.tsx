@@ -1,6 +1,6 @@
 
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,24 @@ const OwnerLogin = () => {
   const [activeTab, setActiveTab] = useState<string>("login");
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Check for redirects from main app
+  useEffect(() => {
+    // Check if there's a session and if it's not an owner, redirect to main app
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session) {
+        // If user is not an owner, redirect to main app
+        if (session.user?.user_metadata?.role !== 'owner') {
+          window.location.href = '/';
+        }
+      }
+    };
+
+    checkSession();
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,12 +50,8 @@ const OwnerLogin = () => {
       
       // Check if user has owner role
       if (data.user?.user_metadata?.role !== 'owner') {
-        await supabase.auth.signOut();
-        toast({
-          variant: "destructive",
-          title: "Anmeldung fehlgeschlagen",
-          description: "Dieses Konto hat keinen Zugriff auf den Besitzerbereich.",
-        });
+        // If not owner, redirect to main app
+        window.location.href = '/';
         return;
       }
       

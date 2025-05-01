@@ -1,11 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { Calendar, MessageSquare, Video, PawPrint } from "lucide-react";
 import OwnerConsultationJoin from "@/components/telemedizin/OwnerConsultationJoin";
 import OwnerConsultationRoom from "@/components/telemedizin/OwnerConsultationRoom";
 import OwnerLogin from "@/components/owner/OwnerLogin";
