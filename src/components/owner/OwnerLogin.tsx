@@ -68,6 +68,7 @@ const OwnerLogin = () => {
         title: "Anmeldung fehlgeschlagen",
         description: error.message,
       });
+      console.error("Login error:", error);
     } finally {
       setLoading(false);
     }
