@@ -17,39 +17,53 @@ export const createOwnerAccounts = async (defaultPassword = "password123") => {
     if (besitzerError) throw besitzerError;
     console.log(`Found ${besitzerList?.length} owners without auth accounts`);
     
+    if (!besitzerList || besitzerList.length === 0) {
+      console.log("No owners need authentication accounts");
+      return { success: true, message: "No owners need authentication accounts" };
+    }
+    
     // Process each owner
-    for (const besitzer of besitzerList || []) {
+    for (const besitzer of besitzerList) {
       if (!besitzer.email) continue;
       
-      // 2. Create auth user with owner role
-      const { data: authData, error: signupError } = await supabase.auth.signUp({
-        email: besitzer.email,
-        password: defaultPassword,
-        options: {
-          data: {
-            name: besitzer.name,
-            role: 'owner'
+      try {
+        console.log(`Creating auth account for ${besitzer.email}`);
+        
+        // 2. Create auth user with owner role
+        const { data: authData, error: signupError } = await supabase.auth.signUp({
+          email: besitzer.email,
+          password: defaultPassword,
+          options: {
+            data: {
+              name: besitzer.name,
+              role: 'owner'
+            },
+            emailRedirectTo: window.location.origin + '/owner/dashboard'
+          }
+        });
+
+        if (signupError) {
+          console.error(`Error creating auth account for ${besitzer.email}:`, signupError);
+          continue;
+        }
+
+        // 3. Link the new auth account to the besitzer record
+        if (authData?.user) {
+          console.log(`Auth account created for ${besitzer.email}, user ID: ${authData.user.id}`);
+          
+          const { error: updateError } = await supabase
+            .from('besitzer')
+            .update({ auth_id: authData.user.id })
+            .eq('id', besitzer.id);
+            
+          if (updateError) {
+            console.error(`Error linking auth account to besitzer ${besitzer.id}:`, updateError);
+          } else {
+            console.log(`Successfully linked auth account to besitzer ${besitzer.id}`);
           }
         }
-      });
-
-      if (signupError) {
-        console.error(`Error creating auth account for ${besitzer.email}:`, signupError);
-        continue;
-      }
-
-      // 3. Link the new auth account to the besitzer record
-      if (authData?.user) {
-        const { error: updateError } = await supabase
-          .from('besitzer')
-          .update({ auth_id: authData.user.id })
-          .eq('id', besitzer.id);
-          
-        if (updateError) {
-          console.error(`Error linking auth account to besitzer ${besitzer.id}:`, updateError);
-        } else {
-          console.log(`Successfully created and linked auth account for ${besitzer.email}`);
-        }
+      } catch (ownerError) {
+        console.error(`Error processing owner ${besitzer.email}:`, ownerError);
       }
     }
 

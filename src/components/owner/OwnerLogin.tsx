@@ -44,9 +44,13 @@ const OwnerLogin = () => {
     setLoading(true);
     
     try {
-      // Create owner accounts if not already created (first time setup)
+      // First ensure all owners have auth accounts
+      console.log("Creating owner accounts if needed...");
       await createOwnerAccounts();
       
+      console.log(`Attempting login with email: ${email}`);
+      
+      // Attempt login with provided credentials
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -54,21 +58,31 @@ const OwnerLogin = () => {
       
       if (error) throw error;
       
+      console.log("Login successful, user data:", data);
+      
       // Check if user has owner role
       if (data.user?.user_metadata?.role !== 'owner') {
-        // If not owner, redirect to main app
+        console.log("User is not an owner, redirecting to main app");
         window.location.href = '/';
         return;
       }
       
+      console.log("Owner login successful, redirecting to dashboard");
       navigate("/owner/dashboard");
     } catch (error: any) {
+      console.error("Login error:", error);
+      
+      // Provide a clearer error message
+      let errorMessage = "Ungültige Anmeldedaten oder Benutzer existiert nicht.";
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         variant: "destructive",
         title: "Anmeldung fehlgeschlagen",
-        description: error.message,
+        description: errorMessage,
       });
-      console.error("Login error:", error);
     } finally {
       setLoading(false);
     }
