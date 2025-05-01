@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -156,6 +157,7 @@ const Auth = () => {
               nachname: formData.nachname,
               praxis_id: praxisId, // Store praxis ID in metadata
               is_admin: true, // First user is admin
+              role: 'vet' // Assign vet role
             },
           },
         });
@@ -214,6 +216,7 @@ const Auth = () => {
               nachname: formData.nachname,
               praxis_id: inviteData.praxis_id, // Store praxis ID in metadata
               is_admin: false, // Invited vets are not admins by default
+              role: 'vet' // Assign vet role
             },
           },
         });
@@ -286,10 +289,13 @@ const Auth = () => {
         throw error;
       }
 
+      console.log("Login successful, user metadata:", data.user?.user_metadata);
+
       // Check user role in metadata and redirect accordingly
       if (data.user?.user_metadata?.role === 'owner') {
         navigate('/owner/dashboard');
       } else {
+        // Default to main app for vets or undefined roles
         navigate('/');
       }
       
@@ -306,20 +312,24 @@ const Auth = () => {
   };
 
   // Check for existing session and redirect based on role
-  const checkSession = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (session?.user) {
-      // Check user role in metadata and redirect accordingly
-      if (session.user.user_metadata?.role === 'owner') {
-        navigate('/owner/dashboard');
-      } else {
-        navigate('/');
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        console.log("Session found, user metadata:", session.user.user_metadata);
+        // Check user role in metadata and redirect accordingly
+        if (session.user.user_metadata?.role === 'owner') {
+          navigate('/owner/dashboard');
+        } else {
+          // Default to main app for vets or undefined roles
+          navigate('/');
+        }
       }
-    }
-  };
-
-  checkSession();
+    };
+    
+    checkSession();
+  }, [navigate]);
 
   if (isLoading && !inviteData && inviteToken) {
     return (

@@ -20,6 +20,10 @@ const OwnerApp = () => {
       // Check if user is logged in and has the "owner" role in metadata
       if (session?.user?.user_metadata?.role === 'owner') {
         setIsAuthenticated(true);
+      } else if (session?.user) {
+        // If logged in but not an owner, redirect to main app
+        window.location.href = '/';
+        return;
       } else {
         setIsAuthenticated(false);
       }
@@ -33,13 +37,16 @@ const OwnerApp = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user?.user_metadata?.role === 'owner') {
         setIsAuthenticated(true);
+      } else if (session?.user) {
+        // If logged in but not an owner, redirect to main app
+        window.location.href = '/';
       } else {
         setIsAuthenticated(false);
       }
     });
     
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate]);
 
   if (loading) {
     return <div className="flex justify-center items-center h-screen">Lädt...</div>;

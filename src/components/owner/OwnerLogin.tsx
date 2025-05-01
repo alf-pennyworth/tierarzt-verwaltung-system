@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { createOwnerAccounts } from "@/utils/createOwnerAccounts";
 
 const OwnerLogin = () => {
   const [email, setEmail] = useState("");
@@ -19,28 +20,33 @@ const OwnerLogin = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Check for redirects from main app
   useEffect(() => {
-    // Check if there's a session and if it's not an owner, redirect to main app
+    // Check for redirects from main app
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
 
       if (session) {
-        // If user is not an owner, redirect to main app
+        // If user is logged in but not an owner, redirect to main app
         if (session.user?.user_metadata?.role !== 'owner') {
           window.location.href = '/';
+        } else {
+          // If owner is already logged in, redirect to dashboard
+          navigate("/owner/dashboard");
         }
       }
     };
 
     checkSession();
-  }, []);
+  }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
     try {
+      // Create owner accounts if not already created (first time setup)
+      await createOwnerAccounts();
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
