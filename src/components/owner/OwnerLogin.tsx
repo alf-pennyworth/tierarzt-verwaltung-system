@@ -38,6 +38,7 @@ interface InvitationData {
   owner_id?: string;
   owner_name?: string;
   owner_email?: string;
+  praxis_id?: string;
   message?: string;
 }
 
@@ -49,6 +50,17 @@ interface VerifyInvitationResponse {
   owner_email?: string;
   praxis_id?: string;
   message?: string;
+}
+
+// Define the input params type for the verify_owner_invitation RPC function
+interface VerifyInvitationParams {
+  token_param: string;
+}
+
+// Define the input params type for the complete_owner_registration RPC function
+interface CompleteRegistrationParams {
+  token_param: string;
+  auth_id_param: string;
 }
 
 const OwnerLogin = () => {
@@ -115,11 +127,12 @@ const OwnerLogin = () => {
     setValidateTokenLoading(true);
     
     try {
-      const { data, error } = await supabase.rpc<VerifyInvitationResponse>('verify_owner_invitation', {
-        token_param: token
-      });
+      const { data, error } = await supabase.rpc<VerifyInvitationResponse, VerifyInvitationParams>(
+        'verify_owner_invitation',
+        { token_param: token }
+      );
       
-      if (error || !data.valid) {
+      if (error || !data?.valid) {
         toast({
           variant: "destructive",
           title: "Ungültiger Einladungslink",
@@ -220,7 +233,7 @@ const OwnerLogin = () => {
       }
       
       // Complete registration by linking the auth account to the owner record
-      const { data: completionData, error: completionError } = await supabase.rpc<boolean>(
+      const { data: completionData, error: completionError } = await supabase.rpc<boolean, CompleteRegistrationParams>(
         'complete_owner_registration',
         {
           token_param: invitationToken,

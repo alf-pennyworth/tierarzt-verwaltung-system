@@ -49,6 +49,12 @@ interface InviteOwnerResponse {
   owner_name?: string;
 }
 
+// Define the input params type for the invite_owner RPC function
+interface InviteOwnerParams {
+  besitzer_id: string;
+  clinic_user_id: string;
+}
+
 interface SendOwnerInviteProps {
   ownerId?: string;
   ownerEmail?: string;
@@ -113,12 +119,12 @@ export const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInv
     setLoading(true);
     try {
       // Call the RPC function to create an owner invitation
-      const { data, error } = await supabase.rpc<InviteOwnerResponse>('invite_owner', {
+      const { data, error } = await supabase.rpc<InviteOwnerResponse, InviteOwnerParams>('invite_owner', {
         besitzer_id: values.ownerId,
         clinic_user_id: user.id
       });
 
-      if (error || !data.success) {
+      if (error || !data?.success) {
         throw new Error(data?.message || error?.message || "Fehler beim Versenden der Einladung");
       }
 
