@@ -42,26 +42,9 @@ interface InvitationData {
   message?: string;
 }
 
-// Define the response type for the verify_owner_invitation RPC function
-interface VerifyInvitationResponse {
-  valid: boolean;
-  owner_id?: string;
-  owner_name?: string;
-  owner_email?: string;
-  praxis_id?: string;
-  message?: string;
-}
-
-// Define the input params type for the verify_owner_invitation RPC function
-interface VerifyInvitationParams {
-  token_param: string;
-}
-
-// Define the input params type for the complete_owner_registration RPC function
-interface CompleteRegistrationParams {
-  token_param: string;
-  auth_id_param: string;
-}
+type JsonResponse = {
+  [key: string]: any;
+} | null;
 
 const OwnerLogin = () => {
   const [loading, setLoading] = useState(false);
@@ -127,30 +110,45 @@ const OwnerLogin = () => {
     setValidateTokenLoading(true);
     
     try {
-      const { data, error } = await supabase.rpc<VerifyInvitationResponse, VerifyInvitationParams>(
-        'verify_owner_invitation',
-        { token_param: token }
-      );
+      const { data, error } = await supabase.rpc('verify_owner_invitation', {
+        token_param: token
+      });
       
-      if (error || !data?.valid) {
+      if (error) {
+        throw error;
+      }
+      
+      // Convert data to correct type (JsonResponse)
+      const jsonData = data as JsonResponse;
+      
+      if (!jsonData || jsonData.valid !== true) {
         toast({
           variant: "destructive",
           title: "Ungültiger Einladungslink",
-          description: data?.message || "Dieser Link ist ungültig oder abgelaufen."
+          description: jsonData?.message || "Dieser Link ist ungültig oder abgelaufen."
         });
         return;
       }
       
       // Set the invitation data
-      setInvitationData(data as InvitationData);
+      const invitationInfo: InvitationData = {
+        valid: true,
+        owner_id: jsonData.owner_id,
+        owner_name: jsonData.owner_name,
+        owner_email: jsonData.owner_email,
+        praxis_id: jsonData.praxis_id,
+        message: jsonData.message
+      };
+      
+      setInvitationData(invitationInfo);
       
       // Pre-fill the registration form
-      if (data.owner_name) {
-        registerForm.setValue("name", data.owner_name);
+      if (jsonData.owner_name) {
+        registerForm.setValue("name", jsonData.owner_name);
       }
       
-      if (data.owner_email) {
-        registerForm.setValue("email", data.owner_email);
+      if (jsonData.owner_email) {
+        registerForm.setValue("email", jsonData.owner_email);
       }
       
       // Switch to registration tab
@@ -233,13 +231,10 @@ const OwnerLogin = () => {
       }
       
       // Complete registration by linking the auth account to the owner record
-      const { data: completionData, error: completionError } = await supabase.rpc<boolean, CompleteRegistrationParams>(
-        'complete_owner_registration',
-        {
-          token_param: invitationToken,
-          auth_id_param: data.user.id
-        }
-      );
+      const { data: completionData, error: completionError } = await supabase.rpc('complete_owner_registration', {
+        token_param: invitationToken,
+        auth_id_param: data.user.id
+      });
       
       if (completionError || !completionData) {
         throw new Error("Fehler bei der Verknüpfung des Kontos mit Ihrem Besitzer-Profil");

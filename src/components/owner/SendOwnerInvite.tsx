@@ -39,21 +39,9 @@ const inviteFormSchema = z.object({
 
 type InviteFormValues = z.infer<typeof inviteFormSchema>;
 
-// Define the response type from the invite_owner RPC function
-interface InviteOwnerResponse {
-  success: boolean;
-  message?: string;
-  token?: string;
-  owner_id?: string;
-  owner_email?: string;
-  owner_name?: string;
-}
-
-// Define the input params type for the invite_owner RPC function
-interface InviteOwnerParams {
-  besitzer_id: string;
-  clinic_user_id: string;
-}
+type JsonResponse = {
+  [key: string]: any;
+} | null;
 
 interface SendOwnerInviteProps {
   ownerId?: string;
@@ -119,17 +107,24 @@ export const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInv
     setLoading(true);
     try {
       // Call the RPC function to create an owner invitation
-      const { data, error } = await supabase.rpc<InviteOwnerResponse, InviteOwnerParams>('invite_owner', {
+      const { data, error } = await supabase.rpc('invite_owner', {
         besitzer_id: values.ownerId,
         clinic_user_id: user.id
       });
 
-      if (error || !data?.success) {
-        throw new Error(data?.message || error?.message || "Fehler beim Versenden der Einladung");
+      if (error) {
+        throw error;
+      }
+      
+      // Convert data to correct type (JsonResponse)
+      const jsonData = data as JsonResponse;
+      
+      if (!jsonData || jsonData.success !== true) {
+        throw new Error(jsonData?.message || "Fehler beim Versenden der Einladung");
       }
 
       // Generate the invitation link
-      const invitationUrl = `${window.location.origin}/owner?token=${data.token}`;
+      const invitationUrl = `${window.location.origin}/owner?token=${jsonData.token}`;
       setInviteLink(invitationUrl);
 
       // If we want to send an email, we would do that here
