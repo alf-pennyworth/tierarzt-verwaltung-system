@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { Mic } from "lucide-react";
+import { SendOwnerInvite } from "@/components/owner";
 
 interface PatientDetails {
   id: string;
@@ -13,9 +15,11 @@ interface PatientDetails {
   rasse: string | null;
   geburtsdatum: string | null;
   besitzer: {
+    id: string; // Added id to be able to pass to SendOwnerInvite
     name: string;
     telefonnummer: string | null;
     email: string | null;
+    auth_id: string | null; // Added to check if owner has account
   };
   behandlungen: {
     id: string;
@@ -28,7 +32,7 @@ interface PatientDetails {
       name: string;
     } | null;
     medikament_typ: string | null;
-    medikament_menge: string | null; // Changed from number to string
+    medikament_menge: string | null;
   }[];
 }
 
@@ -49,9 +53,11 @@ const PatientDetails = () => {
         rasse,
         geburtsdatum,
         besitzer (
+          id,
           name,
           telefonnummer,
-          email
+          email,
+          auth_id
         ),
         behandlungen (
           id,
@@ -134,8 +140,15 @@ const PatientDetails = () => {
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Besitzerinformationen</CardTitle>
+            {!patient.besitzer.auth_id && (
+              <SendOwnerInvite 
+                ownerId={patient.besitzer.id} 
+                ownerEmail={patient.besitzer.email || undefined} 
+                ownerName={patient.besitzer.name}
+              />
+            )}
           </CardHeader>
           <CardContent>
             <dl className="space-y-2">
@@ -150,6 +163,16 @@ const PatientDetails = () => {
               <div>
                 <dt className="font-semibold">E-Mail</dt>
                 <dd>{patient.besitzer.email || "-"}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold">Portal-Status</dt>
+                <dd>
+                  {patient.besitzer.auth_id ? (
+                    <span className="text-green-600 font-medium">Registriert</span>
+                  ) : (
+                    <span className="text-gray-500">Nicht registriert</span>
+                  )}
+                </dd>
               </div>
             </dl>
           </CardContent>

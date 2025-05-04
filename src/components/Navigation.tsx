@@ -24,6 +24,11 @@ const Navigation = () => {
       icon: ClipboardList,
     },
     {
+      name: isMobile ? "Besitzer" : "Besitzerverzeichnis", 
+      href: "/owners",
+      icon: Users,
+    },
+    {
       name: isMobile ? "Module" : "Module",
       href: "/",
       icon: LayoutGrid,

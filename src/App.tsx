@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,6 +23,7 @@ import AppointmentScheduling from "./pages/AppointmentScheduling";
 import Inventory from "./pages/Inventory";
 import Telemedizin from "./pages/Telemedizin";
 import OwnerApp from "./pages/OwnerApp";
+import Owners from "./pages/Owners";
 
 const queryClient = new QueryClient();
 
@@ -141,6 +143,16 @@ const App = () => (
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
                   <EmployeeDetail />
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/owners"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Owners />
                 </WithNavigation>
               </ProtectedRoute>
             }
