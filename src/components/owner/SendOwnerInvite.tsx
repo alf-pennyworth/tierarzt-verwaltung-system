@@ -39,6 +39,16 @@ const inviteFormSchema = z.object({
 
 type InviteFormValues = z.infer<typeof inviteFormSchema>;
 
+// Define the response type from the invite_owner RPC function
+interface InviteOwnerResponse {
+  success: boolean;
+  message?: string;
+  token?: string;
+  owner_id?: string;
+  owner_email?: string;
+  owner_name?: string;
+}
+
 interface SendOwnerInviteProps {
   ownerId?: string;
   ownerEmail?: string;
@@ -103,7 +113,7 @@ export const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInv
     setLoading(true);
     try {
       // Call the RPC function to create an owner invitation
-      const { data, error } = await supabase.rpc('invite_owner', {
+      const { data, error } = await supabase.rpc<InviteOwnerResponse>('invite_owner', {
         besitzer_id: values.ownerId,
         clinic_user_id: user.id
       });

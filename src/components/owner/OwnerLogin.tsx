@@ -41,6 +41,16 @@ interface InvitationData {
   message?: string;
 }
 
+// Define the response type for the verify_owner_invitation RPC function
+interface VerifyInvitationResponse {
+  valid: boolean;
+  owner_id?: string;
+  owner_name?: string;
+  owner_email?: string;
+  praxis_id?: string;
+  message?: string;
+}
+
 const OwnerLogin = () => {
   const [loading, setLoading] = useState(false);
   const [validateTokenLoading, setValidateTokenLoading] = useState(false);
@@ -105,7 +115,7 @@ const OwnerLogin = () => {
     setValidateTokenLoading(true);
     
     try {
-      const { data, error } = await supabase.rpc('verify_owner_invitation', {
+      const { data, error } = await supabase.rpc<VerifyInvitationResponse>('verify_owner_invitation', {
         token_param: token
       });
       
@@ -119,7 +129,7 @@ const OwnerLogin = () => {
       }
       
       // Set the invitation data
-      setInvitationData(data);
+      setInvitationData(data as InvitationData);
       
       // Pre-fill the registration form
       if (data.owner_name) {
@@ -210,7 +220,7 @@ const OwnerLogin = () => {
       }
       
       // Complete registration by linking the auth account to the owner record
-      const { data: completionData, error: completionError } = await supabase.rpc(
+      const { data: completionData, error: completionError } = await supabase.rpc<boolean>(
         'complete_owner_registration',
         {
           token_param: invitationToken,
