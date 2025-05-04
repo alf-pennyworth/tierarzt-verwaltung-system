@@ -1067,6 +1067,10 @@ export type Database = {
       }
     }
     Functions: {
+      complete_owner_registration: {
+        Args: { token_param: string; auth_id_param: string }
+        Returns: boolean
+      }
       create_invite: {
         Args: { praxis_id_param: string; email_param: string }
         Returns: Json
@@ -1083,6 +1087,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      invite_owner: {
+        Args: { besitzer_id: string; clinic_user_id: string }
+        Returns: Json
+      }
       mark_invite_used: {
         Args: { token_param: string }
         Returns: undefined
@@ -1095,6 +1103,10 @@ export type Database = {
         }[]
       }
       verify_invite: {
+        Args: { token_param: string }
+        Returns: Json
+      }
+      verify_owner_invitation: {
         Args: { token_param: string }
         Returns: Json
       }

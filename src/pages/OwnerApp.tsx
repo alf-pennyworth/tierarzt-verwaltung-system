@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import OwnerConsultationJoin from "@/components/telemedizin/OwnerConsultationJoin";
 import OwnerConsultationRoom from "@/components/telemedizin/OwnerConsultationRoom";
@@ -11,6 +11,7 @@ const OwnerApp = () => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   
   useEffect(() => {
     // Check if owner is authenticated
@@ -48,6 +49,17 @@ const OwnerApp = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  // Check for invitation token in URL
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('token')) {
+      // If we have a token in URL, make sure we stay on the login page
+      if (location.pathname !== '/owner') {
+        navigate(`/owner?${params.toString()}`);
+      }
+    }
+  }, [location, navigate]);
+
   if (loading) {
     return <div className="flex justify-center items-center h-screen">Lädt...</div>;
   }
@@ -58,6 +70,8 @@ const OwnerApp = () => {
       <Route path="/dashboard" element={isAuthenticated ? <OwnerDashboard /> : <Navigate to="/owner" />} />
       <Route path="/join" element={<OwnerConsultationJoin />} />
       <Route path="/room/:id" element={<OwnerConsultationRoom />} />
+      {/* Catch-all route for invalid paths in the owner area */}
+      <Route path="*" element={<Navigate to="/owner" />} />
     </Routes>
   );
 };
