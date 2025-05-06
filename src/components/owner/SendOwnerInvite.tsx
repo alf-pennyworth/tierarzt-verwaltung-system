@@ -145,6 +145,92 @@ export const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInv
     }
   };
 
+  const renderInviteForm = () => {
+    return (
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <FormField
+            control={form.control}
+            name="ownerId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Besitzer</FormLabel>
+                <Select
+                  disabled={ownersLoading || !!ownerId}
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue 
+                        placeholder={ownersLoading ? "Besitzer werden geladen..." : "Bitte wählen Sie einen Besitzer"} 
+                      />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {owners.map((owner) => (
+                      <SelectItem key={owner.id} value={owner.id}>
+                        {owner.name} {owner.email && `(${owner.email})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <DialogFooter>
+            <Button type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Einladung wird erstellt...
+                </>
+              ) : (
+                "Einladung erstellen"
+              )}
+            </Button>
+          </DialogFooter>
+        </form>
+      </Form>
+    );
+  };
+
+  const renderInviteSuccess = () => {
+    return (
+      <div className="space-y-4">
+        <Alert>
+          <AlertTitle>Einladung erstellt</AlertTitle>
+          <AlertDescription>
+            Die Einladung wurde erfolgreich erstellt. Bitte teilen Sie den folgenden Link mit dem Besitzer:
+          </AlertDescription>
+        </Alert>
+        <div className="flex flex-col space-y-2">
+          <FormLabel>Einladungslink</FormLabel>
+          <Input 
+            value={inviteLink || ""} 
+            readOnly 
+            onClick={(e) => {
+              (e.target as HTMLInputElement).select();
+              navigator.clipboard.writeText(inviteLink || "");
+              toast({
+                title: "Link kopiert",
+                description: "Der Einladungslink wurde in die Zwischenablage kopiert.",
+              });
+            }}
+          />
+          <FormDescription>
+            Klicken Sie auf den Link, um ihn in die Zwischenablage zu kopieren.
+          </FormDescription>
+        </div>
+        <DialogFooter>
+          <Button onClick={() => setOpen(false)}>Schließen</Button>
+        </DialogFooter>
+      </div>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
       setOpen(isOpen);
@@ -167,85 +253,7 @@ export const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInv
           </DialogDescription>
         </DialogHeader>
 
-        {inviteLink ? (
-          <div className="space-y-4">
-            <Alert>
-              <AlertTitle>Einladung erstellt</AlertTitle>
-              <AlertDescription>
-                Die Einladung wurde erfolgreich erstellt. Bitte teilen Sie den folgenden Link mit dem Besitzer:
-              </AlertDescription>
-            </Alert>
-            <div className="flex flex-col space-y-2">
-              <FormLabel>Einladungslink</FormLabel>
-              <Input 
-                value={inviteLink} 
-                readOnly 
-                onClick={(e) => {
-                  (e.target as HTMLInputElement).select();
-                  navigator.clipboard.writeText(inviteLink);
-                  toast({
-                    title: "Link kopiert",
-                    description: "Der Einladungslink wurde in die Zwischenablage kopiert.",
-                  });
-                }}
-              />
-              <FormDescription>
-                Klicken Sie auf den Link, um ihn in die Zwischenablage zu kopieren.
-              </FormDescription>
-            </div>
-            <DialogFooter>
-              <Button onClick={() => setOpen(false)}>Schließen</Button>
-            </DialogFooter>
-          </div>
-        ) : (
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="ownerId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Besitzer</FormLabel>
-                    <Select
-                      disabled={ownersLoading || !!ownerId}
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue 
-                            placeholder={ownersLoading ? "Besitzer werden geladen..." : "Bitte wählen Sie einen Besitzer"} 
-                          />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {owners.map((owner) => (
-                          <SelectItem key={owner.id} value={owner.id}>
-                            {owner.name} {owner.email && `(${owner.email})`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter>
-                <Button type="submit" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Einladung wird erstellt...
-                    </>
-                  ) : (
-                    "Einladung erstellen"
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        )}
+        {inviteLink ? renderInviteSuccess() : renderInviteForm()}
       </DialogContent>
     </Dialog>
   );
