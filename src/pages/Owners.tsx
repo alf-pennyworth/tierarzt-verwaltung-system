@@ -1,9 +1,6 @@
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -12,21 +9,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { SendOwnerInvite } from "@/components/owner";
-import { Mail, UserPlus } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SendOwnerInvite, AddOwnerDialog } from "@/components/owner";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Owner {
   id: string;
   name: string;
   email: string | null;
   telefonnummer: string | null;
+  stadt: string | null;
   auth_id: string | null;
-  invitation_sent_at: string | null;
 }
 
 const Owners = () => {
   const [owners, setOwners] = useState<Owner[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   const fetchOwners = async () => {
@@ -34,16 +32,28 @@ const Owners = () => {
     try {
       const { data, error } = await supabase
         .from("besitzer")
-        .select("id, name, email, telefonnummer, auth_id, invitation_sent_at")
+        .select(`
+          id,
+          name,
+          email,
+          telefonnummer,
+          stadt,
+          auth_id
+        `)
+        .is("deleted_at", null)
         .order("name");
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
       setOwners(data || []);
     } catch (error: any) {
+      console.error("Error fetching owners:", error);
       toast({
         variant: "destructive",
-        title: "Fehler beim Laden der Besitzer",
-        description: error.message,
+        title: "Fehler",
+        description: "Besitzer konnten nicht geladen werden.",
       });
     } finally {
       setLoading(false);
@@ -54,24 +64,18 @@ const Owners = () => {
     fetchOwners();
   }, []);
 
-  const refreshOwners = () => {
-    fetchOwners();
-  };
-
   return (
-    <div className="container mx-auto p-4 space-y-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Besitzerverzeichnis</h1>
-        <SendOwnerInvite />
-      </div>
-
+    <div className="container mx-auto p-4">
       <Card>
-        <CardHeader>
-          <CardTitle>Besitzerliste</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Besitzerverzeichnis</CardTitle>
+          <AddOwnerDialog />
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="text-center py-4">Besitzer werden geladen...</div>
+          ) : owners.length === 0 ? (
+            <div className="text-center py-4">Keine Besitzer gefunden.</div>
           ) : (
             <Table>
               <TableHeader>
@@ -79,48 +83,32 @@ const Owners = () => {
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Telefon</TableHead>
+                  <TableHead>Stadt</TableHead>
                   <TableHead>Portal-Status</TableHead>
-                  <TableHead>Aktionen</TableHead>
+                  <TableHead className="w-[100px]">Aktionen</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {owners.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center">
-                      Keine Besitzer gefunden
+                {owners.map((owner) => (
+                  <TableRow key={owner.id}>
+                    <TableCell className="font-medium">{owner.name}</TableCell>
+                    <TableCell>{owner.email || "-"}</TableCell>
+                    <TableCell>{owner.telefonnummer || "-"}</TableCell>
+                    <TableCell>{owner.stadt || "-"}</TableCell>
+                    <TableCell>
+                      {owner.auth_id ? (
+                        <span className="text-green-600 font-medium">Registriert</span>
+                      ) : (
+                        <span className="text-gray-500">Nicht registriert</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {!owner.auth_id && owner.email && (
+                        <SendOwnerInvite ownerId={owner.id} ownerEmail={owner.email} ownerName={owner.name} />
+                      )}
                     </TableCell>
                   </TableRow>
-                ) : (
-                  owners.map((owner) => (
-                    <TableRow key={owner.id}>
-                      <TableCell>{owner.name}</TableCell>
-                      <TableCell>{owner.email || "-"}</TableCell>
-                      <TableCell>{owner.telefonnummer || "-"}</TableCell>
-                      <TableCell>
-                        {owner.auth_id ? (
-                          <span className="text-green-600 font-medium">
-                            Registriert
-                          </span>
-                        ) : owner.invitation_sent_at ? (
-                          <span className="text-amber-600 font-medium">
-                            Eingeladen
-                          </span>
-                        ) : (
-                          <span className="text-gray-500">Nicht eingeladen</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {!owner.auth_id && (
-                          <SendOwnerInvite 
-                            ownerId={owner.id} 
-                            ownerEmail={owner.email || undefined} 
-                            ownerName={owner.name}
-                          />
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                ))}
               </TableBody>
             </Table>
           )}

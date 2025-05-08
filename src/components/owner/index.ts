@@ -1,3 +1,3 @@
 
-export { default as SendOwnerInvite } from './SendOwnerInvite';
-export { default as OwnerLogin } from './OwnerLogin';
+export { default as SendOwnerInvite } from "./SendOwnerInvite";
+export { default as AddOwnerDialog } from "./AddOwnerDialog";
