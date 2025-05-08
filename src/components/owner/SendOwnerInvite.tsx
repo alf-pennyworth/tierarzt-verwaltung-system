@@ -75,18 +75,25 @@ const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInviteProp
       if (error) throw error;
 
       // Create a registration link from the token
-      if (data && typeof data === 'object' && 'token' in data) {
-        const inviteResponse = data as OwnerInviteResponse;
-        const baseUrl = window.location.origin;
-        const registrationUrl = `${baseUrl}/auth?token=${inviteResponse.token}&type=owner-invitation`;
-        setInviteLink(registrationUrl);
+      if (data && typeof data === 'object') {
+        // First cast to unknown, then to the expected type to avoid TypeScript error
+        const inviteResponse = data as unknown as OwnerInviteResponse;
+        
+        if (inviteResponse.token) {
+          const baseUrl = window.location.origin;
+          const registrationUrl = `${baseUrl}/auth?token=${inviteResponse.token}&type=owner-invitation`;
+          setInviteLink(registrationUrl);
+          setSuccess(true);
+          toast({
+            title: "Einladung erstellt",
+            description: `Einladung für ${ownerEmail} wurde erfolgreich erstellt.`,
+          });
+        } else {
+          throw new Error("Token not found in response");
+        }
+      } else {
+        throw new Error("Invalid response format");
       }
-      
-      setSuccess(true);
-      toast({
-        title: "Einladung erstellt",
-        description: `Einladung für ${ownerEmail} wurde erfolgreich erstellt.`,
-      });
     } catch (error: any) {
       console.error("Error sending invite:", error);
       toast({
