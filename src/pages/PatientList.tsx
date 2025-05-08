@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
+import { AddPatientDialog } from "@/components/patient";
 
 interface Patient {
   id: string;
@@ -28,40 +29,41 @@ const PatientList = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const navigate = useNavigate();
 
+  const fetchPatients = async () => {
+    const { data, error } = await supabase
+      .from("patient")
+      .select(`
+        id,
+        name,
+        spezies,
+        rasse,
+        geburtsdatum,
+        besitzer (
+          name
+        )
+      `)
+      .is("deleted_at", null);
+
+    if (error) {
+      console.error("Error fetching patients:", error);
+      return;
+    }
+
+    if (data) {
+      setPatients(data);
+    }
+  };
+
   useEffect(() => {
-    const fetchPatients = async () => {
-      const { data, error } = await supabase
-        .from("patient")
-        .select(`
-          id,
-          name,
-          spezies,
-          rasse,
-          geburtsdatum,
-          besitzer (
-            name
-          )
-        `)
-        .is("deleted_at", null);
-
-      if (error) {
-        console.error("Error fetching patients:", error);
-        return;
-      }
-
-      if (data) {
-        setPatients(data);
-      }
-    };
-
     fetchPatients();
   }, []);
 
   return (
     <div className="container mx-auto p-4">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Patientenliste</CardTitle>
+          <AddPatientDialog onSuccess={fetchPatients} />
         </CardHeader>
         <CardContent>
           <Table>
