@@ -26,6 +26,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Loader2, Send } from "lucide-react";
 
+// Define the invitation response type
+interface OwnerInviteResponse {
+  success: boolean;
+  token: string;
+  owner_id: string;
+  owner_email: string;
+  owner_name: string;
+}
+
 // Define the form schema
 const inviteFormSchema = z.object({
   message: z.string().optional(),
@@ -66,9 +75,10 @@ const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInviteProp
       if (error) throw error;
 
       // Create a registration link from the token
-      if (data && data.token) {
+      if (data && typeof data === 'object' && 'token' in data) {
+        const inviteResponse = data as OwnerInviteResponse;
         const baseUrl = window.location.origin;
-        const registrationUrl = `${baseUrl}/auth?token=${data.token}&type=owner-invitation`;
+        const registrationUrl = `${baseUrl}/auth?token=${inviteResponse.token}&type=owner-invitation`;
         setInviteLink(registrationUrl);
       }
       
