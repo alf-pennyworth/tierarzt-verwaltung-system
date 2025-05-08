@@ -23,6 +23,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Loader2, Send } from "lucide-react";
 
 // Define the form schema
@@ -42,6 +43,7 @@ const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInviteProp
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [inviteLink, setInviteLink] = useState("");
   const { toast } = useToast();
 
   // Create form with validation
@@ -62,11 +64,18 @@ const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInviteProp
       });
 
       if (error) throw error;
+
+      // Create a registration link from the token
+      if (data && data.token) {
+        const baseUrl = window.location.origin;
+        const registrationUrl = `${baseUrl}/auth?token=${data.token}&type=owner-invitation`;
+        setInviteLink(registrationUrl);
+      }
       
       setSuccess(true);
       toast({
-        title: "Einladung gesendet",
-        description: `Einladung an ${ownerEmail} wurde erfolgreich erstellt.`,
+        title: "Einladung erstellt",
+        description: `Einladung für ${ownerEmail} wurde erfolgreich erstellt.`,
       });
     } catch (error: any) {
       console.error("Error sending invite:", error);
@@ -82,8 +91,17 @@ const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInviteProp
 
   const resetAndClose = () => {
     setSuccess(false);
+    setInviteLink("");
     setOpen(false);
     form.reset();
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(inviteLink);
+    toast({
+      title: "Link kopiert",
+      description: "Einladungslink wurde in die Zwischenablage kopiert.",
+    });
   };
 
   return (
@@ -91,6 +109,7 @@ const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInviteProp
       setOpen(value);
       if (!value) {
         setSuccess(false);
+        setInviteLink("");
         form.reset();
       }
     }}>
@@ -104,9 +123,9 @@ const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInviteProp
         {!success ? (
           <>
             <DialogHeader>
-              <DialogTitle>Einladung an Besitzer senden</DialogTitle>
+              <DialogTitle>Einladung an Besitzer erstellen</DialogTitle>
               <DialogDescription>
-                Senden Sie eine Einladung an {ownerName} ({ownerEmail}), um sich im Portalsystem zu registrieren.
+                Erstellen Sie eine Einladung für {ownerName} ({ownerEmail}), um sich im Portalsystem zu registrieren.
               </DialogDescription>
             </DialogHeader>
 
@@ -135,10 +154,10 @@ const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInviteProp
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Wird gesendet...
+                        Wird erstellt...
                       </>
                     ) : (
-                      "Einladung senden"
+                      "Einladung erstellen"
                     )}
                   </Button>
                 </DialogFooter>
@@ -148,14 +167,28 @@ const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInviteProp
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Einladung gesendet</DialogTitle>
+              <DialogTitle>Einladung erstellt</DialogTitle>
               <DialogDescription>
-                Die Einladung wurde erfolgreich an {ownerEmail} erstellt.
+                Die Einladung wurde erfolgreich für {ownerEmail} erstellt. Da das E-Mail-System noch nicht konfiguriert ist, können Sie den Einladungslink direkt hier kopieren und dem Besitzer mitteilen.
               </DialogDescription>
             </DialogHeader>
-            <div className="flex justify-center py-6">
+            <div className="flex flex-col items-center py-4 space-y-4">
               <div className="rounded-full bg-green-100 p-3">
                 <Send className="h-6 w-6 text-green-600" />
+              </div>
+              
+              <div className="w-full">
+                <div className="text-sm text-muted-foreground mb-2">Einladungslink:</div>
+                <div className="flex gap-2">
+                  <Input 
+                    value={inviteLink} 
+                    readOnly 
+                    className="w-full font-mono text-xs"
+                  />
+                  <Button onClick={copyToClipboard} size="sm">
+                    Kopieren
+                  </Button>
+                </div>
               </div>
             </div>
             <DialogFooter>
