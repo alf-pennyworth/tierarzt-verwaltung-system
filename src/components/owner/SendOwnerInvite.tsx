@@ -81,6 +81,7 @@ const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInviteProp
         
         if (inviteResponse.token) {
           const baseUrl = window.location.origin;
+          // Add type=owner-invitation to differentiate from vet invitations
           const registrationUrl = `${baseUrl}/auth?token=${inviteResponse.token}&type=owner-invitation`;
           setInviteLink(registrationUrl);
           setSuccess(true);

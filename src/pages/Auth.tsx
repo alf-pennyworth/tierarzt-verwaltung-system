@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +32,16 @@ interface VerifyInviteResponse {
   is_used: boolean | null;
 }
 
+// Define the expected return type for owner invitations
+interface VerifyOwnerInviteResponse {
+  valid: boolean;
+  owner_id: string;
+  owner_name: string;
+  owner_email: string;
+  praxis_id: string;
+  message?: string;
+}
+
 const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -41,6 +50,7 @@ const Auth = () => {
   const [activeTab, setActiveTab] = useState("login");
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [inviteData, setInviteData] = useState<InviteData | null>(null);
+  const [inviteType, setInviteType] = useState<"vet" | "owner" | null>(null);
   
   const [formData, setFormData] = useState({
     email: "",
@@ -54,29 +64,51 @@ const Auth = () => {
     // Check for invite token in URL query params
     const params = new URLSearchParams(location.search);
     const token = params.get("token");
+    const type = params.get("type");
     
     if (token) {
       setIsLoading(true);
       setInviteToken(token);
       
-      // Verify the invite token
-      verifyInviteToken(token)
-        .then(data => {
-          if (data) {
-            setInviteData(data);
-            setActiveTab("register");
-            toast({
-              title: "Einladung gefunden",
-              description: `Sie wurden eingeladen, ${data.praxis_name} beizutreten.`,
-            });
-          }
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
+      // Set the invite type based on URL parameter
+      if (type === "owner-invitation") {
+        setInviteType("owner");
+        verifyOwnerInviteToken(token)
+          .then(data => {
+            if (data) {
+              setInviteData(data);
+              setActiveTab("register");
+              toast({
+                title: "Besitzereinladung gefunden",
+                description: `Sie wurden eingeladen, ein Besitzerkonto zu erstellen.`,
+              });
+            }
+          })
+          .finally(() => {
+            setIsLoading(false);
+          });
+      } else {
+        // Default to vet invitation
+        setInviteType("vet");
+        verifyInviteToken(token)
+          .then(data => {
+            if (data) {
+              setInviteData(data);
+              setActiveTab("register");
+              toast({
+                title: "Einladung gefunden",
+                description: `Sie wurden eingeladen, ${data.praxis_name} beizutreten.`,
+              });
+            }
+          })
+          .finally(() => {
+            setIsLoading(false);
+          });
+      }
     }
   }, [location, toast]);
 
+  // Function to verify vet invitation token
   const verifyInviteToken = async (token: string): Promise<InviteData | null> => {
     try {
       // Call a stored procedure to verify and get invite data
@@ -120,15 +152,172 @@ const Auth = () => {
     }
   };
 
+  // Function to verify owner invitation token
+  const verifyOwnerInviteToken = async (token: string): Promise<InviteData | null> => {
+    try {
+      // Call the owner-specific RPC to verify the invitation
+      const { data: inviteResponse, error } = await supabase.rpc('verify_owner_invitation', { 
+        token_param: token 
+      });
+
+      if (error) {
+        console.error("Error verifying owner token:", error);
+        toast({
+          variant: "destructive",
+          title: "Ungültiger Einladungslink",
+          description: "Der Besitzer-Einladungslink ist ungültig oder abgelaufen.",
+        });
+        return null;
+      }
+
+      // Cast the response through unknown first to avoid direct conversion error
+      const ownerInviteData = inviteResponse as unknown as VerifyOwnerInviteResponse;
+      
+      if (!ownerInviteData.valid) {
+        toast({
+          variant: "destructive",
+          title: "Ungültiger Einladungslink",
+          description: ownerInviteData.message || "Der Besitzer-Einladungslink ist ungültig oder abgelaufen.",
+        });
+        return null;
+      }
+      
+      // Pre-fill the email field
+      setFormData(prev => ({
+        ...prev,
+        email: ownerInviteData.owner_email
+      }));
+
+      return {
+        praxis_id: ownerInviteData.praxis_id,
+        praxis_name: "", // Owner registrations don't need a praxis name
+        email: ownerInviteData.owner_email
+      };
+      
+    } catch (error) {
+      console.error("Error verifying owner invite token:", error);
+      toast({
+        variant: "destructive",
+        title: "Fehler beim Überprüfen der Besitzer-Einladung",
+        description: "Bitte versuchen Sie es später erneut."
+      });
+      return null;
+    }
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      console.log("Starting signup process");
-      
-      // If this is a clinic registration (no invite token)
-      if (!inviteToken) {
+      // Handle different registration types
+      if (inviteType === "owner" && inviteToken) {
+        // Owner registration flow
+        console.log("Starting owner registration with token:", inviteToken);
+
+        // Sign up the owner with metadata that includes the role
+        const { data: authData, error } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              vorname: formData.vorname,
+              nachname: formData.nachname,
+              role: 'owner' // Assign owner role
+            },
+          },
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        console.log("Owner signed up:", authData.user?.id);
+        
+        if (authData.user) {
+          // Call function to complete owner registration and link with besitzer record
+          const { data: linkResult, error: linkError } = await supabase.rpc('complete_owner_registration', {
+            token_param: inviteToken,
+            auth_id_param: authData.user.id
+          });
+          
+          if (linkError) {
+            console.error("Error linking owner account:", linkError);
+            toast({
+              variant: "destructive",
+              title: "Fehler bei der Verknüpfung",
+              description: "Ihr Konto wurde erstellt, konnte aber nicht mit Ihrem Besitzerprofil verknüpft werden."
+            });
+          } else {
+            console.log("Owner account linked successfully");
+            toast({
+              title: "Registrierung erfolgreich",
+              description: "Ihr Besitzerkonto wurde erfolgreich erstellt. Sie können sich jetzt anmelden."
+            });
+          }
+        }
+      } else if (inviteType === "vet" && inviteToken && inviteData) {
+        // Vet invitation registration (existing flow)
+        console.log("Registering invited vet with praxis_id:", inviteData.praxis_id);
+
+        // Sign up the invited vet with metadata that includes the praxis ID
+        const { data: authData, error } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              vorname: formData.vorname,
+              nachname: formData.nachname,
+              praxis_id: inviteData.praxis_id, // Store praxis ID in metadata
+              is_admin: false, // Invited vets are not admins by default
+              role: 'vet' // Assign vet role
+            },
+          },
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        console.log("Invited user signed up:", authData.user?.id);
+        console.log("User metadata:", authData.user?.user_metadata);
+
+        // Manually create the profile for invited vet
+        if (authData.user) {
+          console.log("Creating profile for invited vet with praxis_id:", inviteData.praxis_id);
+          
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .insert([
+              { 
+                id: authData.user.id,
+                vorname: formData.vorname,
+                nachname: formData.nachname,
+                email: formData.email,
+                praxis_id: inviteData.praxis_id
+              }
+            ]);
+
+          if (profileError) {
+            console.error("Error creating profile:", profileError);
+            // Don't throw here, as the user is already created
+          } else {
+            console.log("Created profile for invited vet");
+          }
+        }
+
+        // Mark the invite as used by calling a stored procedure
+        if (inviteToken) {
+          await supabase.rpc('mark_invite_used', { token_param: inviteToken });
+          console.log("Marked invite as used");
+        }
+
+        toast({
+          title: "Registrierung erfolgreich",
+          description: "Bitte überprüfen Sie Ihre E-Mails für die Bestätigung.",
+        });
+      } else if (!inviteToken) {
+        // New praxis registration (existing flow)
         console.log("Creating new praxis:", formData.praxisName);
         
         // 1. Create the praxis first
@@ -196,70 +385,6 @@ const Auth = () => {
 
         toast({
           title: "Praxis registriert",
-          description: "Bitte überprüfen Sie Ihre E-Mails für die Bestätigung.",
-        });
-      } else {
-        // If this is a vet registration via invite
-        if (!inviteData) {
-          throw new Error("Einladungsdaten fehlen");
-        }
-
-        console.log("Registering invited vet with praxis_id:", inviteData.praxis_id);
-
-        // Sign up the invited vet with metadata that includes the praxis ID
-        const { data: authData, error } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: {
-              vorname: formData.vorname,
-              nachname: formData.nachname,
-              praxis_id: inviteData.praxis_id, // Store praxis ID in metadata
-              is_admin: false, // Invited vets are not admins by default
-              role: 'vet' // Assign vet role
-            },
-          },
-        });
-
-        if (error) {
-          throw error;
-        }
-
-        console.log("Invited user signed up:", authData.user?.id);
-        console.log("User metadata:", authData.user?.user_metadata);
-
-        // Manually create the profile for invited vet
-        if (authData.user) {
-          console.log("Creating profile for invited vet with praxis_id:", inviteData.praxis_id);
-          
-          const { error: profileError } = await supabase
-            .from("profiles")
-            .insert([
-              { 
-                id: authData.user.id,
-                vorname: formData.vorname,
-                nachname: formData.nachname,
-                email: formData.email,
-                praxis_id: inviteData.praxis_id
-              }
-            ]);
-
-          if (profileError) {
-            console.error("Error creating profile:", profileError);
-            // Don't throw here, as the user is already created
-          } else {
-            console.log("Created profile for invited vet");
-          }
-        }
-
-        // Mark the invite as used by calling a stored procedure
-        if (inviteToken) {
-          await supabase.rpc('mark_invite_used', { token_param: inviteToken });
-          console.log("Marked invite as used");
-        }
-
-        toast({
-          title: "Registrierung erfolgreich",
           description: "Bitte überprüfen Sie Ihre E-Mails für die Bestätigung.",
         });
       }
@@ -349,7 +474,9 @@ const Auth = () => {
           <CardTitle className="text-2xl">Willkommen</CardTitle>
           <CardDescription>
             {inviteData 
-              ? `Erstellen Sie Ihren Account für ${inviteData.praxis_name}` 
+              ? inviteType === "owner"
+                ? "Erstellen Sie Ihr Besitzerkonto"
+                : `Erstellen Sie Ihren Account für ${inviteData.praxis_name}`
               : "Melden Sie sich an oder erstellen Sie ein Konto"}
           </CardDescription>
         </CardHeader>
