@@ -5,17 +5,14 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { useAuth } from "@/hooks/useAuth";
-
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
-  FormDescription,
 } from "@/components/ui/form";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -25,232 +22,147 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Loader2, Mail } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Send } from "lucide-react";
 
 // Define the form schema
 const inviteFormSchema = z.object({
-  ownerId: z.string().min(1, "Bitte wählen Sie einen Besitzer aus."),
-  sendEmail: z.boolean().default(false),
+  message: z.string().optional(),
 });
 
 type InviteFormValues = z.infer<typeof inviteFormSchema>;
 
-type JsonResponse = {
-  [key: string]: any;
-} | null;
-
 interface SendOwnerInviteProps {
-  ownerId?: string;
-  ownerEmail?: string;
-  ownerName?: string;
+  ownerId: string;
+  ownerEmail: string;
+  ownerName: string;
 }
 
-export const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInviteProps) => {
+const SendOwnerInvite = ({ ownerId, ownerEmail, ownerName }: SendOwnerInviteProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [owners, setOwners] = useState<any[]>([]);
-  const [ownersLoading, setOwnersLoading] = useState(false);
-  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
 
   // Create form with validation
   const form = useForm<InviteFormValues>({
     resolver: zodResolver(inviteFormSchema),
     defaultValues: {
-      ownerId: ownerId || "",
-      sendEmail: false,
+      message: `Sehr geehrte(r) ${ownerName},\n\nwir laden Sie ein, sich im Portal unserer Tierarztpraxis zu registrieren.\n\nMit freundlichen Grüßen,\nIhr Praxisteam`,
     },
   });
 
-  // Load owners when dialog opens
-  const loadOwners = async () => {
-    if (owners.length > 0) return;
-    
-    setOwnersLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('besitzer')
-        .select('id, name, email')
-        .is('auth_id', null)
-        .not('email', 'is', null)
-        .order('name');
-
-      if (error) throw error;
-      setOwners(data || []);
-    } catch (error) {
-      console.error("Error loading owners:", error);
-      toast({
-        variant: "destructive",
-        title: "Fehler",
-        description: "Besitzer konnten nicht geladen werden.",
-      });
-    } finally {
-      setOwnersLoading(false);
-    }
-  };
-
   const onSubmit = async (values: InviteFormValues) => {
-    if (!user?.id) {
-      toast({
-        variant: "destructive",
-        title: "Fehler",
-        description: "Sie müssen angemeldet sein, um Einladungen zu versenden.",
-      });
-      return;
-    }
-    
     setLoading(true);
     try {
-      // Call the RPC function to create an owner invitation
+      // Call the RPC function to generate an invitation
       const { data, error } = await supabase.rpc('invite_owner', {
-        besitzer_id: values.ownerId,
-        clinic_user_id: user.id
+        besitzer_id: ownerId,
+        clinic_user_id: null // This can be updated if needed
       });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
       
-      // Convert data to correct type (JsonResponse)
-      const jsonData = data as JsonResponse;
-      
-      if (!jsonData || jsonData.success !== true) {
-        throw new Error(jsonData?.message || "Fehler beim Versenden der Einladung");
-      }
-
-      // Generate the invitation link
-      const invitationUrl = `${window.location.origin}/owner?token=${jsonData.token}`;
-      setInviteLink(invitationUrl);
-
-      // If we want to send an email, we would do that here
-      // Currently not implemented - would require an edge function
-
+      setSuccess(true);
       toast({
-        title: "Einladung erstellt",
-        description: "Die Einladung wurde erfolgreich erstellt.",
+        title: "Einladung gesendet",
+        description: `Einladung an ${ownerEmail} wurde erfolgreich erstellt.`,
       });
     } catch (error: any) {
+      console.error("Error sending invite:", error);
       toast({
         variant: "destructive",
         title: "Fehler",
-        description: error.message || "Bei der Erstellung der Einladung ist ein Fehler aufgetreten.",
+        description: error.message || "Es ist ein Fehler aufgetreten.",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  // Separate views for form and success state
-  const InviteFormView = () => (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="ownerId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Besitzer</FormLabel>
-              <Select
-                disabled={ownersLoading || !!ownerId}
-                onValueChange={field.onChange}
-                defaultValue={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue 
-                      placeholder={ownersLoading ? "Besitzer werden geladen..." : "Bitte wählen Sie einen Besitzer"} 
-                    />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {owners.map((owner) => (
-                    <SelectItem key={owner.id} value={owner.id}>
-                      {owner.name} {owner.email && `(${owner.email})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <DialogFooter>
-          <Button type="submit" disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Einladung wird erstellt...
-              </>
-            ) : (
-              "Einladung erstellen"
-            )}
-          </Button>
-        </DialogFooter>
-      </form>
-    </Form>
-  );
-
-  const SuccessView = () => (
-    <div className="space-y-4">
-      <Alert>
-        <AlertTitle>Einladung erstellt</AlertTitle>
-        <AlertDescription>
-          Die Einladung wurde erfolgreich erstellt. Bitte teilen Sie den folgenden Link mit dem Besitzer:
-        </AlertDescription>
-      </Alert>
-      <div className="flex flex-col space-y-2">
-        <FormLabel>Einladungslink</FormLabel>
-        <Input 
-          value={inviteLink || ""} 
-          readOnly 
-          onClick={(e) => {
-            (e.target as HTMLInputElement).select();
-            navigator.clipboard.writeText(inviteLink || "");
-            toast({
-              title: "Link kopiert",
-              description: "Der Einladungslink wurde in die Zwischenablage kopiert.",
-            });
-          }}
-        />
-        <FormDescription>
-          Klicken Sie auf den Link, um ihn in die Zwischenablage zu kopieren.
-        </FormDescription>
-      </div>
-      <DialogFooter>
-        <Button onClick={() => setOpen(false)}>Schließen</Button>
-      </DialogFooter>
-    </div>
-  );
+  const resetAndClose = () => {
+    setSuccess(false);
+    setOpen(false);
+    form.reset();
+  };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => {
-      setOpen(isOpen);
-      if (isOpen) {
-        loadOwners();
-        setInviteLink(null);
+    <Dialog open={open} onOpenChange={(value) => {
+      setOpen(value);
+      if (!value) {
+        setSuccess(false);
+        form.reset();
       }
     }}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          <Mail className="mr-2 h-4 w-4" />
-          Einladen
+          <Send className="mr-2 h-4 w-4" />
+          Einladung senden
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Besitzer zum Portal einladen</DialogTitle>
-          <DialogDescription>
-            Erstellen Sie eine Einladung für einen Tierbesitzer, damit dieser sich im Portal anmelden kann.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent>
+        {!success ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Einladung an Besitzer senden</DialogTitle>
+              <DialogDescription>
+                Senden Sie eine Einladung an {ownerName} ({ownerEmail}), um sich im Portalsystem zu registrieren.
+              </DialogDescription>
+            </DialogHeader>
 
-        {inviteLink ? <SuccessView /> : <InviteFormView />}
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="message"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <Textarea 
+                          rows={6} 
+                          placeholder="Einladungsnachricht" 
+                          className="resize-none" 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <DialogFooter>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Wird gesendet...
+                      </>
+                    ) : (
+                      "Einladung senden"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>Einladung gesendet</DialogTitle>
+              <DialogDescription>
+                Die Einladung wurde erfolgreich an {ownerEmail} erstellt.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-center py-6">
+              <div className="rounded-full bg-green-100 p-3">
+                <Send className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={resetAndClose}>Schließen</Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
