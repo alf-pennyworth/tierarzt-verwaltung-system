@@ -21,6 +21,7 @@ interface Patient {
   rasse: string | null;
   geburtsdatum: string | null;
   besitzer: {
+    id: string;
     name: string;
   };
 }
@@ -39,6 +40,7 @@ const PatientList = () => {
         rasse,
         geburtsdatum,
         besitzer (
+          id,
           name
         )
       `)
@@ -84,7 +86,17 @@ const PatientList = () => {
                   onClick={() => navigate(`/patient/${patient.id}`)}
                 >
                   <TableCell>{patient.name}</TableCell>
-                  <TableCell>{patient.besitzer.name}</TableCell>
+                  <TableCell>
+                    <span 
+                      className="cursor-pointer hover:underline" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/owner/${patient.besitzer.id}`);
+                      }}
+                    >
+                      {patient.besitzer.name}
+                    </span>
+                  </TableCell>
                   <TableCell>{patient.spezies}</TableCell>
                   <TableCell>{patient.rasse || "-"}</TableCell>
                   <TableCell>

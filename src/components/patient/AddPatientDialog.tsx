@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +21,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UserPlus } from "lucide-react";
 
+interface Owner {
+  id: string;
+  name: string;
+}
+
 interface AddPatientDialogProps {
   ownerId?: string;
   onSuccess?: () => void;
@@ -33,6 +38,7 @@ const formSchema = z.object({
   spezies: z.string().min(1, { message: "Spezies ist erforderlich" }),
   rasse: z.string().optional(),
   geburtsdatum: z.string().optional(),
+  besitzer_id: z.string().min(1, { message: "Besitzer ist erforderlich" }),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -44,6 +50,8 @@ const AddPatientDialog = ({
   buttonSize = "default" 
 }: AddPatientDialogProps) => {
   const [open, setOpen] = useState(false);
+  const [owners, setOwners] = useState<Owner[]>([]);
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { userInfo } = useAuth();
   
@@ -54,8 +62,48 @@ const AddPatientDialog = ({
       spezies: "",
       rasse: "",
       geburtsdatum: "",
+      besitzer_id: ownerId || "",
     },
   });
+
+  useEffect(() => {
+    // If an ownerId was provided as prop, set it in the form
+    if (ownerId) {
+      form.setValue("besitzer_id", ownerId);
+    }
+  }, [ownerId, form]);
+
+  useEffect(() => {
+    const fetchOwners = async () => {
+      if (!userInfo?.praxisId) return;
+      
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("besitzer")
+          .select("id, name")
+          .eq("praxis_id", userInfo.praxisId)
+          .is("deleted_at", null)
+          .order("name");
+
+        if (error) throw error;
+        setOwners(data || []);
+      } catch (error) {
+        console.error("Error fetching owners:", error);
+        toast({
+          variant: "destructive",
+          title: "Fehler",
+          description: "Besitzer konnten nicht geladen werden.",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (open && !ownerId) {
+      fetchOwners();
+    }
+  }, [open, userInfo?.praxisId, toast, ownerId]);
 
   const onSubmit = async (data: FormData) => {
     if (!userInfo?.praxisId) {
@@ -73,7 +121,7 @@ const AddPatientDialog = ({
         spezies: data.spezies,
         rasse: data.rasse || null,
         geburtsdatum: data.geburtsdatum || null,
-        besitzer_id: ownerId,
+        besitzer_id: data.besitzer_id,
         praxis_id: userInfo.praxisId,
       });
 
@@ -188,6 +236,36 @@ const AddPatientDialog = ({
                 </FormItem>
               )}
             />
+            {!ownerId && (
+              <FormField
+                control={form.control}
+                name="besitzer_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Besitzer</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      defaultValue={field.value}
+                      disabled={loading}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Besitzer auswählen" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {owners.map((owner) => (
+                          <SelectItem key={owner.id} value={owner.id}>
+                            {owner.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <div className="flex justify-end space-x-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Abbrechen
