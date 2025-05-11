@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, isPast, isFuture } from "date-fns";
@@ -25,6 +24,8 @@ const OwnerConsultations = () => {
           return;
         }
 
+        console.log("Fetching consultations for owner with auth_id:", user.id);
+
         // Get owner id based on auth_id
         const { data: ownerData, error: ownerError } = await supabase
           .from('besitzer')
@@ -38,7 +39,30 @@ const OwnerConsultations = () => {
           return;
         }
 
-        // Fetch consultations for this owner's patients
+        console.log("Owner ID:", ownerData.id);
+
+        // Get patient IDs that belong to this owner
+        const { data: patientData, error: patientError } = await supabase
+          .from('patient')
+          .select('id')
+          .eq('besitzer_id', ownerData.id);
+
+        if (patientError) {
+          console.error("Error fetching patients:", patientError);
+          setLoading(false);
+          return;
+        }
+
+        if (!patientData || patientData.length === 0) {
+          console.log("No patients found for this owner");
+          setLoading(false);
+          return;
+        }
+
+        const patientIds = patientData.map(p => p.id);
+        console.log("Patient IDs:", patientIds);
+
+        // Fetch consultations for owner's patients
         const { data, error } = await supabase
           .from('video_consultations')
           .select(`
@@ -51,8 +75,8 @@ const OwnerConsultations = () => {
             patient:patient_id (id, name, spezies),
             doctor:doctor_id (id, vorname, nachname)
           `)
-          .eq('status', 'scheduled')
-          .or('status.eq.in-progress')
+          .in('patient_id', patientIds)
+          .in('status', ['scheduled', 'in-progress'])
           .order('scheduled_start', { ascending: true });
 
         if (error) {
@@ -66,32 +90,13 @@ const OwnerConsultations = () => {
           return;
         }
 
-        // We need to filter consultations for patients that belong to this owner
-        const ownersPatients = await fetchOwnersPatients(ownerData.id);
-        const filteredConsultations = data.filter(consultation =>
-          ownersPatients.some(patient => patient.id === consultation.patient.id)
-        ) as VideoConsultation[];
-
-        setConsultations(filteredConsultations);
+        console.log("Fetched consultations:", data);
+        setConsultations(data as VideoConsultation[]);
       } catch (error) {
         console.error("Error:", error);
       } finally {
         setLoading(false);
       }
-    };
-
-    const fetchOwnersPatients = async (ownerId: string) => {
-      const { data, error } = await supabase
-        .from('patient')
-        .select('id')
-        .eq('besitzer_id', ownerId);
-
-      if (error) {
-        console.error("Error fetching owner's patients:", error);
-        return [];
-      }
-
-      return data || [];
     };
 
     fetchConsultations();
