@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,10 +27,14 @@ interface Patient {
   };
 }
 
+// Generate time slots every 5 minutes from 00:00 to 23:55
 const timeSlots = [];
-for (let hour = 8; hour < 20; hour++) {
-  timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
-  timeSlots.push(`${hour.toString().padStart(2, '0')}:30`);
+for (let hour = 0; hour < 24; hour++) {
+  for (let minute = 0; minute < 60; minute += 5) {
+    const formattedHour = hour.toString().padStart(2, '0');
+    const formattedMinute = minute.toString().padStart(2, '0');
+    timeSlots.push(`${formattedHour}:${formattedMinute}`);
+  }
 }
 
 const formSchema = z.object({
@@ -133,6 +138,7 @@ const ScheduleConsultation = () => {
       // Generate a random room ID
       const roomId = Math.random().toString(36).substring(2, 15);
 
+      // Add owner_invited: true so it appears automatically in the owner's dashboard
       const { data, error } = await supabase
         .from('video_consultations')
         .insert({
@@ -144,6 +150,7 @@ const ScheduleConsultation = () => {
           scheduled_start: startDateTime.toISOString(),
           scheduled_end: endDateTime.toISOString(),
           room_id: roomId,
+          owner_invited: true // Automatically mark as invited
         })
         .select()
         .single();
@@ -296,7 +303,7 @@ const ScheduleConsultation = () => {
                             <Clock className="absolute right-8 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                           </div>
                         </FormControl>
-                        <SelectContent>
+                        <SelectContent className="h-[300px]">
                           {timeSlots.map((time) => (
                             <SelectItem key={time} value={time}>
                               {time} Uhr

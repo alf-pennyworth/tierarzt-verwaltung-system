@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, isPast, isFuture } from "date-fns";
@@ -62,7 +63,7 @@ const OwnerConsultations = () => {
         const patientIds = patientData.map(p => p.id);
         console.log("Patient IDs:", patientIds);
 
-        // Fetch consultations for owner's patients
+        // Fetch consultations for owner's patients - not filtering by owner_invited anymore
         const { data, error } = await supabase
           .from('video_consultations')
           .select(`
