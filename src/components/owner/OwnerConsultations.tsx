@@ -41,7 +41,7 @@ const OwnerConsultations = () => {
         // Get patient IDs that belong to this owner
         const { data: patientData, error: patientError } = await supabase
           .from('patient')
-          .select('id, name')
+          .select('id')
           .eq('besitzer_id', ownerData.id);
 
         if (patientError) {
