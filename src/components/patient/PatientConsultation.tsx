@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Video, VideoOff, Clock, Calendar, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface PatientConsultationProps {
@@ -18,6 +18,7 @@ const PatientConsultation = ({ patientId }: PatientConsultationProps) => {
   const [consultations, setConsultations] = useState<VideoConsultation[]>([]);
   const [loading, setLoading] = useState(true);
   const [patientName, setPatientName] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -28,15 +29,16 @@ const PatientConsultation = ({ patientId }: PatientConsultationProps) => {
         // First get patient details
         const { data: patientData, error: patientError } = await supabase
           .from('patient')
-          .select('name, spezies')
+          .select('name, spezies, besitzer_id')
           .eq('id', patientId)
           .single();
         
         if (patientError) {
           console.error("Error fetching patient details:", patientError);
+          setError("Patientendaten konnten nicht geladen werden.");
         } else if (patientData) {
           setPatientName(patientData.name);
-          console.log(`Patient name: ${patientData.name}, Species: ${patientData.spezies}`);
+          console.log(`Patient name: ${patientData.name}, Species: ${patientData.spezies}, Owner ID: ${patientData.besitzer_id}`);
         }
         
         // Fetch consultations for this patient
@@ -53,16 +55,11 @@ const PatientConsultation = ({ patientId }: PatientConsultationProps) => {
             doctor:doctor_id (id, vorname, nachname)
           `)
           .eq('patient_id', patientId)
-          .in('status', ['scheduled', 'in-progress'])
-          .order('scheduled_start', { ascending: true });
+          .in('status', ['scheduled', 'in-progress']);
 
         if (error) {
           console.error("Error fetching consultations:", error);
-          toast({
-            title: "Fehler",
-            description: "Die Video-Konsultationen konnten nicht geladen werden.",
-            variant: "destructive",
-          });
+          setError("Die Video-Konsultationen konnten nicht geladen werden.");
           setLoading(false);
           return;
         }
@@ -71,11 +68,11 @@ const PatientConsultation = ({ patientId }: PatientConsultationProps) => {
           console.log("No consultations found for patient:", patientId);
         } else {
           console.log(`Found ${data.length} consultations for patient:`, data);
+          setConsultations(data as VideoConsultation[]);
         }
-        
-        setConsultations(data as VideoConsultation[]);
       } catch (error) {
         console.error("Error:", error);
+        setError("Ein unerwarteter Fehler ist aufgetreten.");
       } finally {
         setLoading(false);
       }
@@ -85,6 +82,7 @@ const PatientConsultation = ({ patientId }: PatientConsultationProps) => {
       fetchConsultations();
     } else {
       setLoading(false);
+      setError("Keine Patienten-ID angegeben.");
     }
   }, [patientId]);
 
@@ -117,6 +115,8 @@ const PatientConsultation = ({ patientId }: PatientConsultationProps) => {
         return;
       }
 
+      console.log("Creating owner session with besitzer_id:", ownerData.id, "and consultation_id:", consultationId);
+      
       // Create a session token for this consultation
       const { data: sessionToken, error: sessionError } = await supabase.rpc(
         'create_owner_session',
@@ -136,6 +136,8 @@ const PatientConsultation = ({ patientId }: PatientConsultationProps) => {
         return;
       }
 
+      console.log("Session token created successfully:", sessionToken);
+      
       // Store the token in session storage for use in the consultation room
       sessionStorage.setItem('owner_access_token', sessionToken);
       navigate(`/owner/room/${consultationId}`);
@@ -177,6 +179,16 @@ const PatientConsultation = ({ patientId }: PatientConsultationProps) => {
         <Loader2 className="h-4 w-4 animate-spin text-primary mr-2" />
         <span className="text-sm">Laden...</span>
       </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-3">
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </CardContent>
+      </Card>
     );
   }
 

@@ -1,40 +1,56 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Calendar, MessageSquare, Video, PawPrint, User, LogOut } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import OwnerConsultations from "./OwnerConsultations";
 
-const OwnerDashboard = () => {
+interface OwnerDashboardProps {
+  ownerData?: any;
+}
+
+const OwnerDashboard = ({ ownerData }: OwnerDashboardProps) => {
   const [ownerName, setOwnerName] = useState<string>("");
   const [activeTab, setActiveTab] = useState("overview");
   const navigate = useNavigate();
   
   useEffect(() => {
-    // Fetch owner information
+    // Set owner name if provided in props
+    if (ownerData?.name) {
+      setOwnerName(ownerData.name);
+      return;
+    }
+    
+    // Otherwise fetch owner information
     const fetchOwnerInfo = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
+        console.log("Fetching owner details for auth_id:", user.id);
+        
         // Get owner details from the besitzer table using the auth_id
         const { data, error } = await supabase
           .from('besitzer')
-          .select('name')
+          .select('id, name, email')
           .eq('auth_id', user.id)
           .single();
           
-        if (data) {
+        if (error) {
+          console.error("Error fetching owner details:", error);
+        } else if (data) {
+          console.log("Found owner in database:", data);
           setOwnerName(data.name);
+        } else {
+          console.log("No owner found for this auth_id");
         }
       }
     };
     
     fetchOwnerInfo();
-  }, []);
+  }, [ownerData]);
   
   const handleLogout = async () => {
     await supabase.auth.signOut();

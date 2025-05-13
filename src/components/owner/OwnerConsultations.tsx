@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/components/ui/use-toast";
 import { PatientConsultation } from "@/components/patient";
 import { Loader2 } from "lucide-react";
 
@@ -18,18 +18,19 @@ const OwnerConsultations = () => {
         const { data: { user } } = await supabase.auth.getUser();
         
         if (!user) {
-          console.log("No authenticated user found");
+          console.error("No authenticated user found");
           setLoading(false);
           setError("Bitte melden Sie sich an, um Ihre Sprechstunden zu sehen.");
           return;
         }
 
         console.log("Authenticated user ID:", user.id);
+        console.log("User metadata:", user.user_metadata);
 
         // Get owner id based on auth_id
         const { data: ownerData, error: ownerError } = await supabase
           .from('besitzer')
-          .select('id, name')
+          .select('id, name, email')
           .eq('auth_id', user.id)
           .single();
 
@@ -41,14 +42,14 @@ const OwnerConsultations = () => {
         }
 
         if (!ownerData) {
-          console.log("No owner data found for this auth user");
+          console.error("No owner data found for this auth user");
           setLoading(false);
-          setError("Kein Besitzerprofil gefunden.");
+          setError("Kein Besitzerprofil gefunden für den angemeldeten Benutzer.");
           return;
         }
 
         setOwnerName(ownerData.name || "");
-        console.log("Found owner:", ownerData.name, "with ID:", ownerData.id);
+        console.log("Found owner:", ownerData.name, "with ID:", ownerData.id, "and email:", ownerData.email);
 
         // Get patient IDs that belong to this owner
         const { data: patientData, error: patientError } = await supabase
@@ -72,6 +73,27 @@ const OwnerConsultations = () => {
         const ids = patientData.map(p => p.id);
         console.log("Found", patientData.length, "patients:", patientData.map(p => `${p.name} (${p.spezies})`));
         console.log("Patient IDs:", ids);
+        
+        // Now directly check if these patients have consultations
+        const { data: consultations, error: consultError } = await supabase
+          .from('video_consultations')
+          .select(`
+            id, 
+            title,
+            scheduled_start,
+            scheduled_end
+          `)
+          .in('patient_id', ids);
+          
+        if (consultError) {
+          console.error("Error checking consultations:", consultError);
+        } else {
+          console.log("Found consultations:", consultations ? consultations.length : 0);
+          if (consultations && consultations.length > 0) {
+            console.log("Consultation details:", consultations);
+          }
+        }
+        
         setPatientIds(ids);
       } catch (error) {
         console.error("Unexpected error:", error);
