@@ -51,6 +51,16 @@ const ConsultationRoom = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  // Add heartbeat interval ref
+  const heartbeatIntervalRef = useRef<number | null>(null);
+
+  // Add connection attempt counter
+  const reconnectAttemptRef = useRef(0);
+  const maxReconnectAttempts = 5;
+
+  // Add WebSocket URL to state
+  const [wsUrl] = useState(`wss://hwdzrrhjjrnruyfyydmu.supabase.co/functions/v1/telemedizin-signaling`);
+
   // Fetch consultation details
   useEffect(() => {
     const fetchConsultation = async () => {
@@ -157,52 +167,116 @@ const ConsultationRoom = () => {
           localVideoRef.current.srcObject = stream;
         }
         
+        // Create peer connection first
+        await createPeerConnection();
+        
         // Set up WebSocket connection to signaling server
-        const wsUrl = `wss://hwdzrrhjjrnruyfyydmu.supabase.co/functions/v1/telemedizin-signaling`;
+        console.log('🔌 Connecting to signaling server:', wsUrl);
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
         
         ws.onopen = () => {
-          console.log("WebSocket connection established");
+          console.log("✅ WebSocket connection established");
+          reconnectAttemptRef.current = 0; // Reset reconnect counter on successful connection
           
           // Join the room
-          ws.send(JSON.stringify({
+          const joinMessage = {
             type: "join",
             roomId: consultation.room_id,
-            userId: user.id
-          }));
+            userId: "vet"
+          };
+          console.log('📤 Sending join message:', joinMessage);
+          ws.send(JSON.stringify(joinMessage));
+
+          // Start heartbeat
+          if (heartbeatIntervalRef.current) {
+            clearInterval(heartbeatIntervalRef.current);
+          }
+          
+          heartbeatIntervalRef.current = window.setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              console.log("💓 Sending heartbeat");
+              try {
+                ws.send(JSON.stringify({ type: "heartbeat" }));
+              } catch (error) {
+                console.error('❌ Error sending heartbeat:', error);
+                ws.close(1006, "Heartbeat send failed");
+              }
+            }
+          }, 30000); // Send heartbeat every 30 seconds
         };
         
         ws.onmessage = async (event) => {
-          const message = JSON.parse(event.data);
-          
-          switch(message.type) {
-            case "user-joined":
-              console.log(`User ${message.userId} joined the room`);
-              // Create and send an offer when a new user joins
-              await createPeerConnection();
-              await createAndSendOffer(message.userId);
-              break;
-              
-            case "offer":
-              console.log("Received offer");
-              await handleOffer(message);
-              break;
-              
-            case "answer":
-              console.log("Received answer");
-              await handleAnswer(message);
-              break;
-              
-            case "ice-candidate":
-              console.log("Received ICE candidate");
-              await handleIceCandidate(message);
-              break;
-              
-            case "user-left":
-              console.log(`User ${message.userId} left the room`);
-              handleUserLeft();
-              break;
+          try {
+            const message = JSON.parse(event.data);
+            console.log('📨 Received WebSocket message:', message);
+            
+            switch(message.type) {
+              case 'heartbeat':
+                // Send heartbeat acknowledgment
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: 'heartbeat-ack' }));
+                }
+                break;
+                
+              case 'error':
+                console.error("❌ Signaling server error:", message.error);
+                toast({
+                  title: "Verbindungsfehler",
+                  description: "Es gab einen Fehler bei der Signalisierung: " + message.error,
+                  variant: "destructive",
+                });
+                break;
+                
+              case "user-joined":
+                console.log(`👋 User ${message.userId} joined the room`);
+                // Create and send an offer when owner joins
+                if (message.userId === 'owner') {
+                  console.log('👤 Owner joined, creating offer...');
+                  try {
+                    if (!peerConnectionRef.current) {
+                      console.log('🔄 Creating new peer connection...');
+                      await createPeerConnection();
+                    }
+                    console.log('📤 Creating and sending offer...');
+                    await createAndSendOffer();
+                    console.log('✅ Offer sent successfully');
+                  } catch (error) {
+                    console.error('❌ Error creating/sending offer:', error);
+                    toast({
+                      title: "Verbindungsfehler",
+                      description: "Die Verbindung konnte nicht hergestellt werden.",
+                      variant: "destructive",
+                    });
+                  }
+                }
+                break;
+                
+              case "offer":
+                console.log("📩 Received offer from owner");
+                if (!peerConnectionRef.current) {
+                  await createPeerConnection();
+                }
+                await handleOffer(message);
+                break;
+                
+              case "answer":
+                console.log("📩 Received answer from owner");
+                await handleAnswer(message);
+                break;
+                
+              case "ice-candidate":
+                console.log("❄️ Received ICE candidate from owner");
+                await handleIceCandidate(message);
+                break;
+                
+              case "user-left":
+                console.log(`👋 User ${message.userId} left the room`);
+                handleUserLeft();
+                break;
+            }
+          } catch (error) {
+            console.error('❌ Error handling WebSocket message:', error);
           }
         };
         
@@ -215,8 +289,33 @@ const ConsultationRoom = () => {
           });
         };
         
-        ws.onclose = () => {
-          console.log("WebSocket connection closed");
+        ws.onclose = (event) => {
+          console.log("WebSocket connection closed", event.code, event.reason);
+          
+          // Clear heartbeat interval
+          if (heartbeatIntervalRef.current) {
+            clearInterval(heartbeatIntervalRef.current);
+            heartbeatIntervalRef.current = null;
+          }
+          
+          // Attempt to reconnect after 5 seconds if not intentionally closed
+          if (event.code === 1006 && reconnectAttemptRef.current < maxReconnectAttempts) {
+            console.log(`🔄 Attempting to reconnect (${reconnectAttemptRef.current + 1}/${maxReconnectAttempts})...`);
+            reconnectAttemptRef.current += 1;
+            setTimeout(() => {
+              if (wsRef.current?.readyState !== WebSocket.OPEN) {
+                console.log("🔄 Reconnecting...");
+                setupWebRTC();
+              }
+            }, 5000);
+          } else if (reconnectAttemptRef.current >= maxReconnectAttempts) {
+            console.log("❌ Max reconnection attempts reached");
+            toast({
+              title: "Verbindungsfehler",
+              description: "Die Verbindung konnte nicht wiederhergestellt werden. Bitte laden Sie die Seite neu.",
+              variant: "destructive",
+            });
+          }
         };
 
         return () => {
@@ -224,14 +323,24 @@ const ConsultationRoom = () => {
           stream.getTracks().forEach(track => track.stop());
           if (peerConnectionRef.current) {
             peerConnectionRef.current.close();
+            peerConnectionRef.current = null;
           }
           if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-              type: "leave",
-              roomId: consultation.room_id,
-              userId: user.id
-            }));
+            try {
+              ws.send(JSON.stringify({
+                type: "leave",
+                roomId: consultation.room_id,
+                userId: "vet"
+              }));
+            } catch (error) {
+              console.error('❌ Error sending leave message:', error);
+            }
             ws.close();
+          }
+          // Clear heartbeat interval
+          if (heartbeatIntervalRef.current) {
+            clearInterval(heartbeatIntervalRef.current);
+            heartbeatIntervalRef.current = null;
           }
         };
       } catch (error) {
@@ -245,27 +354,7 @@ const ConsultationRoom = () => {
     };
 
     setupWebRTC();
-
-    return () => {
-      // Clean up
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-      }
-      
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-      }
-      
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({
-          type: "leave",
-          roomId: consultation.room_id,
-          userId: user.id
-        }));
-        wsRef.current.close();
-      }
-    };
-  }, [consultation, user]);
+  }, [consultation, user, wsUrl]);
 
   // Create a new RTCPeerConnection
   const createPeerConnection = async () => {
@@ -304,7 +393,7 @@ const ConsultationRoom = () => {
   };
   
   // Create and send an offer
-  const createAndSendOffer = async (targetUserId: string) => {
+  const createAndSendOffer = async () => {
     try {
       if (!peerConnectionRef.current) {
         throw new Error("No peer connection");
@@ -315,7 +404,7 @@ const ConsultationRoom = () => {
       
       wsRef.current?.send(JSON.stringify({
         type: "offer",
-        target: targetUserId,
+        target: "owner",
         sdp: peerConnectionRef.current.localDescription
       }));
     } catch (error) {
@@ -327,10 +416,6 @@ const ConsultationRoom = () => {
   // Handle an incoming offer
   const handleOffer = async (message: any) => {
     try {
-      if (!peerConnectionRef.current) {
-        await createPeerConnection();
-      }
-      
       const pc = peerConnectionRef.current;
       if (!pc) {
         throw new Error("No peer connection");
@@ -343,7 +428,7 @@ const ConsultationRoom = () => {
       
       wsRef.current?.send(JSON.stringify({
         type: "answer",
-        target: message.sender,
+        target: "owner",
         sdp: pc.localDescription
       }));
     } catch (error) {
@@ -375,7 +460,9 @@ const ConsultationRoom = () => {
         throw new Error("No peer connection");
       }
       
-      await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+      if (message.candidate) {
+        await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+      }
     } catch (error) {
       console.error("Error handling ICE candidate:", error);
     }
@@ -402,7 +489,7 @@ const ConsultationRoom = () => {
     if (event.candidate && wsRef.current) {
       wsRef.current.send(JSON.stringify({
         type: "ice-candidate",
-        target: getOtherParticipantId(),
+        target: "owner",
         candidate: event.candidate
       }));
     }
@@ -422,6 +509,8 @@ const ConsultationRoom = () => {
     const pc = peerConnectionRef.current;
     if (!pc) return;
     
+    console.log('❄️ ICE connection state changed to:', pc.iceConnectionState);
+    
     switch(pc.iceConnectionState) {
       case "connected":
         setIsConnected(true);
@@ -439,6 +528,8 @@ const ConsultationRoom = () => {
   const handleSignalingStateChangeEvent = () => {
     const pc = peerConnectionRef.current;
     if (!pc) return;
+    
+    console.log('📡 Signaling state changed to:', pc.signalingState);
     
     switch(pc.signalingState) {
       case "stable":

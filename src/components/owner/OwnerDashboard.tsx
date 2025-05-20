@@ -13,11 +13,13 @@ interface OwnerDashboardProps {
 }
 
 const OwnerDashboard = ({ ownerData }: OwnerDashboardProps) => {
-  const [ownerName, setOwnerName] = useState<string>("");
+  console.log('🏠 OWNER DASHBOARD MOUNTED');
   const [activeTab, setActiveTab] = useState("overview");
+  const [ownerName, setOwnerName] = useState("");
   const navigate = useNavigate();
   
   useEffect(() => {
+    console.log('📑 Current active tab:', activeTab);
     // Set owner name if provided in props
     if (ownerData?.name) {
       setOwnerName(ownerData.name);
