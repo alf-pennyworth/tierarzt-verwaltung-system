@@ -148,398 +148,271 @@ const ConsultationRoom = () => {
     }
   };
 
-  // Set up WebRTC
+  // Replace the WebSocket initialization with Supabase Realtime channel
   useEffect(() => {
-    if (!consultation || !user) return;
+    if (!consultation) return;
 
-    // Initialize WebRTC
-    const setupWebRTC = async () => {
+    // First, we set up our media
+    const initializeMedia = async () => {
       try {
-        // Get user media
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: true, 
-          audio: true 
+        console.log('🎥 Initializing media devices...');
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true
         });
         
         setLocalStream(stream);
+        console.log('✅ Media permissions granted');
         
         if (localVideoRef.current) {
+          console.log('🖥️ Setting local video stream');
           localVideoRef.current.srcObject = stream;
+          console.log('🖥️ Local video stream set:', stream.id);
         }
         
-        // Create peer connection first
-        await createPeerConnection();
-        
-        // Set up WebSocket connection to signaling server
-        console.log('🔌 Connecting to signaling server:', wsUrl);
-        const ws = new WebSocket(wsUrl);
-        wsRef.current = ws;
-        
-        ws.onopen = () => {
-          console.log("✅ WebSocket connection established");
-          reconnectAttemptRef.current = 0; // Reset reconnect counter on successful connection
-          
-          // Join the room
-          const joinMessage = {
-            type: "join",
-            roomId: consultation.room_id,
-            userId: "vet"
-          };
-          console.log('📤 Sending join message:', joinMessage);
-          ws.send(JSON.stringify(joinMessage));
-
-          // Start heartbeat
-          if (heartbeatIntervalRef.current) {
-            clearInterval(heartbeatIntervalRef.current);
-          }
-          
-          heartbeatIntervalRef.current = window.setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) {
-              console.log("💓 Sending heartbeat");
-              try {
-                ws.send(JSON.stringify({ type: "heartbeat" }));
-              } catch (error) {
-                console.error('❌ Error sending heartbeat:', error);
-                ws.close(1006, "Heartbeat send failed");
-              }
-            }
-          }, 30000); // Send heartbeat every 30 seconds
-        };
-        
-        ws.onmessage = async (event) => {
-          try {
-            const message = JSON.parse(event.data);
-            console.log('📨 Received WebSocket message:', message);
-            
-            switch(message.type) {
-              case 'heartbeat':
-                // Send heartbeat acknowledgment
-                if (ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify({ type: 'heartbeat-ack' }));
-                }
-                break;
-                
-              case 'error':
-                console.error("❌ Signaling server error:", message.error);
-                toast({
-                  title: "Verbindungsfehler",
-                  description: "Es gab einen Fehler bei der Signalisierung: " + message.error,
-                  variant: "destructive",
-                });
-                break;
-                
-              case "user-joined":
-                console.log(`👋 User ${message.userId} joined the room`);
-                // Create and send an offer when owner joins
-                if (message.userId === 'owner') {
-                  console.log('👤 Owner joined, creating offer...');
-                  try {
-                    if (!peerConnectionRef.current) {
-                      console.log('🔄 Creating new peer connection...');
-                      await createPeerConnection();
-                    }
-                    console.log('📤 Creating and sending offer...');
-                    await createAndSendOffer();
-                    console.log('✅ Offer sent successfully');
-                  } catch (error) {
-                    console.error('❌ Error creating/sending offer:', error);
-                    toast({
-                      title: "Verbindungsfehler",
-                      description: "Die Verbindung konnte nicht hergestellt werden.",
-                      variant: "destructive",
-                    });
-                  }
-                }
-                break;
-                
-              case "offer":
-                console.log("📩 Received offer from owner");
-                if (!peerConnectionRef.current) {
-                  await createPeerConnection();
-                }
-                await handleOffer(message);
-                break;
-                
-              case "answer":
-                console.log("📩 Received answer from owner");
-                await handleAnswer(message);
-                break;
-                
-              case "ice-candidate":
-                console.log("❄️ Received ICE candidate from owner");
-                await handleIceCandidate(message);
-                break;
-                
-              case "user-left":
-                console.log(`👋 User ${message.userId} left the room`);
-                handleUserLeft();
-                break;
-            }
-          } catch (error) {
-            console.error('❌ Error handling WebSocket message:', error);
-          }
-        };
-        
-        ws.onerror = (error) => {
-          console.error("WebSocket error:", error);
-          toast({
-            title: "Verbindungsfehler",
-            description: "Es konnte keine Verbindung zum Signalisierungsserver hergestellt werden.",
-            variant: "destructive",
-          });
-        };
-        
-        ws.onclose = (event) => {
-          console.log("WebSocket connection closed", event.code, event.reason);
-          
-          // Clear heartbeat interval
-          if (heartbeatIntervalRef.current) {
-            clearInterval(heartbeatIntervalRef.current);
-            heartbeatIntervalRef.current = null;
-          }
-          
-          // Attempt to reconnect after 5 seconds if not intentionally closed
-          if (event.code === 1006 && reconnectAttemptRef.current < maxReconnectAttempts) {
-            console.log(`🔄 Attempting to reconnect (${reconnectAttemptRef.current + 1}/${maxReconnectAttempts})...`);
-            reconnectAttemptRef.current += 1;
-            setTimeout(() => {
-              if (wsRef.current?.readyState !== WebSocket.OPEN) {
-                console.log("🔄 Reconnecting...");
-                setupWebRTC();
-              }
-            }, 5000);
-          } else if (reconnectAttemptRef.current >= maxReconnectAttempts) {
-            console.log("❌ Max reconnection attempts reached");
-            toast({
-              title: "Verbindungsfehler",
-              description: "Die Verbindung konnte nicht wiederhergestellt werden. Bitte laden Sie die Seite neu.",
-              variant: "destructive",
-            });
-          }
-        };
-
-        return () => {
-          // Clean up
-          stream.getTracks().forEach(track => track.stop());
-          if (peerConnectionRef.current) {
-            peerConnectionRef.current.close();
-            peerConnectionRef.current = null;
-          }
-          if (ws.readyState === WebSocket.OPEN) {
-            try {
-              ws.send(JSON.stringify({
-                type: "leave",
-                roomId: consultation.room_id,
-                userId: "vet"
-              }));
-            } catch (error) {
-              console.error('❌ Error sending leave message:', error);
-            }
-            ws.close();
-          }
-          // Clear heartbeat interval
-          if (heartbeatIntervalRef.current) {
-            clearInterval(heartbeatIntervalRef.current);
-            heartbeatIntervalRef.current = null;
-          }
-        };
+        // Initialize WebRTC after media is set up
+        initializeRTC(stream);
       } catch (error) {
-        console.error("Error setting up WebRTC:", error);
+        console.error('❌ Error accessing media devices:', error);
         toast({
-          title: "Medienzugriffsfehler",
-          description: "Zugriff auf Kamera und Mikrofon nicht möglich. Bitte Berechtigungen überprüfen.",
-          variant: "destructive",
+          title: 'Medienzugriffsfehler',
+          description: 'Bitte überprüfen Sie, ob Sie Zugriff auf Kamera und Mikrofon gewährt haben.',
+          variant: 'destructive',
         });
       }
     };
-
-    setupWebRTC();
-  }, [consultation, user, wsUrl]);
-
-  // Create a new RTCPeerConnection
-  const createPeerConnection = async () => {
-    try {
-      setIsConnecting(true);
-      
-      const configuration = {
+    
+    // Initialize the RTC connection
+    const initializeRTC = (stream) => {
+      // Create peer connection
+      const pc = new RTCPeerConnection({
         iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" }
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
         ]
-      };
-      
-      const pc = new RTCPeerConnection(configuration);
+      });
       peerConnectionRef.current = pc;
       
+      console.log('📡 Created RTCPeerConnection');
+      
       // Add local stream tracks to peer connection
-      if (localStream) {
-        localStream.getTracks().forEach(track => {
-          pc.addTrack(track, localStream);
+      if (stream) {
+        console.log('📤 Adding local stream tracks to peer connection');
+        stream.getTracks().forEach(track => {
+          console.log(`Adding track: ${track.kind}`);
+          pc.addTrack(track, stream);
         });
       }
       
       // Set up event handlers
-      pc.onicecandidate = handleICECandidateEvent;
-      pc.ontrack = handleTrackEvent;
-      pc.oniceconnectionstatechange = handleICEConnectionStateChangeEvent;
-      pc.onsignalingstatechange = handleSignalingStateChangeEvent;
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          console.log('🧊 Generated ICE candidate:', event.candidate.candidate.substring(0, 50) + '...');
+          
+          // Send ICE candidate through Supabase channel
+          sendSignal({
+            type: 'ice-candidate',
+            sender: 'vet',
+            target: 'owner',
+            candidate: event.candidate
+          });
+          console.log('🧊 Sent ICE candidate to owner');
+        }
+      };
       
-      return pc;
-    } catch (error) {
-      console.error("Error creating peer connection:", error);
-      setIsConnecting(false);
-      throw error;
-    }
-  };
-  
-  // Create and send an offer
-  const createAndSendOffer = async () => {
-    try {
-      if (!peerConnectionRef.current) {
-        throw new Error("No peer connection");
-      }
+      pc.onconnectionstatechange = () => {
+        console.log(`📡 Connection state changed to: ${pc.connectionState}`);
+        if (pc.connectionState === 'connected') {
+          setIsConnected(true);
+          setIsConnecting(false);
+          console.log('✅ Peer connection established successfully!');
+          
+          // Explicitly check remoteStream again
+          if (remoteVideoRef.current && remoteStream) {
+            console.log('🖥️ Setting remote video stream after connection');
+            remoteVideoRef.current.srcObject = remoteStream;
+          }
+        } else if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+          setIsConnected(false);
+          setIsConnecting(false);
+        } else if (pc.connectionState === 'connecting') {
+          setIsConnecting(true);
+        }
+      };
       
-      const offer = await peerConnectionRef.current.createOffer();
-      await peerConnectionRef.current.setLocalDescription(offer);
-      
-      wsRef.current?.send(JSON.stringify({
-        type: "offer",
-        target: "owner",
-        sdp: peerConnectionRef.current.localDescription
-      }));
-    } catch (error) {
-      console.error("Error creating offer:", error);
-      setIsConnecting(false);
-    }
-  };
-  
-  // Handle an incoming offer
-  const handleOffer = async (message: any) => {
-    try {
-      const pc = peerConnectionRef.current;
-      if (!pc) {
-        throw new Error("No peer connection");
-      }
-      
-      await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
-      
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      
-      wsRef.current?.send(JSON.stringify({
-        type: "answer",
-        target: "owner",
-        sdp: pc.localDescription
-      }));
-    } catch (error) {
-      console.error("Error handling offer:", error);
-      setIsConnecting(false);
-    }
-  };
-  
-  // Handle an incoming answer
-  const handleAnswer = async (message: any) => {
-    try {
-      const pc = peerConnectionRef.current;
-      if (!pc) {
-        throw new Error("No peer connection");
-      }
-      
-      await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
-    } catch (error) {
-      console.error("Error handling answer:", error);
-      setIsConnecting(false);
-    }
-  };
-  
-  // Handle an incoming ICE candidate
-  const handleIceCandidate = async (message: any) => {
-    try {
-      const pc = peerConnectionRef.current;
-      if (!pc) {
-        throw new Error("No peer connection");
-      }
-      
-      if (message.candidate) {
-        await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
-      }
-    } catch (error) {
-      console.error("Error handling ICE candidate:", error);
-    }
-  };
-  
-  // Handle when a user leaves
-  const handleUserLeft = () => {
-    setRemoteStream(null);
-    setIsConnected(false);
-    
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-    }
-    
-    toast({
-      title: "Verbindung getrennt",
-      description: "Der andere Teilnehmer hat die Konsultation verlassen.",
-    });
-  };
-  
-  // Event handlers for RTCPeerConnection
-  const handleICECandidateEvent = (event: RTCPeerConnectionIceEvent) => {
-    if (event.candidate && wsRef.current) {
-      wsRef.current.send(JSON.stringify({
-        type: "ice-candidate",
-        target: "owner",
-        candidate: event.candidate
-      }));
-    }
-  };
-  
-  const handleTrackEvent = (event: RTCTrackEvent) => {
-    setRemoteStream(event.streams[0]);
-    setIsConnected(true);
-    setIsConnecting(false);
-    
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = event.streams[0];
-    }
-  };
-  
-  const handleICEConnectionStateChangeEvent = () => {
-    const pc = peerConnectionRef.current;
-    if (!pc) return;
-    
-    console.log('❄️ ICE connection state changed to:', pc.iceConnectionState);
-    
-    switch(pc.iceConnectionState) {
-      case "connected":
+      pc.ontrack = (event) => {
+        console.log('📺 Received remote track:', event.track.kind);
+        setRemoteStream(event.streams[0]);
+        
+        if (remoteVideoRef.current) {
+          console.log('🖥️ Setting remote video stream');
+          remoteVideoRef.current.srcObject = event.streams[0];
+        }
+        
+        // When we receive tracks, we're actually connected
         setIsConnected(true);
         setIsConnecting(false);
-        break;
-      case "disconnected":
-      case "failed":
-      case "closed":
-        setIsConnected(false);
-        setIsConnecting(false);
-        break;
-    }
-  };
-  
-  const handleSignalingStateChangeEvent = () => {
-    const pc = peerConnectionRef.current;
-    if (!pc) return;
+      };
+      
+      // Create a Supabase Realtime channel for signaling
+      const channelName = `video-consultation-${consultation.room_id}`;
+      console.log(`🔄 Creating channel: ${channelName}`);
+      
+      const channel = supabase.channel(channelName, {
+        config: {
+          broadcast: { self: false }
+        }
+      });
+      
+      // Send a join message when vet connects
+      const sendJoin = () => {
+        sendSignal({
+          type: 'join',
+          sender: 'vet',
+          roomId: consultation.room_id
+        });
+        
+        // Notify that we're connected and ready
+        sendSignal({
+          type: 'vet-connected',
+          sender: 'vet',
+          target: 'owner'
+        });
+      };
+      
+      // Function to send signals through the channel
+      const sendSignal = (message) => {
+        try {
+          console.log('📤 Sending signal:', message.type);
+          channel.send({
+            type: 'broadcast',
+            event: 'video-signal',
+            payload: message
+          });
+        } catch (error) {
+          console.error('❌ Error sending signal:', error);
+        }
+      };
+      
+      // Listen for signals on the channel
+      channel.on('broadcast', { event: 'video-signal' }, (payload) => {
+        const message = payload.payload;
+        console.log('📨 Received signal:', message.type, message);
+        
+        if (message.target === 'vet' || !message.target) {
+          handleSignalingMessage(message, pc, sendSignal);
+        }
+      });
+      
+      // Subscribe to the channel
+      channel.subscribe((status) => {
+        console.log(`Channel status: ${status}`);
+        if (status === 'SUBSCRIBED') {
+          // Send join message when we're connected
+          sendJoin();
+          
+          // Listen specifically for owner join messages to ensure we don't miss them
+          channel.on('broadcast', { event: 'video-signal' }, (payload) => {
+            const message = payload.payload;
+            if (message.type === 'join' && message.sender === 'owner') {
+              console.log('👋 Owner join message detected in listener');
+              handleSignalingMessage(message, pc, sendSignal);
+            }
+          });
+        }
+      });
+      
+      // Return cleanup function that will be used when the component unmounts
+      return () => {
+        console.log('🧹 Cleaning up WebRTC resources...');
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+        }
+        
+        if (pc) {
+          pc.close();
+        }
+        
+        // Unsubscribe from the channel
+        supabase.removeChannel(channel);
+      };
+    };
     
-    console.log('📡 Signaling state changed to:', pc.signalingState);
+    // Handle incoming signaling messages
+    const handleSignalingMessage = async (message, pc, sendSignal) => {
+      try {
+        console.log('🛠️ Handling signal:', message.type, 'from', message.sender);
+        
+        switch (message.type) {
+          case 'join':
+            if (message.sender === 'owner') {
+              console.log('👋 Owner joined, creating offer...');
+              setIsConnecting(true);
+              
+              // Slight delay to ensure both sides are ready
+              setTimeout(async () => {
+                try {
+                  // Create and send offer
+                  const offer = await pc.createOffer();
+                  await pc.setLocalDescription(offer);
+                  
+                  // Send the offer to the owner
+                  sendSignal({
+                    type: 'offer',
+                    target: 'owner',
+                    sender: 'vet',
+                    sdp: pc.localDescription
+                  });
+                  console.log('✅ Offer sent successfully');
+                } catch (error) {
+                  console.error('❌ Error creating or sending offer:', error);
+                  toast({
+                    title: 'Verbindungsfehler',
+                    description: 'Es gab einen Fehler beim Verbindungsaufbau. Bitte versuchen Sie es erneut.',
+                    variant: 'destructive',
+                  });
+                  setIsConnecting(false);
+                }
+              }, 1000);
+            }
+            break;
+            
+          case 'answer':
+            if (message.sender === 'owner') {
+              console.log('📩 Received answer from owner');
+              try {
+                await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
+                console.log('✅ Remote description set from answer');
+              } catch (error) {
+                console.error('❌ Error setting remote description from answer:', error);
+              }
+            }
+            break;
+            
+          case 'ice-candidate':
+            if (message.sender === 'owner') {
+              console.log('🧊 Received ICE candidate from owner:', message.candidate.candidate.substring(0, 50) + '...');
+              try {
+                if (pc && message.candidate) {
+                  await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+                  console.log('✅ Added remote ICE candidate');
+                }
+              } catch (error) {
+                console.error('❌ Error adding ICE candidate:', error);
+              }
+            }
+            break;
+        }
+      } catch (error) {
+        console.error('❌ Error handling signaling message:', error);
+      }
+    };
     
-    switch(pc.signalingState) {
-      case "stable":
-        break;
-      case "closed":
-        setIsConnected(false);
-        setIsConnecting(false);
-        break;
-    }
-  };
+    // Start initialization
+    initializeMedia();
+    
+    // Cleanup will be handled by the function returned from initializeRTC
+  }, [consultation]);
 
   // Get the ID of the other participant in the consultation
   const getOtherParticipantId = () => {
@@ -678,6 +551,19 @@ const ConsultationRoom = () => {
     };
   }, [consultation, user]);
 
+  // Add double-check for video elements after streams are set
+  useEffect(() => {
+    if (localStream && localVideoRef.current) {
+      console.log('🔍 Double-checking local video reference');
+      localVideoRef.current.srcObject = localStream;
+    }
+    
+    if (remoteStream && remoteVideoRef.current) {
+      console.log('🔍 Double-checking remote video reference');
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [localStream, remoteStream]);
+
   if (loading) {
     return (
       <div className="container flex items-center justify-center h-screen">
@@ -750,7 +636,13 @@ const ConsultationRoom = () => {
           >
             <div className="relative h-full rounded-lg overflow-hidden bg-black flex items-center justify-center">
               <video 
-                ref={remoteVideoRef}
+                ref={(el) => {
+                  remoteVideoRef.current = el;
+                  if (el && remoteStream) {
+                    console.log('🖥️ Setting remote video stream (inline ref)');
+                    el.srcObject = remoteStream;
+                  }
+                }}
                 autoPlay 
                 playsInline 
                 className={`w-full h-full object-cover ${isConnected ? "block" : "hidden"}`}
@@ -776,7 +668,13 @@ const ConsultationRoom = () => {
               
               <div className="absolute bottom-4 right-4 w-1/4 max-w-[180px] h-auto rounded-lg overflow-hidden border-2 border-white shadow-lg">
                 <video 
-                  ref={localVideoRef}
+                  ref={(el) => {
+                    localVideoRef.current = el;
+                    if (el && localStream) {
+                      console.log('🖥️ Setting local video stream (inline ref)');
+                      el.srcObject = localStream;
+                    }
+                  }}
                   autoPlay 
                   playsInline 
                   muted 

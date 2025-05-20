@@ -36,7 +36,6 @@ const OwnerConsultationRoom = () => {
   const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [wsConnection, setWsConnection] = useState<WebSocket | null>(null);
   const [connected, setConnected] = useState(false);
 
   // Add heartbeat interval ref
@@ -125,7 +124,7 @@ const OwnerConsultationRoom = () => {
         
         console.log('🎥 Initializing media devices...');
         // Initialize WebRTC connection
-        initializeMediaDevices();
+        initializeMedia();
       } catch (err) {
         console.error("❌ Error fetching consultation:", err);
         setError("Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.");
@@ -144,23 +143,30 @@ const OwnerConsultationRoom = () => {
       if (peerConnection) {
         peerConnection.close();
       }
-      if (wsConnection) {
-        wsConnection.close();
-      }
     };
   }, [id, token]);
 
-  const initializeMediaDevices = async () => {
+  const initializeMedia = async () => {
     try {
       console.log('🎥 Requesting media permissions...');
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+      
       console.log('✅ Media permissions granted');
       setLocalStream(stream);
       
-      if (localVideoRef.current) {
-        console.log('🎥 Setting local video stream');
-        localVideoRef.current.srcObject = stream;
-      }
+      // Use a timeout to ensure the ref is available
+      setTimeout(() => {
+        if (localVideoRef.current) {
+          console.log('🖥️ Setting local video stream', localVideoRef.current);
+          localVideoRef.current.srcObject = stream;
+          console.log('🖥️ Local video stream set:', stream.id);
+        } else {
+          console.error('❌ Local video reference is null (delayed check)');
+        }
+      }, 500);
       
       setLoading(false);
     } catch (err) {
@@ -170,230 +176,27 @@ const OwnerConsultationRoom = () => {
     }
   };
 
-  // New useEffect to handle WebSocket initialization
+  // Update the useEffect that initializes the WebRTC connection
   useEffect(() => {
     if (!consultation || !localStream) {
       return;
     }
 
     console.log('🔌 Initializing signaling connection with consultation:', consultation);
-    initializeSignalingConnection();
-
-    // Cleanup function
-    return () => {
-      if (wsConnection) {
-        console.log('🧹 Cleaning up WebSocket connection');
-        wsConnection.close();
-      }
-      // Clear heartbeat interval
-      if (heartbeatIntervalRef.current) {
-        clearInterval(heartbeatIntervalRef.current);
-        heartbeatIntervalRef.current = null;
-      }
-    };
-  }, [consultation, localStream]); // Only run when consultation or localStream changes
-
-  const initializeSignalingConnection = () => {
-    console.log('🔌 Initializing signaling connection...');
-    console.log('🔌 Connecting to signaling server:', wsUrl);
-    const ws = new WebSocket(wsUrl);
     
-    // Initialize peer connection first
-    const peerConnection = initializePeerConnection(ws);
-    peerConnectionRef.current = peerConnection;
-    setPeerConnection(peerConnection);
-    
-    ws.onopen = () => {
-      console.log('✅ WebSocket connection established');
-      reconnectAttemptRef.current = 0; // Reset reconnect counter on successful connection
-      
-      // Join the room
-      const joinMessage = {
-        type: 'join',
-        roomId: consultation.roomId,
-        userId: 'owner'
-      };
-      console.log('📤 Sending join message:', joinMessage);
-      ws.send(JSON.stringify(joinMessage));
-
-      // Start heartbeat
-      if (heartbeatIntervalRef.current) {
-        clearInterval(heartbeatIntervalRef.current);
-      }
-      
-      heartbeatIntervalRef.current = window.setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          console.log("💓 Sending heartbeat");
-          try {
-            ws.send(JSON.stringify({ type: "heartbeat" }));
-          } catch (error) {
-            console.error('❌ Error sending heartbeat:', error);
-            ws.close(1006, "Heartbeat send failed");
-          }
-        }
-      }, 30000); // Send heartbeat every 30 seconds
-    };
-    
-    ws.onclose = (event) => {
-      console.log('WebSocket connection closed:', event.code, event.reason);
-      
-      // Clear heartbeat interval
-      if (heartbeatIntervalRef.current) {
-        clearInterval(heartbeatIntervalRef.current);
-        heartbeatIntervalRef.current = null;
-      }
-      
-      // Attempt to reconnect if connection was lost abnormally
-      if (event.code === 1006 && reconnectAttemptRef.current < maxReconnectAttempts) {
-        console.log(`🔄 Attempting to reconnect (${reconnectAttemptRef.current + 1}/${maxReconnectAttempts})...`);
-        reconnectAttemptRef.current += 1;
-        setTimeout(() => {
-          if (wsConnection?.readyState !== WebSocket.OPEN) {
-            console.log('🔄 Reconnecting...');
-            initializeSignalingConnection();
-          }
-        }, 5000);
-      } else if (reconnectAttemptRef.current >= maxReconnectAttempts) {
-        console.log("❌ Max reconnection attempts reached");
-        toast({
-          title: "Verbindungsfehler",
-          description: "Die Verbindung konnte nicht wiederhergestellt werden. Bitte laden Sie die Seite neu.",
-          variant: "destructive",
-        });
-      }
-    };
-    
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      toast({
-        title: "Verbindungsfehler",
-        description: "Es gab einen Problem mit der Verbindung zum Server.",
-        variant: "destructive",
-      });
-    };
-    
-    ws.onmessage = async (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        console.log('📨 Received WebSocket message:', message);
-        
-        switch (message.type) {
-          case 'heartbeat':
-            // Send heartbeat acknowledgment
-            if (ws.readyState === WebSocket.OPEN) {
-              try {
-                ws.send(JSON.stringify({ type: 'heartbeat-ack' }));
-              } catch (error) {
-                console.error('❌ Error sending heartbeat acknowledgment:', error);
-              }
-            }
-            break;
-            
-          case 'error':
-            console.error("❌ Signaling server error:", message.error);
-            toast({
-              title: "Verbindungsfehler",
-              description: "Es gab einen Fehler bei der Signalisierung: " + message.error,
-              variant: "destructive",
-            });
-            break;
-            
-          case 'offer':
-            console.log('📩 Processing offer from vet');
-            try {
-              const pc = peerConnectionRef.current;
-              if (!pc) {
-                console.error('No peer connection available');
-                return;
-              }
-              await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
-              console.log('✅ Remote description set for offer');
-              const answer = await pc.createAnswer();
-              console.log('📤 Created answer');
-              await pc.setLocalDescription(answer);
-              console.log('✅ Local description set for answer');
-              ws.send(JSON.stringify({
-                type: 'answer',
-                target: 'vet',
-                sdp: pc.localDescription
-              }));
-              console.log('📤 Sent answer to vet');
-            } catch (error) {
-              console.error("❌ Error handling offer:", error);
-            }
-            break;
-            
-          case 'answer':
-            console.log('📩 Processing answer from vet');
-            try {
-              const pc = peerConnectionRef.current;
-              if (!pc) {
-                console.error('No peer connection available');
-                return;
-              }
-              await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
-              console.log('✅ Remote description set for answer');
-            } catch (error) {
-              console.error("❌ Error handling answer:", error);
-            }
-            break;
-            
-          case 'ice-candidate':
-            console.log('❄️ Processing ICE candidate from vet');
-            try {
-              const pc = peerConnectionRef.current;
-              if (!pc) {
-                console.error('No peer connection available');
-                return;
-              }
-              if (message.candidate) {
-                await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
-                console.log('✅ Added ICE candidate successfully');
-              }
-            } catch (error) {
-              console.error("❌ Error adding ICE candidate:", error);
-            }
-            break;
-            
-          case 'user-joined':
-            console.log("👋 User joined:", message.userId);
-            // Owner should only wait for offer from vet
-            if (message.userId === 'vet') {
-              console.log('👨‍⚕️ Vet joined, waiting for offer...');
-            }
-            break;
-            
-          case 'user-left':
-            console.log("👋 User left:", message.userId);
-            if (message.userId === 'vet') {
-              toast({
-                title: "Tierarzt hat die Konsultation verlassen",
-                description: "Der Tierarzt hat die Videokonsultation verlassen."
-              });
-            }
-            break;
-        }
-      } catch (error) {
-        console.error('❌ Error handling WebSocket message:', error);
-      }
-    };
-    
-    setWsConnection(ws);
-  };
-
-  const initializePeerConnection = (ws: WebSocket) => {
-    console.log('🔄 Initializing peer connection');
-    const configuration = {
+    // Create a new peer connection
+    const pc = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' }
       ]
-    };
+    });
+    peerConnectionRef.current = pc;
+    setPeerConnection(pc);
     
-    const pc = new RTCPeerConnection(configuration);
-    console.log('📡 Created RTCPeerConnection with config:', configuration);
-    
-    // Add local stream to peer connection
+    console.log('📡 Created RTCPeerConnection');
+
+    // Add local stream tracks to peer connection
     if (localStream) {
       console.log('📤 Adding local stream tracks to peer connection');
       localStream.getTracks().forEach(track => {
@@ -401,53 +204,175 @@ const OwnerConsultationRoom = () => {
         pc.addTrack(track, localStream);
       });
     }
-    
-    // Handle ICE candidates
+
+    // Set up event handlers
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log('❄️ New ICE candidate:', event.candidate.type);
-        ws.send(JSON.stringify({
+        console.log('🧊 Generated ICE candidate:', event.candidate.candidate.substring(0, 50) + '...');
+        
+        // Send ICE candidate through Supabase channel
+        sendSignal({
           type: 'ice-candidate',
-          target: 'vet',  // Changed from 'doctor' to 'vet' for consistency
+          sender: 'owner',
+          target: 'vet',
           candidate: event.candidate
-        }));
+        });
+        console.log('🧊 Sent ICE candidate to vet');
       }
     };
-    
-    // Handle connection state changes
+
     pc.onconnectionstatechange = () => {
-      console.log("🔌 Connection state changed to:", pc.connectionState);
+      console.log(`📡 Connection state changed to: ${pc.connectionState}`);
       if (pc.connectionState === 'connected') {
-        console.log('✅ Peer connection established successfully');
         setConnected(true);
-      } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-        console.log('❌ Peer connection lost or failed');
+        console.log('✅ Peer connection established successfully!');
+        
+        // Explicitly check remoteStream again
+        if (remoteVideoRef.current && remoteStream) {
+          console.log('🖥️ Setting remote video stream after connection');
+          remoteVideoRef.current.srcObject = remoteStream;
+        }
+      } else if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
         setConnected(false);
       }
     };
 
-    // Log ICE connection state changes
-    pc.oniceconnectionstatechange = () => {
-      console.log('❄️ ICE connection state changed to:', pc.iceConnectionState);
+    pc.ontrack = (event) => {
+      console.log('📺 Received remote track:', event.track.kind);
+      setRemoteStream(event.streams[0]);
+      
+      if (remoteVideoRef.current) {
+        console.log('🖥️ Setting remote video stream');
+        remoteVideoRef.current.srcObject = event.streams[0];
+      }
+      
+      // When we receive tracks, we're actually connected
+      setConnected(true);
     };
 
-    // Log signaling state changes
-    pc.onsignalingstatechange = () => {
-      console.log('📡 Signaling state changed to:', pc.signalingState);
+    // Create a Supabase Realtime channel for signaling
+    const channelName = `video-consultation-${consultation.roomId}`;
+    console.log(`🔄 Creating channel: ${channelName}`);
+    
+    const channel = supabase.channel(channelName, {
+      config: {
+        broadcast: { self: false }
+      }
+    });
+    
+    // Send a join message when owner connects
+    const sendJoin = () => {
+      sendSignal({
+        type: 'join',
+        sender: 'owner',
+        roomId: consultation.roomId
+      });
     };
     
-    // Handle receiving remote stream
-    pc.ontrack = (event) => {
-      console.log('📥 Received remote track:', event.track.kind);
-      setRemoteStream(event.streams[0]);
-      if (remoteVideoRef.current) {
-        console.log('🎥 Setting remote video stream');
-        remoteVideoRef.current.srcObject = event.streams[0];
+    // Function to send signals through the channel
+    const sendSignal = (message) => {
+      try {
+        console.log('📤 Sending signal:', message.type);
+        channel.send({
+          type: 'broadcast',
+          event: 'video-signal',
+          payload: message
+        });
+      } catch (error) {
+        console.error('❌ Error sending signal:', error);
       }
     };
     
-    return pc;
-  };
+    // Handle incoming signaling messages
+    const handleSignalingMessage = async (message) => {
+      try {
+        console.log('🛠️ Processing signal:', message.type, 'from', message.sender);
+        
+        switch (message.type) {
+          case 'offer':
+            console.log('📩 Processing offer from vet');
+            try {
+              await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
+              console.log('✅ Remote description set for offer');
+              
+              const answer = await pc.createAnswer();
+              console.log('📤 Created answer');
+              await pc.setLocalDescription(answer);
+              console.log('✅ Local description set for answer');
+              
+              // Short delay to ensure everything is set
+              setTimeout(() => {
+                sendSignal({
+                  type: 'answer',
+                  target: 'vet',
+                  sender: 'owner',
+                  sdp: pc.localDescription
+                });
+                console.log('📤 Sent answer to vet');
+              }, 500);
+            } catch (error) {
+              console.error('❌ Error processing offer:', error);
+            }
+            break;
+            
+          case 'ice-candidate':
+            if (message.sender === 'vet') {
+              console.log('🧊 Received ICE candidate from vet:', message.candidate.candidate.substring(0, 50) + '...');
+              if (pc && message.candidate) {
+                await pc.addIceCandidate(message.candidate);
+                console.log('✅ Added remote ICE candidate');
+              }
+            }
+            break;
+            
+          case 'vet-connected':
+            console.log('👨‍⚕️ Vet is connected and ready');
+            break;
+        }
+      } catch (error) {
+        console.error('❌ Error handling signaling message:', error);
+      }
+    };
+    
+    // Listen for signals on the channel
+    channel.on('broadcast', { event: 'video-signal' }, (payload) => {
+      const message = payload.payload;
+      console.log('📨 Received signal:', message.type, message);
+      
+      if (message.target === 'owner' || !message.target) {
+        handleSignalingMessage(message);
+      }
+    });
+    
+    // Subscribe to the channel
+    channel.subscribe((status) => {
+      console.log(`Channel status: ${status}`);
+      if (status === 'SUBSCRIBED') {
+        // Send join message when we're connected
+        sendJoin();
+        
+        // Listen specifically for offer messages to ensure we don't miss them
+        channel.on('broadcast', { event: 'video-signal' }, (payload) => {
+          const message = payload.payload;
+          if (message.type === 'offer' && message.sender === 'vet') {
+            console.log('📩 Offer message detected in special listener');
+            handleSignalingMessage(message);
+          }
+        });
+      }
+    });
+    
+    // Cleanup function
+    return () => {
+      console.log('🧹 Cleaning up WebRTC resources...');
+      if (pc) {
+        pc.close();
+      }
+      
+      // Unsubscribe from the channel
+      supabase.removeChannel(channel);
+    };
+  }, [consultation, localStream]);
 
   const toggleVideo = () => {
     if (localStream) {
@@ -470,24 +395,29 @@ const OwnerConsultationRoom = () => {
   };
 
   const endCall = () => {
-    if (wsConnection) {
-      wsConnection.send(JSON.stringify({
-        type: 'leave',
-        roomId: consultation?.roomId
-      }));
-      wsConnection.close();
+    if (peerConnection) {
+      peerConnection.close();
     }
     
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
     }
     
-    if (peerConnection) {
-      peerConnection.close();
-    }
-    
     navigate('/');
   };
+
+  useEffect(() => {
+    // After component mounts, check if video elements exist and set them
+    if (localStream && localVideoRef.current) {
+      console.log('🔍 Double-checking local video reference after mount');
+      localVideoRef.current.srcObject = localStream;
+    }
+    
+    if (remoteStream && remoteVideoRef.current) {
+      console.log('🔍 Double-checking remote video reference after mount');
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [localStream, remoteStream]);
 
   if (loading) {
     return (
@@ -542,7 +472,16 @@ const OwnerConsultationRoom = () => {
             <div className="lg:col-span-2">
               <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ height: '60vh' }}>
                 <video
-                  ref={remoteVideoRef}
+                  ref={(el) => {
+                    // Ensure the ref is properly set
+                    remoteVideoRef.current = el;
+                    
+                    // If we have a stream and the element, set it immediately
+                    if (el && remoteStream) {
+                      console.log('🖥️ Setting remote video stream (inline ref)');
+                      el.srcObject = remoteStream;
+                    }
+                  }}
                   className="w-full h-full object-contain"
                   autoPlay
                   playsInline
@@ -563,7 +502,16 @@ const OwnerConsultationRoom = () => {
               {/* Self view video */}
               <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ height: '30vh' }}>
                 <video
-                  ref={localVideoRef}
+                  ref={(el) => {
+                    // Ensure the ref is properly set
+                    localVideoRef.current = el;
+                    
+                    // If we have a stream and the element, set it immediately
+                    if (el && localStream) {
+                      console.log('🖥️ Setting local video stream (inline ref)');
+                      el.srcObject = localStream;
+                    }
+                  }}
                   className="w-full h-full object-contain mirror"
                   autoPlay
                   playsInline

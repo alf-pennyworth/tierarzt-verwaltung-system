@@ -43,18 +43,38 @@ serve(async (req) => {
       // Send heartbeat every 30 seconds
       heartbeatInterval = setInterval(() => {
         try {
-          wsClient.send(JSON.stringify({ type: 'heartbeat' }));
-          
-          // Set timeout for response
-          heartbeatTimeout = setTimeout(() => {
-            console.log(`Heartbeat timeout for user ${wsClient.userId} in room ${wsClient.roomId}`);
-            wsClient.close(1001, "Heartbeat timeout");
-          }, HEARTBEAT_TIMEOUT - HEARTBEAT_INTERVAL);
+          if (wsClient.readyState === WebSocket.OPEN) {
+            console.log(`Sending heartbeat to user ${wsClient.userId || 'unknown'} in room ${wsClient.roomId || 'unknown'}`);
+            wsClient.send(JSON.stringify({ type: 'heartbeat' }));
+            
+            // Set timeout for response - longer timeout to be more forgiving
+            heartbeatTimeout = setTimeout(() => {
+              console.log(`Heartbeat timeout for user ${wsClient.userId || 'unknown'} in room ${wsClient.roomId || 'unknown'}`);
+              try {
+                // Only close if still open
+                if (wsClient.readyState === WebSocket.OPEN) {
+                  wsClient.close(1001, "Heartbeat timeout");
+                }
+              } catch (error) {
+                console.error("Error closing socket on heartbeat timeout:", error);
+              }
+            }, 15000); // Wait 15 seconds for a response (more forgiving)
+          } else {
+            // Socket not open, clear intervals
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
+          }
         } catch (error) {
           console.error("Error sending heartbeat:", error);
-          wsClient.close(1001, "Heartbeat failed");
+          try {
+            if (wsClient.readyState === WebSocket.OPEN) {
+              wsClient.close(1001, "Heartbeat failed");
+            }
+          } catch (closeError) {
+            console.error("Error closing socket after heartbeat failure:", closeError);
+          }
         }
-      }, HEARTBEAT_INTERVAL) as unknown as number;
+      }, 30000) as unknown as number;
     };
     
     wsClient.onopen = () => {
@@ -65,12 +85,16 @@ serve(async (req) => {
     wsClient.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        console.log(`Received message type: ${message.type} from user: ${wsClient.userId} in room: ${wsClient.roomId}`);
+        // Log with better debugging
+        console.log(`[${new Date().toISOString()}] Received message type: ${message.type} from user: ${wsClient.userId || 'unknown'} in room: ${wsClient.roomId || 'unknown'}`);
         
         switch(message.type) {
           case 'heartbeat-ack':
             // Reset heartbeat timeout
-            if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
+            if (heartbeatTimeout) {
+              clearTimeout(heartbeatTimeout);
+              heartbeatTimeout = undefined;
+            }
             break;
             
           case 'join':
@@ -81,6 +105,19 @@ serve(async (req) => {
               connectedClients.set(wsClient.roomId, new Map());
             }
             
+            // Clean up any existing connection for this user in this room
+            const existingClient = connectedClients.get(wsClient.roomId)?.get(wsClient.userId);
+            if (existingClient && existingClient !== wsClient) {
+              try {
+                console.log(`Closing existing connection for user ${wsClient.userId} in room ${wsClient.roomId}`);
+                if (existingClient.readyState === WebSocket.OPEN) {
+                  existingClient.close(1000, "New connection established");
+                }
+              } catch (error) {
+                console.error(`Error closing existing connection for ${wsClient.userId}:`, error);
+              }
+            }
+            
             connectedClients.get(wsClient.roomId)?.set(wsClient.userId, wsClient);
             console.log(`User ${wsClient.userId} joined room ${wsClient.roomId}`);
             
@@ -89,16 +126,42 @@ serve(async (req) => {
             roomClients?.forEach((clientSocket, clientId) => {
               if (clientId !== wsClient.userId) {
                 try {
-                  clientSocket.send(JSON.stringify({
-                    type: 'user-joined',
-                    userId: wsClient.userId
-                  }));
-                  console.log(`Notified ${clientId} about ${wsClient.userId} joining`);
+                  if (clientSocket.readyState === WebSocket.OPEN) {
+                    clientSocket.send(JSON.stringify({
+                      type: 'user-joined',
+                      userId: wsClient.userId
+                    }));
+                    console.log(`Notified ${clientId} about ${wsClient.userId} joining`);
+                  }
                 } catch (error) {
                   console.error(`Error notifying ${clientId}:`, error);
                 }
               }
             });
+            break;
+            
+          // Pass other messages directly to target
+          case 'offer':
+          case 'answer':
+          case 'ice-candidate':
+            if (wsClient.roomId && message.target && connectedClients.has(wsClient.roomId)) {
+              const targetClient = connectedClients.get(wsClient.roomId)?.get(message.target);
+              if (targetClient && targetClient.readyState === WebSocket.OPEN) {
+                // Add the sender ID if not present
+                if (!message.sender) {
+                  message.sender = wsClient.userId;
+                }
+                console.log(`Forwarding ${message.type} from ${wsClient.userId} to ${message.target}`);
+                targetClient.send(JSON.stringify(message));
+              } else {
+                console.warn(`Target ${message.target} not found or not connected in room ${wsClient.roomId}`);
+                // Inform sender that target is not available
+                wsClient.send(JSON.stringify({
+                  type: 'error',
+                  error: `Target ${message.target} not found or not connected`
+                }));
+              }
+            }
             break;
             
           case 'leave':
@@ -149,11 +212,15 @@ serve(async (req) => {
             }
         }
       } catch (error) {
-        console.error("Error handling WebSocket message:", error);
-        wsClient.send(JSON.stringify({
-          type: 'error',
-          error: 'Failed to process message'
-        }));
+        console.error("Error processing message:", error);
+        try {
+          wsClient.send(JSON.stringify({
+            type: 'error',
+            error: 'Failed to process message'
+          }));
+        } catch (sendError) {
+          console.error("Error sending error response:", sendError);
+        }
       }
     };
     
