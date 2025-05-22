@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { format, addHours, startOfDay, endOfDay, addDays } from "date-fns";
 import { de } from "date-fns/locale";
@@ -144,18 +143,18 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="relative">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div className="relative w-full sm:w-auto">
           <Button
             variant="outline"
-            className="w-[240px] justify-start text-left font-normal"
+            className="w-full sm:w-[240px] justify-start text-left font-normal"
             onClick={() => setCalendarOpen(true)}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {format(date, "PPP", { locale: de })}
           </Button>
           {calendarOpen && (
-            <div className="absolute top-full left-0 z-50 mt-2 bg-white border rounded-md shadow-md">
+            <div className="absolute top-full left-0 z-50 mt-2 bg-white border rounded-md shadow-md max-w-[calc(100vw-2rem)] sm:max-w-none">
               <Calendar
                 mode="single"
                 selected={date}
@@ -171,20 +170,20 @@ const AppointmentCalendar = ({ appointments, refreshCounter }: AppointmentCalend
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={handlePrevDay}>
+        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0 justify-between sm:justify-start">
+          <Button variant="outline" size="icon" onClick={handlePrevDay} className="shrink-0">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" onClick={() => setDate(new Date())}>
+          <Button variant="outline" onClick={() => setDate(new Date())} className="shrink-0">
             Heute
           </Button>
-          <Button variant="outline" size="icon" onClick={handleNextDay}>
+          <Button variant="outline" size="icon" onClick={handleNextDay} className="shrink-0">
             <ChevronRight className="h-4 w-4" />
           </Button>
           <Button 
             variant="ghost" 
             size="icon" 
-            className="text-muted-foreground hover:text-primary" 
+            className="text-muted-foreground hover:text-primary shrink-0" 
             onClick={() => setShowDebugDialog(true)}
           >
             <Info className="h-4 w-4" />

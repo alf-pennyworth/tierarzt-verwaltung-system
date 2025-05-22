@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom";
 import { CalendarClock, FileSpreadsheet, Pill, Stethoscope, User, FileAudio, Truck, Video } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,7 +6,7 @@ const MODULES = [
   {
     name: "Transkription",
     icon: FileAudio,
-    route: "/transcription",
+    route: "/patients",
     description: "Diktat und Transkription von Behandlungsnotizen",
   },
   {
