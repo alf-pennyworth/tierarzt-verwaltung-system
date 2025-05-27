@@ -22,10 +22,20 @@ import {
   Paperclip,
   Send,
   X,
-  PhoneOff
+  PhoneOff,
+  ZoomIn,
+  ZoomOut,
+  Maximize,
+  Download,
+  File,
+  FileText,
+  Image as ImageIcon,
+  Loader2
 } from "lucide-react";
 import { format } from "date-fns";
-import { VideoConsultation, Message } from "@/types/telemedizin";
+import { VideoConsultation, Message, TelemedizinFile } from "@/types/telemedizin";
+import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const ConsultationRoom = () => {
   const { id } = useParams<{ id: string }>();
@@ -44,6 +54,23 @@ const ConsultationRoom = () => {
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  
+  // Camera controls
+  const [zoomLevel, setZoomLevel] = useState(1.0);
+  const [isWideAngle, setIsWideAngle] = useState(false);
+  const [cameraCapabilities, setCameraCapabilities] = useState<{
+    hasZoom: boolean;
+    hasWideAngle: boolean;
+  }>({ hasZoom: false, hasWideAngle: false });
+  
+  // File sharing
+  const [files, setFiles] = useState<TelemedizinFile[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState<{
+    name: string;
+    progress: number;
+    id: string;
+  }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -106,6 +133,9 @@ const ConsultationRoom = () => {
 
         // Fetch messages for this consultation
         fetchMessages(data.id);
+        
+        // Fetch files for this consultation
+        fetchFiles(data.id);
       } catch (error) {
         console.error("Error:", error);
       } finally {
@@ -147,6 +177,22 @@ const ConsultationRoom = () => {
       }
     }
   };
+  
+  // Fetch files
+  const fetchFiles = async (consultationId: string) => {
+    const { data, error } = await supabase
+      .from('telemedizin_files')
+      .select("*")
+      .eq("consultation_id", consultationId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching files:", error);
+      return;
+    }
+
+    setFiles(data as unknown as TelemedizinFile[]);
+  };
 
   // Replace the WebSocket initialization with Supabase Realtime channel
   useEffect(() => {
@@ -164,6 +210,9 @@ const ConsultationRoom = () => {
         setLocalStream(stream);
         console.log('✅ Media permissions granted');
         
+        // Check camera capabilities
+        checkCameraCapabilities(stream);
+        
         if (localVideoRef.current) {
           console.log('🖥️ Setting local video stream');
           localVideoRef.current.srcObject = stream;
@@ -179,6 +228,36 @@ const ConsultationRoom = () => {
           description: 'Bitte überprüfen Sie, ob Sie Zugriff auf Kamera und Mikrofon gewährt haben.',
           variant: 'destructive',
         });
+      }
+    };
+    
+    // Check camera capabilities (zoom, wide angle)
+    const checkCameraCapabilities = async (stream: MediaStream) => {
+      try {
+        const videoTrack = stream.getVideoTracks()[0];
+        
+        if (videoTrack) {
+          const capabilities = videoTrack.getCapabilities() as any;
+          const settings = videoTrack.getSettings() as any;
+          
+          // Check for zoom capability
+          const hasZoom = capabilities.zoom !== undefined;
+          
+          // Check for wide angle capability (facing mode switching)
+          const hasWideAngle = capabilities.facingMode !== undefined && 
+                            Array.isArray(capabilities.facingMode) && 
+                            capabilities.facingMode.length > 1;
+          
+          setCameraCapabilities({
+            hasZoom,
+            hasWideAngle
+          });
+          
+          console.log('📷 Camera capabilities:', { hasZoom, hasWideAngle });
+          console.log('📷 Camera full capabilities:', capabilities);
+        }
+      } catch (error) {
+        console.error('❌ Error checking camera capabilities:', error);
       }
     };
     
@@ -478,21 +557,29 @@ const ConsultationRoom = () => {
   };
 
   // Send message
-  const sendMessage = async () => {
-    if (!newMessage.trim() || !consultation || !user) return;
+  const sendMessage = async (messageContent?: string, fileId?: string) => {
+    const content = messageContent || newMessage;
+    if ((!content.trim() && !fileId) || !consultation || !user) return;
 
     try {
       const recipientId = getOtherParticipantId();
       if (!recipientId) return;
 
+      const messageData: any = {
+        consultation_id: consultation.id,
+        sender_id: user.id,
+        recipient_id: recipientId,
+        content: content.trim()
+      };
+      
+      // If a file ID is provided, attach it to the message
+      if (fileId) {
+        messageData.file_id = fileId;
+      }
+
       const { data, error } = await supabase
         .from('telemedizin_messages')
-        .insert({
-          consultation_id: consultation.id,
-          sender_id: user.id,
-          recipient_id: recipientId,
-          content: newMessage.trim()
-        })
+        .insert(messageData)
         .select()
         .single();
 
@@ -550,6 +637,33 @@ const ConsultationRoom = () => {
       supabase.removeChannel(channel);
     };
   }, [consultation, user]);
+  
+  // Listen for new files
+  useEffect(() => {
+    if (!consultation) return;
+
+    const channel = supabase
+      .channel('telemedizin_files_changes')
+      .on('postgres_changes', 
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'telemedizin_files',
+          filter: `consultation_id=eq.${consultation.id}` 
+        }, 
+        (payload) => {
+          // Only add the file if it wasn't uploaded by the current user
+          if (payload.new.uploader_id !== user?.id) {
+            setFiles(prev => [payload.new as unknown as TelemedizinFile, ...prev]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [consultation, user]);
 
   // Add double-check for video elements after streams are set
   useEffect(() => {
@@ -563,6 +677,241 @@ const ConsultationRoom = () => {
       remoteVideoRef.current.srcObject = remoteStream;
     }
   }, [localStream, remoteStream]);
+
+  // File upload handler
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || event.target.files.length === 0 || !consultation || !user) {
+      return;
+    }
+    
+    const filesArray = Array.from(event.target.files);
+    
+    for (const file of filesArray) {
+      // Create a unique ID for tracking upload progress
+      const uploadId = Math.random().toString(36).substring(2, 15);
+      
+      // Add to uploading files state
+      setUploadingFiles(prev => [
+        ...prev,
+        {
+          name: file.name,
+          progress: 0,
+          id: uploadId
+        }
+      ]);
+      
+      try {
+        // First store the file metadata
+        const fileData = {
+          consultation_id: consultation.id,
+          uploader_id: user.id,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          storage_path: `telemedizin/${consultation.id}/${Date.now()}_${file.name}`
+        };
+        
+        const { data: metadataData, error: metadataError } = await supabase
+          .from('telemedizin_files')
+          .insert(fileData)
+          .select()
+          .single();
+          
+        if (metadataError) {
+          console.error("Error storing file metadata:", metadataError);
+          toast({
+            title: "Fehler",
+            description: "Datei konnte nicht hochgeladen werden.",
+            variant: "destructive",
+          });
+          
+          // Remove from uploading files
+          setUploadingFiles(prev => prev.filter(item => item.id !== uploadId));
+          continue;
+        }
+        
+        // Then upload the actual file
+        const { data: storageData, error: storageError } = await supabase
+          .storage
+          .from('telemedizin-files')
+          .upload(fileData.storage_path, file, {
+            onUploadProgress: (progress) => {
+              const percent = Math.round((progress.loaded / progress.total) * 100);
+              setUploadingFiles(prev => 
+                prev.map(item => 
+                  item.id === uploadId 
+                    ? { ...item, progress: percent } 
+                    : item
+                )
+              );
+            }
+          } as any);
+          
+        if (storageError) {
+          console.error("Error uploading file:", storageError);
+          
+          // Delete the metadata since the upload failed
+          await supabase
+            .from('telemedizin_files')
+            .delete()
+            .eq('id', metadataData.id);
+            
+          toast({
+            title: "Fehler",
+            description: "Datei konnte nicht hochgeladen werden.",
+            variant: "destructive",
+          });
+        } else {
+          // Add the new file to the files list
+          setFiles(prev => [metadataData as unknown as TelemedizinFile, ...prev]);
+          
+          // Send a message about the new file
+          await sendMessage(`Datei hochgeladen: ${file.name}`, metadataData.id);
+          
+          toast({
+            title: "Erfolg",
+            description: "Datei wurde hochgeladen.",
+          });
+        }
+      } catch (error) {
+        console.error("Error in file upload process:", error);
+        toast({
+          title: "Fehler",
+          description: "Beim Hochladen der Datei ist ein Fehler aufgetreten.",
+          variant: "destructive",
+        });
+      } finally {
+        // Remove from uploading files
+        setUploadingFiles(prev => prev.filter(item => item.id !== uploadId));
+      }
+    }
+    
+    // Clear the file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+  
+  // File download handler
+  const handleFileDownload = async (file: TelemedizinFile) => {
+    try {
+      const { data, error } = await supabase
+        .storage
+        .from('telemedizin-files')
+        .download(file.storage_path);
+        
+      if (error) {
+        console.error("Error downloading file:", error);
+        toast({
+          title: "Fehler",
+          description: "Datei konnte nicht heruntergeladen werden.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Create a download link
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.file_name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error in file download process:", error);
+      toast({
+        title: "Fehler",
+        description: "Beim Herunterladen der Datei ist ein Fehler aufgetreten.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // Camera zoom control
+  const handleZoom = (direction: 'in' | 'out') => {
+    if (!localStream) return;
+    
+    try {
+      const videoTrack = localStream.getVideoTracks()[0];
+      
+      if (videoTrack) {
+        const capabilities = videoTrack.getCapabilities() as any;
+        const settings = videoTrack.getSettings() as any;
+        
+        if (capabilities.zoom) {
+          const currentZoom = settings.zoom || 1;
+          const min = capabilities.zoom?.min || 1;
+          const max = capabilities.zoom?.max || 10;
+          const step = (max - min) / 10; // 10 steps from min to max
+          
+          let newZoom = currentZoom;
+          if (direction === 'in') {
+            newZoom = Math.min(currentZoom + step, max);
+          } else {
+            newZoom = Math.max(currentZoom - step, min);
+          }
+          
+          // Use type assertion for the constraints
+          videoTrack.applyConstraints({
+            advanced: [{ zoom: newZoom } as any]
+          });
+          
+          setZoomLevel(newZoom);
+        }
+      }
+    } catch (error) {
+      console.error("Error controlling camera zoom:", error);
+    }
+  };
+  
+  // Toggle wide angle (switch between front/back camera on mobile)
+  const toggleWideAngle = async () => {
+    if (!localStream) return;
+    
+    try {
+      // Stop all tracks in the current stream
+      localStream.getTracks().forEach(track => track.stop());
+      
+      // Request a new stream with the opposite facing mode
+      const newFacingMode = isWideAngle ? "user" : "environment";
+      
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: newFacingMode
+        },
+        audio: true
+      });
+      
+      // Replace tracks in the peer connection
+      if (peerConnectionRef.current) {
+        const senders = peerConnectionRef.current.getSenders();
+        
+        for (const sender of senders) {
+          if (sender.track?.kind === 'video') {
+            const newVideoTrack = newStream.getVideoTracks()[0];
+            await sender.replaceTrack(newVideoTrack);
+          }
+        }
+      }
+      
+      // Update local video
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = newStream;
+      }
+      
+      setLocalStream(newStream);
+      setIsWideAngle(!isWideAngle);
+    } catch (error) {
+      console.error("Error toggling camera mode:", error);
+      toast({
+        title: "Fehler",
+        description: "Kamera konnte nicht umgeschaltet werden.",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -686,6 +1035,70 @@ const ConsultationRoom = () => {
                   </div>
                 )}
               </div>
+              
+              {/* Camera control buttons */}
+              {isConnected && cameraCapabilities.hasZoom && (
+                <div className="absolute top-4 right-4 flex flex-col gap-2">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="secondary" 
+                          size="icon"
+                          className="rounded-full bg-black/50 hover:bg-black/70 text-white"
+                          onClick={() => handleZoom('in')}
+                        >
+                          <ZoomIn className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Zoom In</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="secondary" 
+                          size="icon"
+                          className="rounded-full bg-black/50 hover:bg-black/70 text-white"
+                          onClick={() => handleZoom('out')}
+                        >
+                          <ZoomOut className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Zoom Out</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              )}
+              
+              {/* Wide angle toggle button */}
+              {isConnected && cameraCapabilities.hasWideAngle && (
+                <div className="absolute top-4 left-4">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="secondary" 
+                          size="icon"
+                          className="rounded-full bg-black/50 hover:bg-black/70 text-white"
+                          onClick={toggleWideAngle}
+                        >
+                          <Maximize className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{isWideAngle ? "Frontkamera" : "Rückkamera"}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              )}
             </div>
             
             <div className="flex justify-center items-center space-x-4 mt-4">
@@ -727,61 +1140,142 @@ const ConsultationRoom = () => {
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.length === 0 ? (
+              {messages.length === 0 && files.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
                   <MessageSquare className="h-8 w-8 mb-2" />
                   <p>Keine Nachrichten</p>
                   <p className="text-sm">Beginnen Sie die Unterhaltung</p>
                 </div>
               ) : (
-                messages.map((message) => {
-                  const isSender = message.sender_id === user?.id;
-                  return (
-                    <div 
-                      key={message.id}
-                      className={`flex ${isSender ? "justify-end" : "justify-start"}`}
-                    >
-                      <div 
-                        className={`max-w-[80%] p-3 rounded-lg ${
-                          isSender 
-                            ? "bg-primary text-primary-foreground" 
-                            : "bg-muted"
-                        }`}
-                      >
-                        <p className="text-sm">{message.content}</p>
-                        <p className="text-xs opacity-70 text-right mt-1">
-                          {format(new Date(message.created_at), "HH:mm")}
-                        </p>
+                <>
+                  {/* Files list */}
+                  {files.length > 0 && (
+                    <div className="mb-6">
+                      <h4 className="font-medium text-sm mb-2">Dateien</h4>
+                      <div className="space-y-2">
+                        {files.map((file) => {
+                          const isImage = file.file_type.startsWith('image/');
+                          const isPdf = file.file_type === 'application/pdf';
+                          
+                          return (
+                            <div 
+                              key={file.id}
+                              className="flex items-center p-2 rounded-md bg-muted hover:bg-muted/80 cursor-pointer"
+                              onClick={() => handleFileDownload(file)}
+                            >
+                              <div className="h-8 w-8 flex items-center justify-center rounded-md bg-primary/10 mr-3">
+                                {isImage ? (
+                                  <ImageIcon className="h-4 w-4 text-primary" />
+                                ) : isPdf ? (
+                                  <FileText className="h-4 w-4 text-primary" />
+                                ) : (
+                                  <File className="h-4 w-4 text-primary" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{file.file_name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {(file.file_size / 1024).toFixed(1)} KB
+                                </p>
+                              </div>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                className="h-8 w-8 ml-2"
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  );
-                })
+                  )}
+                  
+                  {/* Messages */}
+                  {messages.map((message) => {
+                    const isSender = message.sender_id === user?.id;
+                    return (
+                      <div 
+                        key={message.id}
+                        className={`flex ${isSender ? "justify-end" : "justify-start"}`}
+                      >
+                        <div 
+                          className={`max-w-[80%] p-3 rounded-lg ${
+                            isSender 
+                              ? "bg-primary text-primary-foreground" 
+                              : "bg-muted"
+                          }`}
+                        >
+                          <p className="text-sm">{message.content}</p>
+                          <p className="text-xs opacity-70 text-right mt-1">
+                            {format(new Date(message.created_at), "HH:mm")}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
               )}
+              
+              {/* Uploading files progress */}
+              {uploadingFiles.length > 0 && (
+                <div className="space-y-2 mt-4">
+                  {uploadingFiles.map((file) => (
+                    <div key={file.id} className="bg-muted p-2 rounded-md">
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="truncate max-w-[80%]">{file.name}</span>
+                        <span>{file.progress}%</span>
+                      </div>
+                      <Progress value={file.progress} className="h-1" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              
               <div ref={messagesEndRef} />
             </div>
             
             <div className="border-t p-3">
               <form 
-                className="flex"
+                className="flex flex-col gap-2"
                 onSubmit={(e) => {
                   e.preventDefault();
                   sendMessage();
                 }}
               >
-                <Input
-                  placeholder="Nachricht eingeben..."
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  className="flex-1"
-                />
-                <Button 
-                  type="submit" 
-                  size="icon" 
-                  disabled={!newMessage.trim()}
-                  className="ml-2"
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
+                <div className="flex">
+                  <Input
+                    placeholder="Nachricht eingeben..."
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    className="flex-1"
+                  />
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    multiple
+                  />
+                  <Button 
+                    type="button" 
+                    size="icon" 
+                    variant="ghost"
+                    className="ml-1"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    size="icon" 
+                    disabled={!newMessage.trim()}
+                    className="ml-1"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
               </form>
             </div>
           </div>
