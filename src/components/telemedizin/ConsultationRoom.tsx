@@ -202,10 +202,25 @@ const ConsultationRoom = () => {
     const initializeMedia = async () => {
       try {
         console.log('🎥 Initializing media devices...');
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+        
+        // Request advanced camera constraints for mobile devices
+        const constraints = {
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: { ideal: "user" },
+            // Request advanced camera controls explicitly
+            advanced: [
+              { zoom: true },
+              { focusMode: "continuous" }
+            ]
+          },
           audio: true
-        });
+        };
+        
+        console.log('📱 Requesting media with constraints:', JSON.stringify(constraints, null, 2));
+        
+        const stream = await navigator.mediaDevices.getUserMedia(constraints as any);
         
         setLocalStream(stream);
         console.log('✅ Media permissions granted');
@@ -237,24 +252,50 @@ const ConsultationRoom = () => {
         const videoTrack = stream.getVideoTracks()[0];
         
         if (videoTrack) {
+          // Get device info
+          const deviceId = videoTrack.getSettings().deviceId;
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const currentDevice = devices.find(d => d.deviceId === deviceId);
+          
+          console.log('📱 Current video device:', currentDevice?.label || 'Unknown');
+          console.log('📱 All available video devices:', 
+            devices.filter(d => d.kind === 'videoinput').map(d => d.label || 'Unnamed camera')
+          );
+          
           const capabilities = videoTrack.getCapabilities() as any;
           const settings = videoTrack.getSettings() as any;
+          
+          // Log ALL track information for debugging
+          console.log('📱 Video track:', videoTrack);
+          console.log('📱 Track settings:', settings);
+          console.log('📱 Track constraints:', videoTrack.getConstraints());
           
           // Check for zoom capability
           const hasZoom = capabilities.zoom !== undefined;
           
           // Check for wide angle capability (facing mode switching)
-          const hasWideAngle = capabilities.facingMode !== undefined && 
-                            Array.isArray(capabilities.facingMode) && 
-                            capabilities.facingMode.length > 1;
+          // More reliable check for mobile devices - assume true if we have facingMode capability
+          // or multiple video input devices
+          const hasWideAngle = 
+            (capabilities.facingMode !== undefined) ||
+            (devices.filter(d => d.kind === 'videoinput').length > 1);
+          
+          // For debugging - force capabilities to true to test UI
+          const forceCameraControls = true; // Change to false to use actual detection
           
           setCameraCapabilities({
-            hasZoom,
-            hasWideAngle
+            hasZoom: forceCameraControls ? true : hasZoom,
+            hasWideAngle: forceCameraControls ? true : hasWideAngle
           });
           
-          console.log('📷 Camera capabilities:', { hasZoom, hasWideAngle });
-          console.log('📷 Camera full capabilities:', capabilities);
+          console.log('📷 Camera capabilities:', { 
+            detected: { hasZoom, hasWideAngle },
+            used: { 
+              hasZoom: forceCameraControls ? true : hasZoom, 
+              hasWideAngle: forceCameraControls ? true : hasWideAngle 
+            },
+            raw: capabilities 
+          });
         }
       } catch (error) {
         console.error('❌ Error checking camera capabilities:', error);
@@ -840,6 +881,10 @@ const ConsultationRoom = () => {
         const capabilities = videoTrack.getCapabilities() as any;
         const settings = videoTrack.getSettings() as any;
         
+        console.log('🔍 Attempting to zoom', direction);
+        console.log('🔍 Current settings:', settings);
+        
+        // Mobile-friendly zoom approach 1: Try standard zoom
         if (capabilities.zoom) {
           const currentZoom = settings.zoom || 1;
           const min = capabilities.zoom?.min || 1;
@@ -853,12 +898,43 @@ const ConsultationRoom = () => {
             newZoom = Math.max(currentZoom - step, min);
           }
           
+          console.log(`🔍 Applying zoom: ${currentZoom} → ${newZoom}`);
+          
           // Use type assertion for the constraints
           videoTrack.applyConstraints({
             advanced: [{ zoom: newZoom } as any]
+          }).then(() => {
+            console.log('✅ Zoom applied successfully');
+            setZoomLevel(newZoom);
+          }).catch(err => {
+            console.error('❌ Error applying zoom:', err);
           });
+        } 
+        // Mobile-friendly zoom approach 2: Try digital zoom through manipulation of width/height
+        else {
+          // Simulate zoom by requesting a different crop of the camera
+          const zoomFactor = direction === 'in' ? 1.2 : 0.8;
+          const newZoomLevel = direction === 'in' 
+            ? Math.min(zoomLevel * zoomFactor, 5) 
+            : Math.max(zoomLevel * zoomFactor, 1);
+            
+          console.log(`🔍 Applying digital zoom: ${zoomLevel} → ${newZoomLevel}`);
           
-          setZoomLevel(newZoom);
+          // Calculate new width/height to simulate zoom
+          const baseWidth = 1280;
+          const baseHeight = 720;
+          const scaledWidth = Math.round(baseWidth / newZoomLevel);
+          const scaledHeight = Math.round(baseHeight / newZoomLevel);
+          
+          videoTrack.applyConstraints({
+            width: { ideal: scaledWidth },
+            height: { ideal: scaledHeight }
+          }).then(() => {
+            console.log('✅ Digital zoom applied successfully');
+            setZoomLevel(newZoomLevel);
+          }).catch(err => {
+            console.error('❌ Error applying digital zoom:', err);
+          });
         }
       }
     } catch (error) {
@@ -871,18 +947,31 @@ const ConsultationRoom = () => {
     if (!localStream) return;
     
     try {
+      console.log('📱 Toggling camera mode');
+      console.log('📱 Current wide angle state:', isWideAngle);
+      
       // Stop all tracks in the current stream
       localStream.getTracks().forEach(track => track.stop());
       
       // Request a new stream with the opposite facing mode
       const newFacingMode = isWideAngle ? "user" : "environment";
+      console.log('📱 Requesting new camera with facing mode:', newFacingMode);
       
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: newFacingMode
+          facingMode: newFacingMode,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         },
         audio: true
       });
+      
+      console.log('📱 New stream obtained:', newStream);
+      
+      // Log the new video track info
+      const newVideoTrack = newStream.getVideoTracks()[0];
+      console.log('📱 New video track:', newVideoTrack);
+      console.log('📱 New track settings:', newVideoTrack.getSettings());
       
       // Replace tracks in the peer connection
       if (peerConnectionRef.current) {
@@ -891,6 +980,7 @@ const ConsultationRoom = () => {
         for (const sender of senders) {
           if (sender.track?.kind === 'video') {
             const newVideoTrack = newStream.getVideoTracks()[0];
+            console.log('📱 Replacing track in peer connection');
             await sender.replaceTrack(newVideoTrack);
           }
         }
@@ -898,11 +988,17 @@ const ConsultationRoom = () => {
       
       // Update local video
       if (localVideoRef.current) {
+        console.log('📱 Updating local video ref');
         localVideoRef.current.srcObject = newStream;
       }
       
       setLocalStream(newStream);
       setIsWideAngle(!isWideAngle);
+      console.log('📱 Camera switch completed');
+      
+      // Check capabilities of the new camera - pass through the useEffect hook
+      // by updating the stream state which will trigger the effect
+      setLocalStream(newStream);
     } catch (error) {
       console.error("Error toggling camera mode:", error);
       toast({
@@ -1036,8 +1132,8 @@ const ConsultationRoom = () => {
                 )}
               </div>
               
-              {/* Camera control buttons */}
-              {isConnected && cameraCapabilities.hasZoom && (
+              {/* Camera control buttons - always show during development for testing */}
+              {(isConnected || true) && (cameraCapabilities.hasZoom || true) && (
                 <div className="absolute top-4 right-4 flex flex-col gap-2">
                   <TooltipProvider>
                     <Tooltip>
@@ -1077,8 +1173,8 @@ const ConsultationRoom = () => {
                 </div>
               )}
               
-              {/* Wide angle toggle button */}
-              {isConnected && cameraCapabilities.hasWideAngle && (
+              {/* Wide angle toggle button - always show during development for testing */}
+              {(isConnected || true) && (cameraCapabilities.hasWideAngle || true) && (
                 <div className="absolute top-4 left-4">
                   <TooltipProvider>
                     <Tooltip>
