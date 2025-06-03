@@ -18,7 +18,10 @@ interface ConsultationDetails {
 
 const OwnerConsultationJoin = () => {
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+  const urlToken = searchParams.get('token');
+  const sessionToken = sessionStorage.getItem('owner_access_token');
+  const token = urlToken || sessionToken;
+  
   const navigate = useNavigate();
   
   const [loading, setLoading] = useState(true);
@@ -81,6 +84,10 @@ const OwnerConsultationJoin = () => {
           .from('video_consultations')
           .update({ owner_joined: true })
           .eq('id', consultation_id);
+          
+        // Store the token in session storage for use in the consultation room
+        sessionStorage.setItem('owner_access_token', token);
+        
       } catch (err) {
         console.error("Error validating token:", err);
         setError("Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.");
@@ -96,8 +103,6 @@ const OwnerConsultationJoin = () => {
   const joinConsultation = () => {
     if (!consultation) return;
     
-    // Store the token in session storage for use in the consultation room
-    sessionStorage.setItem('owner_access_token', token!);
     navigate(`/telemedizin/owner/room/${consultation.id}`);
   };
 
@@ -127,7 +132,7 @@ const OwnerConsultationJoin = () => {
             <p className="text-center">{error}</p>
           </CardContent>
           <CardFooter className="flex justify-center">
-            <Button variant="outline" onClick={() => navigate("/")}>
+            <Button variant="outline" onClick={() => navigate("/owner")}>
               Zurück zur Startseite
             </Button>
           </CardFooter>
@@ -147,7 +152,7 @@ const OwnerConsultationJoin = () => {
             <p className="text-center">Keine Konsultationsdetails gefunden</p>
           </CardContent>
           <CardFooter className="flex justify-center">
-            <Button variant="outline" onClick={() => navigate("/")}>
+            <Button variant="outline" onClick={() => navigate("/owner")}>
               Zurück zur Startseite
             </Button>
           </CardFooter>
