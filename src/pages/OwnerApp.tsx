@@ -95,7 +95,7 @@ const OwnerApp = () => {
     const params = new URLSearchParams(location.search);
     if (params.get('token')) {
       // If we have a token in URL, make sure we stay on the login page
-      if (location.pathname !== '/owner') {
+      if (location.pathname !== '/owner' && location.pathname !== '/owner/join') {
         navigate(`/owner?${params.toString()}`);
       }
     }
@@ -112,7 +112,16 @@ const OwnerApp = () => {
 
   return (
     <Routes>
-      <Route path="/" element={isAuthenticated ? <Navigate to="/owner/dashboard" /> : <OwnerLogin />} />
+      <Route 
+        path="/" 
+        element={
+          isAuthenticated ? (
+            <Navigate to="/owner/dashboard" />
+          ) : (
+            <OwnerLogin />
+          )
+        } 
+      />
       <Route 
         path="/dashboard" 
         element={
@@ -123,6 +132,7 @@ const OwnerApp = () => {
           )
         } 
       />
+      {/* These routes should be accessible regardless of authentication status */}
       <Route path="/join" element={<OwnerConsultationJoin />} />
       <Route path="/room/:id" element={<OwnerConsultationRoomWrapper />} />
       {/* Catch-all route for invalid paths in the owner area */}
