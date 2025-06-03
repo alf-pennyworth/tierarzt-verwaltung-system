@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -215,8 +214,9 @@ const OwnerConsultations = () => {
         return;
       }
 
-      // Navigate to the join page with the token in the URL
-      navigate(`/owner/join?token=${sessionToken}`);
+      // Store the token in session storage and navigate to the room
+      sessionStorage.setItem('owner_access_token', sessionToken);
+      navigate(`/telemedizin/owner/room/${consultationId}`);
 
     } catch (error) {
       console.error("Error joining consultation:", error);

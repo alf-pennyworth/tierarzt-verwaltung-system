@@ -1,533 +1,557 @@
-
-import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/use-toast";
-import { Progress } from "@/components/ui/progress";
-import { 
-  ArrowLeft, 
-  Video, 
-  VideoOff, 
-  Mic, 
-  MicOff, 
-  MessageSquare, 
-  Paperclip,
-  Send,
-  PhoneOff,
-  Download,
-  File,
-  FileText,
-  Image as ImageIcon
-} from "lucide-react";
-import { format } from "date-fns";
-import { Message, TelemedizinFile } from "@/types/telemedizin";
+import { Loader2, Mic, MicOff, PhoneOff, Video, VideoOff } from "lucide-react";
 
-interface OwnerConsultationRoomProps {
-  sessionToken: string;
-  consultation: any;
-  owner: any;
+interface ConsultationDetails {
+  id: string;
+  title: string;
+  doctorName: string;
+  patientName: string;
+  roomId: string;
 }
 
-const OwnerConsultationRoom = ({ sessionToken, consultation, owner }: OwnerConsultationRoomProps) => {
+const OwnerConsultationRoom = () => {
+  console.log('🏥 OWNER CONSULTATION ROOM MOUNTED');
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState("");
-  const [files, setFiles] = useState<TelemedizinFile[]>([]);
-  const [uploadingFiles, setUploadingFiles] = useState<{
-    name: string;
-    progress: number;
-    id: string;
-  }[]>([]);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
-  // Fetch messages for this consultation
-  const fetchMessages = async () => {
-    const { data, error } = await supabase
-      .from('telemedizin_messages')
-      .select("*")
-      .eq("consultation_id", consultation.id)
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      console.error("Error fetching messages:", error);
-      return;
-    }
-
-    setMessages(data as unknown as Message[]);
-  };
+  const token = sessionStorage.getItem('owner_access_token');
   
-  // Fetch files for this consultation
-  const fetchFiles = async () => {
-    const { data, error } = await supabase
-      .from('telemedizin_files')
-      .select("*")
-      .eq("consultation_id", consultation.id)
-      .order("created_at", { ascending: false });
+  console.log('🔑 Token from session storage:', token ? 'Present' : 'Missing');
+  console.log('🆔 Consultation ID:', id);
 
-    if (error) {
-      console.error("Error fetching files:", error);
-      return;
-    }
+  const [loading, setLoading] = useState(true);
+  const [consultation, setConsultation] = useState<ConsultationDetails | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  
+  // WebRTC variables
+  const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [connected, setConnected] = useState(false);
 
-    setFiles(data as unknown as TelemedizinFile[]);
-  };
+  // Add heartbeat interval ref
+  const heartbeatIntervalRef = useRef<number | null>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+
+  // Add connection attempt counter
+  const reconnectAttemptRef = useRef(0);
+  const maxReconnectAttempts = 5;
+
+  // Add WebSocket URL to state
+  const [wsUrl] = useState(`wss://hwdzrrhjjrnruyfyydmu.supabase.co/functions/v1/telemedizin-signaling`);
 
   useEffect(() => {
-    fetchMessages();
-    fetchFiles();
-  }, [consultation.id]);
+    console.log('🔄 OWNER CONSULTATION ROOM EFFECT RUNNING');
+    
+    if (!token) {
+      console.error('❌ No access token found');
+      setError("Kein Zugriffstoken gefunden. Bitte überprüfen Sie den Link.");
+      setLoading(false);
+      return;
+    }
 
-  // Send message
-  const sendMessage = async (messageContent?: string, fileId?: string) => {
-    const content = messageContent || newMessage;
-    if ((!content.trim() && !fileId) || !consultation || !owner) return;
+    if (!id) {
+      console.error('❌ No consultation ID found');
+      setError("Keine Konsultations-ID gefunden.");
+      setLoading(false);
+      return;
+    }
 
-    try {
-      const messageData: any = {
-        consultation_id: consultation.id,
-        sender_id: owner.auth_id,
-        recipient_id: consultation.doctor.id,
-        content: content.trim()
-      };
-      
-      if (fileId) {
-        messageData.file_id = fileId;
-      }
+    const fetchConsultationDetails = async () => {
+      try {
+        console.log('🔍 Validating owner session token...');
+        // Validate the token first
+        const { data: validationData, error: validationError } = await supabase
+          .rpc('validate_owner_session', { token_param: token });
+        
+        console.log('🔐 Token validation result:', { validationData, validationError });
+        
+        if (validationError || !validationData || validationData.length === 0) {
+          console.error('❌ Invalid or expired token');
+          setError("Der Zugangslink ist ungültig oder abgelaufen.");
+          setLoading(false);
+          return;
+        }
 
-      console.log("Owner sending message with data:", messageData);
+        // Check if this token is for this consultation
+        if (validationData[0].consultation_id !== id) {
+          console.error('❌ Token is for a different consultation');
+          setError("Der Zugangslink ist für eine andere Konsultation.");
+          setLoading(false);
+          return;
+        }
+        
+        console.log('🔍 Fetching consultation details...');
+        // Get consultation details
+        const { data: consultationData, error: consultationError } = await supabase
+          .from('video_consultations')
+          .select(`
+            id,
+            title,
+            room_id,
+            doctor:doctor_id(vorname, nachname),
+            patient:patient_id(name)
+          `)
+          .eq('id', id)
+          .single();
+        
+        console.log('📊 Consultation data:', consultationData);
+        console.log('❌ Consultation error:', consultationError);
 
-      const { data, error } = await supabase
-        .from('telemedizin_messages')
-        .insert(messageData)
-        .select()
-        .single();
+        if (consultationError || !consultationData) {
+          console.error('❌ Could not find consultation');
+          setError("Die Konsultation konnte nicht gefunden werden.");
+          setLoading(false);
+          return;
+        }
 
-      if (error) {
-        console.error("Error sending message:", error);
-        toast({
-          title: "Fehler",
-          description: "Die Nachricht konnte nicht gesendet werden.",
-          variant: "destructive",
+        setConsultation({
+          id: consultationData.id,
+          title: consultationData.title,
+          doctorName: `${consultationData.doctor.vorname} ${consultationData.doctor.nachname}`,
+          patientName: consultationData.patient.name,
+          roomId: consultationData.room_id
         });
-        return;
+        
+        console.log('🎥 Initializing media devices...');
+        // Initialize WebRTC connection
+        initializeMedia();
+      } catch (err) {
+        console.error("❌ Error fetching consultation:", err);
+        setError("Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.");
+        setLoading(false);
       }
+    };
 
-      setMessages(prev => [...prev, data as unknown as Message]);
-      setNewMessage("");
+    fetchConsultationDetails();
+
+    return () => {
+      console.log('🧹 Cleaning up WebRTC resources...');
+      // Cleanup WebRTC resources
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      if (peerConnection) {
+        peerConnection.close();
+      }
+    };
+  }, [id, token]);
+
+  const initializeMedia = async () => {
+    try {
+      console.log('🎥 Requesting media permissions...');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
       
-      toast({
-        title: "Erfolg",
-        description: "Nachricht wurde gesendet.",
-      });
-    } catch (error) {
-      console.error("Error:", error);
-      toast({
-        title: "Fehler",
-        description: "Beim Senden der Nachricht ist ein Fehler aufgetreten.",
-        variant: "destructive",
-      });
+      console.log('✅ Media permissions granted');
+      setLocalStream(stream);
+      
+      // Use a timeout to ensure the ref is available
+      setTimeout(() => {
+        if (localVideoRef.current) {
+          console.log('🖥️ Setting local video stream', localVideoRef.current);
+          localVideoRef.current.srcObject = stream;
+          console.log('🖥️ Local video stream set:', stream.id);
+        } else {
+          console.error('❌ Local video reference is null (delayed check)');
+        }
+      }, 500);
+      
+      setLoading(false);
+    } catch (err) {
+      console.error("❌ Error accessing media devices:", err);
+      setError("Zugriff auf Kamera und Mikrofon fehlgeschlagen. Bitte erteilen Sie die erforderlichen Berechtigungen.");
+      setLoading(false);
     }
   };
 
-  // File upload handler
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files || event.target.files.length === 0 || !consultation || !owner) {
+  // Update the useEffect that initializes the WebRTC connection
+  useEffect(() => {
+    if (!consultation || !localStream) {
       return;
     }
+
+    console.log('🔌 Initializing signaling connection with consultation:', consultation);
     
-    const filesArray = Array.from(event.target.files);
+    // Create a new peer connection
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    });
+    peerConnectionRef.current = pc;
+    setPeerConnection(pc);
     
-    for (const file of filesArray) {
-      const uploadId = Math.random().toString(36).substring(2, 15);
-      
-      setUploadingFiles(prev => [
-        ...prev,
-        {
-          name: file.name,
-          progress: 0,
-          id: uploadId
+    console.log('📡 Created RTCPeerConnection');
+
+    // Add local stream tracks to peer connection
+    if (localStream) {
+      console.log('📤 Adding local stream tracks to peer connection');
+      localStream.getTracks().forEach(track => {
+        console.log(`Adding track: ${track.kind}`);
+        pc.addTrack(track, localStream);
+      });
+    }
+
+    // Set up event handlers
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        console.log('🧊 Generated ICE candidate:', event.candidate.candidate.substring(0, 50) + '...');
+        
+        // Send ICE candidate through Supabase channel
+        sendSignal({
+          type: 'ice-candidate',
+          sender: 'owner',
+          target: 'vet',
+          candidate: event.candidate
+        });
+        console.log('🧊 Sent ICE candidate to vet');
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log(`📡 Connection state changed to: ${pc.connectionState}`);
+      if (pc.connectionState === 'connected') {
+        setConnected(true);
+        console.log('✅ Peer connection established successfully!');
+        
+        // Explicitly check remoteStream again
+        if (remoteVideoRef.current && remoteStream) {
+          console.log('🖥️ Setting remote video stream after connection');
+          remoteVideoRef.current.srcObject = remoteStream;
         }
-      ]);
+      } else if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+        setConnected(false);
+      }
+    };
+
+    pc.ontrack = (event) => {
+      console.log('📺 Received remote track:', event.track.kind);
+      setRemoteStream(event.streams[0]);
       
+      if (remoteVideoRef.current) {
+        console.log('🖥️ Setting remote video stream');
+        remoteVideoRef.current.srcObject = event.streams[0];
+      }
+      
+      // When we receive tracks, we're actually connected
+      setConnected(true);
+    };
+
+    // Create a Supabase Realtime channel for signaling
+    const channelName = `video-consultation-${consultation.roomId}`;
+    console.log(`🔄 Creating channel: ${channelName}`);
+    
+    const channel = supabase.channel(channelName, {
+      config: {
+        broadcast: { self: false }
+      }
+    });
+    
+    // Send a join message when owner connects
+    const sendJoin = () => {
+      sendSignal({
+        type: 'join',
+        sender: 'owner',
+        roomId: consultation.roomId
+      });
+    };
+    
+    // Function to send signals through the channel
+    const sendSignal = (message) => {
       try {
-        const storagePath = `telemedizin/${consultation.id}/${Date.now()}_${file.name}`;
-        
-        // Upload file to storage first
-        const { data: storageData, error: storageError } = await supabase
-          .storage
-          .from('telemedizin-files')
-          .upload(storagePath, file, {
-            onUploadProgress: (progress) => {
-              const percent = Math.round((progress.loaded / progress.total) * 100);
-              setUploadingFiles(prev => 
-                prev.map(item => 
-                  item.id === uploadId 
-                    ? { ...item, progress: percent } 
-                    : item
-                )
-              );
-            }
-          } as any);
-          
-        if (storageError) {
-          console.error("Error uploading file to storage:", storageError);
-          toast({
-            title: "Fehler",
-            description: "Datei konnte nicht hochgeladen werden.",
-            variant: "destructive",
-          });
-          
-          setUploadingFiles(prev => prev.filter(item => item.id !== uploadId));
-          continue;
-        }
-        
-        // Store file metadata
-        const fileData = {
-          consultation_id: consultation.id,
-          uploader_id: owner.auth_id,
-          file_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          storage_path: storagePath
-        };
-        
-        console.log("Owner inserting file metadata:", fileData);
-        
-        const { data: metadataData, error: metadataError } = await supabase
-          .from('telemedizin_files')
-          .insert(fileData)
-          .select()
-          .single();
-          
-        if (metadataError) {
-          console.error("Error storing file metadata:", metadataError);
-          
-          await supabase
-            .storage
-            .from('telemedizin-files')
-            .remove([storagePath]);
-            
-          toast({
-            title: "Fehler",
-            description: "Datei-Metadaten konnten nicht gespeichert werden.",
-            variant: "destructive",
-          });
-          
-          setUploadingFiles(prev => prev.filter(item => item.id !== uploadId));
-          continue;
-        }
-        
-        setFiles(prev => [metadataData as unknown as TelemedizinFile, ...prev]);
-        await sendMessage(`Datei hochgeladen: ${file.name}`, metadataData.id);
-        
-        toast({
-          title: "Erfolg",
-          description: "Datei wurde hochgeladen.",
+        console.log('📤 Sending signal:', message.type);
+        channel.send({
+          type: 'broadcast',
+          event: 'video-signal',
+          payload: message
         });
       } catch (error) {
-        console.error("Error in file upload process:", error);
-        toast({
-          title: "Fehler",
-          description: "Beim Hochladen der Datei ist ein Fehler aufgetreten.",
-          variant: "destructive",
-        });
-      } finally {
-        setUploadingFiles(prev => prev.filter(item => item.id !== uploadId));
+        console.error('❌ Error sending signal:', error);
       }
-    }
+    };
     
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-  
-  // File download handler
-  const handleFileDownload = async (file: TelemedizinFile) => {
-    try {
-      const { data, error } = await supabase
-        .storage
-        .from('telemedizin-files')
-        .download(file.storage_path);
+    // Handle incoming signaling messages
+    const handleSignalingMessage = async (message) => {
+      try {
+        console.log('🛠️ Processing signal:', message.type, 'from', message.sender);
         
-      if (error) {
-        console.error("Error downloading file:", error);
-        toast({
-          title: "Fehler",
-          description: "Datei konnte nicht heruntergeladen werden.",
-          variant: "destructive",
+        switch (message.type) {
+          case 'offer':
+            console.log('📩 Processing offer from vet');
+            try {
+              await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
+              console.log('✅ Remote description set for offer');
+              
+              const answer = await pc.createAnswer();
+              console.log('📤 Created answer');
+              await pc.setLocalDescription(answer);
+              console.log('✅ Local description set for answer');
+              
+              // Short delay to ensure everything is set
+              setTimeout(() => {
+                sendSignal({
+                  type: 'answer',
+                  target: 'vet',
+                  sender: 'owner',
+                  sdp: pc.localDescription
+                });
+                console.log('📤 Sent answer to vet');
+              }, 500);
+            } catch (error) {
+              console.error('❌ Error processing offer:', error);
+            }
+            break;
+            
+          case 'ice-candidate':
+            if (message.sender === 'vet') {
+              console.log('🧊 Received ICE candidate from vet:', message.candidate.candidate.substring(0, 50) + '...');
+              if (pc && message.candidate) {
+                await pc.addIceCandidate(message.candidate);
+                console.log('✅ Added remote ICE candidate');
+              }
+            }
+            break;
+            
+          case 'vet-connected':
+            console.log('👨‍⚕️ Vet is connected and ready');
+            break;
+        }
+      } catch (error) {
+        console.error('❌ Error handling signaling message:', error);
+      }
+    };
+    
+    // Listen for signals on the channel
+    channel.on('broadcast', { event: 'video-signal' }, (payload) => {
+      const message = payload.payload;
+      console.log('📨 Received signal:', message.type, message);
+      
+      if (message.target === 'owner' || !message.target) {
+        handleSignalingMessage(message);
+      }
+    });
+    
+    // Subscribe to the channel
+    channel.subscribe((status) => {
+      console.log(`Channel status: ${status}`);
+      if (status === 'SUBSCRIBED') {
+        // Send join message when we're connected
+        sendJoin();
+        
+        // Listen specifically for offer messages to ensure we don't miss them
+        channel.on('broadcast', { event: 'video-signal' }, (payload) => {
+          const message = payload.payload;
+          if (message.type === 'offer' && message.sender === 'vet') {
+            console.log('📩 Offer message detected in special listener');
+            handleSignalingMessage(message);
+          }
         });
-        return;
+      }
+    });
+    
+    // Cleanup function
+    return () => {
+      console.log('🧹 Cleaning up WebRTC resources...');
+      if (pc) {
+        pc.close();
       }
       
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = file.file_name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Error in file download process:", error);
-      toast({
-        title: "Fehler",
-        description: "Beim Herunterladen der Datei ist ein Fehler aufgetreten.",
-        variant: "destructive",
-      });
+      // Unsubscribe from the channel
+      supabase.removeChannel(channel);
+    };
+  }, [consultation, localStream]);
+
+  const toggleVideo = () => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !isVideoEnabled;
+        setIsVideoEnabled(!isVideoEnabled);
+      }
     }
   };
 
-  // Listen for new messages
-  useEffect(() => {
-    if (!consultation) return;
-
-    const channel = supabase
-      .channel('owner_telemedizin_messages_changes')
-      .on('postgres_changes', 
-        { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'telemedizin_messages',
-          filter: `consultation_id=eq.${consultation.id}` 
-        }, 
-        (payload) => {
-          console.log("Owner received new message:", payload.new);
-          if (payload.new.sender_id !== owner?.auth_id) {
-            setMessages(prev => [...prev, payload.new as unknown as Message]);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [consultation, owner]);
-  
-  // Listen for new files
-  useEffect(() => {
-    if (!consultation) return;
-
-    const channel = supabase
-      .channel('owner_telemedizin_files_changes')
-      .on('postgres_changes', 
-        { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'telemedizin_files',
-          filter: `consultation_id=eq.${consultation.id}` 
-        }, 
-        (payload) => {
-          console.log("Owner received new file:", payload.new);
-          if (payload.new.uploader_id !== owner?.auth_id) {
-            setFiles(prev => [payload.new as unknown as TelemedizinFile, ...prev]);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [consultation, owner]);
-
-  // Scroll to bottom of messages
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  const toggleAudio = () => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !isAudioEnabled;
+        setIsAudioEnabled(!isAudioEnabled);
+      }
     }
-  }, [messages]);
+  };
+
+  const endCall = () => {
+    if (peerConnection) {
+      peerConnection.close();
+    }
+    
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+    }
+    
+    navigate('/');
+  };
+
+  useEffect(() => {
+    // After component mounts, check if video elements exist and set them
+    if (localStream && localVideoRef.current) {
+      console.log('🔍 Double-checking local video reference after mount');
+      localVideoRef.current.srcObject = localStream;
+    }
+    
+    if (remoteStream && remoteVideoRef.current) {
+      console.log('🔍 Double-checking remote video reference after mount');
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [localStream, remoteStream]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+        <Card className="w-full max-w-lg">
+          <CardHeader className="text-center">
+            <CardTitle>Verbinde mit Videokonsultation...</CardTitle>
+          </CardHeader>
+          <CardContent className="flex justify-center p-6">
+            <Loader2 className="animate-spin h-16 w-16 text-blue-500" />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-gray-50">
+        <Card className="w-full max-w-lg">
+          <CardHeader className="text-center">
+            <CardTitle className="text-red-500">Zugangsfehler</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-center">{error}</p>
+            <div className="flex justify-center">
+              <Button variant="outline" onClick={() => navigate("/")}>
+                Zurück zur Startseite
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div className="container p-0 md:p-4">
-      <div className="flex flex-col h-[calc(100vh-4rem)]">
-        <div className="flex justify-between items-center p-4 border-b">
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" size="icon" onClick={() => navigate("/owner")}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div>
-              <h1 className="font-medium">{consultation.title}</h1>
-              <p className="text-sm text-muted-foreground">
-                {format(new Date(consultation.scheduled_start), "dd.MM.yyyy HH:mm")} - 
-                {format(new Date(consultation.scheduled_end), "HH:mm")}
-              </p>
+    <div className="min-h-screen bg-gray-50 p-4">
+      <Card className="mx-auto max-w-6xl">
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>{consultation?.title}</CardTitle>
+            <div className="flex items-center text-sm text-muted-foreground">
+              <span className="mr-4">Tierarzt: {consultation?.doctorName}</span>
+              <span>Patient: {consultation?.patientName}</span>
             </div>
           </div>
-          <Button 
-            variant="destructive" 
-            size="sm" 
-            onClick={() => navigate("/owner")}
-          >
-            <PhoneOff className="h-4 w-4 mr-2" />
-            Beenden
-          </Button>
-        </div>
-        
-        <div className="flex-1 flex">
-          <div className="flex-1 p-4">
-            <div className="relative h-full rounded-lg overflow-hidden bg-black flex items-center justify-center">
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                <Video className="h-12 w-12 mb-4" />
-                <p className="font-medium">Video-Konsultation</p>
-                <p className="text-sm opacity-75">Video-Chat wird geladen...</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Main video - Remote (doctor) */}
+            <div className="lg:col-span-2">
+              <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ height: '60vh' }}>
+                <video
+                  ref={(el) => {
+                    // Ensure the ref is properly set
+                    remoteVideoRef.current = el;
+                    
+                    // If we have a stream and the element, set it immediately
+                    if (el && remoteStream) {
+                      console.log('🖥️ Setting remote video stream (inline ref)');
+                      el.srcObject = remoteStream;
+                    }
+                  }}
+                  className="w-full h-full object-contain"
+                  autoPlay
+                  playsInline
+                ></video>
+                {!connected && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 text-white">
+                    <div className="text-center">
+                      <Loader2 className="animate-spin h-12 w-12 mx-auto mb-4" />
+                      <p>Warte auf Tierarzt...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Side panel - Self view and controls */}
+            <div className="space-y-4">
+              {/* Self view video */}
+              <div className="relative w-full bg-black rounded-lg overflow-hidden" style={{ height: '30vh' }}>
+                <video
+                  ref={(el) => {
+                    // Ensure the ref is properly set
+                    localVideoRef.current = el;
+                    
+                    // If we have a stream and the element, set it immediately
+                    if (el && localStream) {
+                      console.log('🖥️ Setting local video stream (inline ref)');
+                      el.srcObject = localStream;
+                    }
+                  }}
+                  className="w-full h-full object-contain mirror"
+                  autoPlay
+                  playsInline
+                  muted
+                ></video>
+                {!isVideoEnabled && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-70 text-white">
+                    <p>Video deaktiviert</p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Controls */}
+              <div className="flex justify-center space-x-4">
+                <Button
+                  variant={isVideoEnabled ? "outline" : "destructive"}
+                  onClick={toggleVideo}
+                  className="rounded-full w-12 h-12 p-0"
+                >
+                  {isVideoEnabled ? <Video size={20} /> : <VideoOff size={20} />}
+                </Button>
+                <Button
+                  variant={isAudioEnabled ? "outline" : "destructive"}
+                  onClick={toggleAudio}
+                  className="rounded-full w-12 h-12 p-0"
+                >
+                  {isAudioEnabled ? <Mic size={20} /> : <MicOff size={20} />}
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={endCall}
+                  className="rounded-full w-12 h-12 p-0"
+                >
+                  <PhoneOff size={20} />
+                </Button>
               </div>
             </div>
           </div>
-          
-          <div className="w-80 border-l bg-background flex flex-col">
-            <div className="p-3 border-b">
-              <h3 className="font-medium">Chat</h3>
-              <p className="text-xs text-muted-foreground">
-                {consultation.patient.name} | {consultation.patient.spezies}
-              </p>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.length === 0 && files.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-                  <MessageSquare className="h-8 w-8 mb-2" />
-                  <p>Keine Nachrichten</p>
-                  <p className="text-sm">Beginnen Sie die Unterhaltung</p>
-                </div>
-              ) : (
-                <>
-                  {/* Files list */}
-                  {files.length > 0 && (
-                    <div className="mb-6">
-                      <h4 className="font-medium text-sm mb-2">Dateien</h4>
-                      <div className="space-y-2">
-                        {files.map((file) => {
-                          const isImage = file.file_type.startsWith('image/');
-                          const isPdf = file.file_type === 'application/pdf';
-                          
-                          return (
-                            <div 
-                              key={file.id}
-                              className="flex items-center p-2 rounded-md bg-muted hover:bg-muted/80 cursor-pointer"
-                              onClick={() => handleFileDownload(file)}
-                            >
-                              <div className="h-8 w-8 flex items-center justify-center rounded-md bg-primary/10 mr-3">
-                                {isImage ? (
-                                  <ImageIcon className="h-4 w-4 text-primary" />
-                                ) : isPdf ? (
-                                  <FileText className="h-4 w-4 text-primary" />
-                                ) : (
-                                  <File className="h-4 w-4 text-primary" />
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{file.file_name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {(file.file_size / 1024).toFixed(1)} KB
-                                </p>
-                              </div>
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                className="h-8 w-8 ml-2"
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Messages */}
-                  {messages.map((message) => {
-                    const isSender = message.sender_id === owner?.auth_id;
-                    return (
-                      <div 
-                        key={message.id}
-                        className={`flex ${isSender ? "justify-end" : "justify-start"}`}
-                      >
-                        <div 
-                          className={`max-w-[80%] p-3 rounded-lg ${
-                            isSender 
-                              ? "bg-primary text-primary-foreground" 
-                              : "bg-muted"
-                          }`}
-                        >
-                          <p className="text-sm">{message.content}</p>
-                          <p className="text-xs opacity-70 text-right mt-1">
-                            {format(new Date(message.created_at), "HH:mm")}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </>
-              )}
-              
-              {/* Uploading files progress */}
-              {uploadingFiles.length > 0 && (
-                <div className="space-y-2 mt-4">
-                  {uploadingFiles.map((file) => (
-                    <div key={file.id} className="bg-muted p-2 rounded-md">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="truncate max-w-[80%]">{file.name}</span>
-                        <span>{file.progress}%</span>
-                      </div>
-                      <Progress value={file.progress} className="h-1" />
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <div ref={messagesEndRef} />
-            </div>
-            
-            <div className="border-t p-3">
-              <form 
-                className="flex flex-col gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  sendMessage();
-                }}
-              >
-                <div className="flex">
-                  <Input
-                    placeholder="Nachricht eingeben..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    className="flex-1"
-                  />
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    multiple
-                  />
-                  <Button 
-                    type="button" 
-                    size="icon" 
-                    variant="ghost"
-                    className="ml-1"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Paperclip className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    size="icon" 
-                    disabled={!newMessage.trim()}
-                    className="ml-1"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

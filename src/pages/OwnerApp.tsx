@@ -4,7 +4,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import OwnerConsultationJoin from "@/components/telemedizin/OwnerConsultationJoin";
-import OwnerConsultationRoomWrapper from "@/components/telemedizin/OwnerConsultationRoomWrapper";
+import OwnerConsultationRoom from "@/components/telemedizin/OwnerConsultationRoom";
 import OwnerLogin from "@/components/owner/OwnerLogin";
 import OwnerDashboard from "@/components/owner/OwnerDashboard";
 import { toast } from "@/components/ui/use-toast";
@@ -95,7 +95,7 @@ const OwnerApp = () => {
     const params = new URLSearchParams(location.search);
     if (params.get('token')) {
       // If we have a token in URL, make sure we stay on the login page
-      if (location.pathname !== '/owner' && location.pathname !== '/owner/join') {
+      if (location.pathname !== '/owner') {
         navigate(`/owner?${params.toString()}`);
       }
     }
@@ -112,16 +112,7 @@ const OwnerApp = () => {
 
   return (
     <Routes>
-      <Route 
-        path="/" 
-        element={
-          isAuthenticated ? (
-            <Navigate to="/owner/dashboard" />
-          ) : (
-            <OwnerLogin />
-          )
-        } 
-      />
+      <Route path="/" element={isAuthenticated ? <Navigate to="/owner/dashboard" /> : <OwnerLogin />} />
       <Route 
         path="/dashboard" 
         element={
@@ -132,9 +123,8 @@ const OwnerApp = () => {
           )
         } 
       />
-      {/* These routes should be accessible regardless of authentication status */}
       <Route path="/join" element={<OwnerConsultationJoin />} />
-      <Route path="/room/:id" element={<OwnerConsultationRoomWrapper />} />
+      <Route path="/room/:id" element={<OwnerConsultationRoom />} />
       {/* Catch-all route for invalid paths in the owner area */}
       <Route path="*" element={<Navigate to="/owner" />} />
     </Routes>
