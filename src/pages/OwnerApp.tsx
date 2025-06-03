@@ -4,7 +4,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import OwnerConsultationJoin from "@/components/telemedizin/OwnerConsultationJoin";
-import OwnerConsultationRoomWrapper from "@/components/telemedizin/OwnerConsultationRoomWrapper";
+import OwnerConsultationRoom from "@/components/telemedizin/OwnerConsultationRoom";
 import OwnerLogin from "@/components/owner/OwnerLogin";
 import OwnerDashboard from "@/components/owner/OwnerDashboard";
 import { toast } from "@/components/ui/use-toast";
@@ -124,7 +124,7 @@ const OwnerApp = () => {
         } 
       />
       <Route path="/join" element={<OwnerConsultationJoin />} />
-      <Route path="/room/:id" element={<OwnerConsultationRoomWrapper />} />
+      <Route path="/room/:id" element={<OwnerConsultationRoom />} />
       {/* Catch-all route for invalid paths in the owner area */}
       <Route path="*" element={<Navigate to="/owner" />} />
     </Routes>
