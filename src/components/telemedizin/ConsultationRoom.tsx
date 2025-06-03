@@ -3,13 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/use-toast";
-import { Badge } from "@/components/ui/badge";
-import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import { VideoConsultation, Message, TelemedizinFile } from "@/types/telemedizin";
+import { Progress } from "@/components/ui/progress";
 import { 
   ArrowLeft, 
   Video, 
@@ -17,25 +15,15 @@ import {
   Mic, 
   MicOff, 
   MessageSquare, 
-  Users,
-  Settings,
   Paperclip,
   Send,
-  X,
   PhoneOff,
-  ZoomIn,
-  ZoomOut,
-  Maximize,
   Download,
   File,
   FileText,
-  Image as ImageIcon,
-  Loader2
+  Image as ImageIcon
 } from "lucide-react";
 import { format } from "date-fns";
-import { VideoConsultation, Message, TelemedizinFile } from "@/types/telemedizin";
-import { Progress } from "@/components/ui/progress";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const ConsultationRoom = () => {
   const { id } = useParams<{ id: string }>();
@@ -75,18 +63,7 @@ const ConsultationRoom = () => {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
-  // Add heartbeat interval ref
-  const heartbeatIntervalRef = useRef<number | null>(null);
-
-  // Add connection attempt counter
-  const reconnectAttemptRef = useRef(0);
-  const maxReconnectAttempts = 5;
-
-  // Add WebSocket URL to state
-  const [wsUrl] = useState(`wss://hwdzrrhjjrnruyfyydmu.supabase.co/functions/v1/telemedizin-signaling`);
 
   // Fetch consultation details
   useEffect(() => {
@@ -194,407 +171,11 @@ const ConsultationRoom = () => {
     setFiles(data as unknown as TelemedizinFile[]);
   };
 
-  // Replace the WebSocket initialization with Supabase Realtime channel
-  useEffect(() => {
-    if (!consultation) return;
-
-    // First, we set up our media
-    const initializeMedia = async () => {
-      try {
-        console.log('🎥 Initializing media devices...');
-        
-        // Request advanced camera constraints for mobile devices
-        const constraints = {
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: { ideal: "user" },
-            // Request advanced camera controls explicitly
-            advanced: [
-              { zoom: true },
-              { focusMode: "continuous" }
-            ]
-          },
-          audio: true
-        };
-        
-        console.log('📱 Requesting media with constraints:', JSON.stringify(constraints, null, 2));
-        
-        const stream = await navigator.mediaDevices.getUserMedia(constraints as any);
-        
-        setLocalStream(stream);
-        console.log('✅ Media permissions granted');
-        
-        // Check camera capabilities
-        checkCameraCapabilities(stream);
-        
-        if (localVideoRef.current) {
-          console.log('🖥️ Setting local video stream');
-          localVideoRef.current.srcObject = stream;
-          console.log('🖥️ Local video stream set:', stream.id);
-        }
-        
-        // Initialize WebRTC after media is set up
-        initializeRTC(stream);
-      } catch (error) {
-        console.error('❌ Error accessing media devices:', error);
-        toast({
-          title: 'Medienzugriffsfehler',
-          description: 'Bitte überprüfen Sie, ob Sie Zugriff auf Kamera und Mikrofon gewährt haben.',
-          variant: 'destructive',
-        });
-      }
-    };
-    
-    // Check camera capabilities (zoom, wide angle)
-    const checkCameraCapabilities = async (stream: MediaStream) => {
-      try {
-        const videoTrack = stream.getVideoTracks()[0];
-        
-        if (videoTrack) {
-          // Get device info
-          const deviceId = videoTrack.getSettings().deviceId;
-          const devices = await navigator.mediaDevices.enumerateDevices();
-          const currentDevice = devices.find(d => d.deviceId === deviceId);
-          
-          console.log('📱 Current video device:', currentDevice?.label || 'Unknown');
-          console.log('📱 All available video devices:', 
-            devices.filter(d => d.kind === 'videoinput').map(d => d.label || 'Unnamed camera')
-          );
-          
-          const capabilities = videoTrack.getCapabilities() as any;
-          const settings = videoTrack.getSettings() as any;
-          
-          // Log ALL track information for debugging
-          console.log('📱 Video track:', videoTrack);
-          console.log('📱 Track settings:', settings);
-          console.log('📱 Track constraints:', videoTrack.getConstraints());
-          
-          // Check for zoom capability
-          const hasZoom = capabilities.zoom !== undefined;
-          
-          // Check for wide angle capability (facing mode switching)
-          // More reliable check for mobile devices - assume true if we have facingMode capability
-          // or multiple video input devices
-          const hasWideAngle = 
-            (capabilities.facingMode !== undefined) ||
-            (devices.filter(d => d.kind === 'videoinput').length > 1);
-          
-          // For debugging - force capabilities to true to test UI
-          const forceCameraControls = true; // Change to false to use actual detection
-          
-          setCameraCapabilities({
-            hasZoom: forceCameraControls ? true : hasZoom,
-            hasWideAngle: forceCameraControls ? true : hasWideAngle
-          });
-          
-          console.log('📷 Camera capabilities:', { 
-            detected: { hasZoom, hasWideAngle },
-            used: { 
-              hasZoom: forceCameraControls ? true : hasZoom, 
-              hasWideAngle: forceCameraControls ? true : hasWideAngle 
-            },
-            raw: capabilities 
-          });
-        }
-      } catch (error) {
-        console.error('❌ Error checking camera capabilities:', error);
-      }
-    };
-    
-    // Initialize the RTC connection
-    const initializeRTC = (stream) => {
-      // Create peer connection
-      const pc = new RTCPeerConnection({
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
-        ]
-      });
-      peerConnectionRef.current = pc;
-      
-      console.log('📡 Created RTCPeerConnection');
-      
-      // Add local stream tracks to peer connection
-      if (stream) {
-        console.log('📤 Adding local stream tracks to peer connection');
-        stream.getTracks().forEach(track => {
-          console.log(`Adding track: ${track.kind}`);
-          pc.addTrack(track, stream);
-        });
-      }
-      
-      // Set up event handlers
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          console.log('🧊 Generated ICE candidate:', event.candidate.candidate.substring(0, 50) + '...');
-          
-          // Send ICE candidate through Supabase channel
-          sendSignal({
-            type: 'ice-candidate',
-            sender: 'vet',
-            target: 'owner',
-            candidate: event.candidate
-          });
-          console.log('🧊 Sent ICE candidate to owner');
-        }
-      };
-      
-      pc.onconnectionstatechange = () => {
-        console.log(`📡 Connection state changed to: ${pc.connectionState}`);
-        if (pc.connectionState === 'connected') {
-          setIsConnected(true);
-          setIsConnecting(false);
-          console.log('✅ Peer connection established successfully!');
-          
-          // Explicitly check remoteStream again
-          if (remoteVideoRef.current && remoteStream) {
-            console.log('🖥️ Setting remote video stream after connection');
-            remoteVideoRef.current.srcObject = remoteStream;
-          }
-        } else if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
-          setIsConnected(false);
-          setIsConnecting(false);
-        } else if (pc.connectionState === 'connecting') {
-          setIsConnecting(true);
-        }
-      };
-      
-      pc.ontrack = (event) => {
-        console.log('📺 Received remote track:', event.track.kind);
-        setRemoteStream(event.streams[0]);
-        
-        if (remoteVideoRef.current) {
-          console.log('🖥️ Setting remote video stream');
-          remoteVideoRef.current.srcObject = event.streams[0];
-        }
-        
-        // When we receive tracks, we're actually connected
-        setIsConnected(true);
-        setIsConnecting(false);
-      };
-      
-      // Create a Supabase Realtime channel for signaling
-      const channelName = `video-consultation-${consultation.room_id}`;
-      console.log(`🔄 Creating channel: ${channelName}`);
-      
-      const channel = supabase.channel(channelName, {
-        config: {
-          broadcast: { self: false }
-        }
-      });
-      
-      // Send a join message when vet connects
-      const sendJoin = () => {
-        sendSignal({
-          type: 'join',
-          sender: 'vet',
-          roomId: consultation.room_id
-        });
-        
-        // Notify that we're connected and ready
-        sendSignal({
-          type: 'vet-connected',
-          sender: 'vet',
-          target: 'owner'
-        });
-      };
-      
-      // Function to send signals through the channel
-      const sendSignal = (message) => {
-        try {
-          console.log('📤 Sending signal:', message.type);
-          channel.send({
-            type: 'broadcast',
-            event: 'video-signal',
-            payload: message
-          });
-        } catch (error) {
-          console.error('❌ Error sending signal:', error);
-        }
-      };
-      
-      // Listen for signals on the channel
-      channel.on('broadcast', { event: 'video-signal' }, (payload) => {
-        const message = payload.payload;
-        console.log('📨 Received signal:', message.type, message);
-        
-        if (message.target === 'vet' || !message.target) {
-          handleSignalingMessage(message, pc, sendSignal);
-        }
-      });
-      
-      // Subscribe to the channel
-      channel.subscribe((status) => {
-        console.log(`Channel status: ${status}`);
-        if (status === 'SUBSCRIBED') {
-          // Send join message when we're connected
-          sendJoin();
-          
-          // Listen specifically for owner join messages to ensure we don't miss them
-          channel.on('broadcast', { event: 'video-signal' }, (payload) => {
-            const message = payload.payload;
-            if (message.type === 'join' && message.sender === 'owner') {
-              console.log('👋 Owner join message detected in listener');
-              handleSignalingMessage(message, pc, sendSignal);
-            }
-          });
-        }
-      });
-      
-      // Return cleanup function that will be used when the component unmounts
-      return () => {
-        console.log('🧹 Cleaning up WebRTC resources...');
-        if (stream) {
-          stream.getTracks().forEach(track => track.stop());
-        }
-        
-        if (pc) {
-          pc.close();
-        }
-        
-        // Unsubscribe from the channel
-        supabase.removeChannel(channel);
-      };
-    };
-    
-    // Handle incoming signaling messages
-    const handleSignalingMessage = async (message, pc, sendSignal) => {
-      try {
-        console.log('🛠️ Handling signal:', message.type, 'from', message.sender);
-        
-        switch (message.type) {
-          case 'join':
-            if (message.sender === 'owner') {
-              console.log('👋 Owner joined, creating offer...');
-              setIsConnecting(true);
-              
-              // Slight delay to ensure both sides are ready
-              setTimeout(async () => {
-                try {
-                  // Create and send offer
-                  const offer = await pc.createOffer();
-                  await pc.setLocalDescription(offer);
-                  
-                  // Send the offer to the owner
-                  sendSignal({
-                    type: 'offer',
-                    target: 'owner',
-                    sender: 'vet',
-                    sdp: pc.localDescription
-                  });
-                  console.log('✅ Offer sent successfully');
-                } catch (error) {
-                  console.error('❌ Error creating or sending offer:', error);
-                  toast({
-                    title: 'Verbindungsfehler',
-                    description: 'Es gab einen Fehler beim Verbindungsaufbau. Bitte versuchen Sie es erneut.',
-                    variant: 'destructive',
-                  });
-                  setIsConnecting(false);
-                }
-              }, 1000);
-            }
-            break;
-            
-          case 'answer':
-            if (message.sender === 'owner') {
-              console.log('📩 Received answer from owner');
-              try {
-                await pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
-                console.log('✅ Remote description set from answer');
-              } catch (error) {
-                console.error('❌ Error setting remote description from answer:', error);
-              }
-            }
-            break;
-            
-          case 'ice-candidate':
-            if (message.sender === 'owner') {
-              console.log('🧊 Received ICE candidate from owner:', message.candidate.candidate.substring(0, 50) + '...');
-              try {
-                if (pc && message.candidate) {
-                  await pc.addIceCandidate(new RTCIceCandidate(message.candidate));
-                  console.log('✅ Added remote ICE candidate');
-                }
-              } catch (error) {
-                console.error('❌ Error adding ICE candidate:', error);
-              }
-            }
-            break;
-        }
-      } catch (error) {
-        console.error('❌ Error handling signaling message:', error);
-      }
-    };
-    
-    // Start initialization
-    initializeMedia();
-    
-    // Cleanup will be handled by the function returned from initializeRTC
-  }, [consultation]);
-
   // Get the ID of the other participant in the consultation
   const getOtherParticipantId = () => {
     if (!consultation || !user) return null;
     
     return user.id === consultation.doctor.id ? consultation.patient.id : consultation.doctor.id;
-  };
-
-  // Toggle video
-  const toggleVideo = () => {
-    if (localStream) {
-      localStream.getVideoTracks().forEach(track => {
-        track.enabled = !isVideoEnabled;
-      });
-      setIsVideoEnabled(!isVideoEnabled);
-    }
-  };
-  
-  // Toggle audio
-  const toggleAudio = () => {
-    if (localStream) {
-      localStream.getAudioTracks().forEach(track => {
-        track.enabled = !isAudioEnabled;
-      });
-      setIsAudioEnabled(!isAudioEnabled);
-    }
-  };
-  
-  // End call
-  const endCall = async () => {
-    try {
-      if (consultation) {
-        await supabase
-          .from('video_consultations')
-          .update({ 
-            status: "completed",
-            actual_end: new Date().toISOString()
-          })
-          .eq("id", consultation.id);
-      }
-      
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-      }
-      
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-      }
-      
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({
-          type: "leave",
-          roomId: consultation?.room_id,
-          userId: user?.id
-        }));
-        wsRef.current.close();
-      }
-      
-      navigate("/telemedizin");
-    } catch (error) {
-      console.error("Error ending call:", error);
-    }
   };
 
   // Send message
@@ -603,8 +184,29 @@ const ConsultationRoom = () => {
     if ((!content.trim() && !fileId) || !consultation || !user) return;
 
     try {
-      const recipientId = getOtherParticipantId();
-      if (!recipientId) return;
+      let recipientId: string;
+      
+      if (userInfo?.isAdmin || user.id === consultation.doctor.id) {
+        const { data: patientData, error: patientError } = await supabase
+          .from('patient')
+          .select('besitzer:besitzer_id(auth_id)')
+          .eq('id', consultation.patient.id)
+          .single();
+          
+        if (patientError || !patientData?.besitzer?.auth_id) {
+          console.error("Error getting owner auth_id:", patientError);
+          toast({
+            title: "Fehler",
+            description: "Empfänger konnte nicht gefunden werden.",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        recipientId = patientData.besitzer.auth_id;
+      } else {
+        recipientId = consultation.doctor.id;
+      }
 
       const messageData: any = {
         consultation_id: consultation.id,
@@ -613,7 +215,6 @@ const ConsultationRoom = () => {
         content: content.trim()
       };
       
-      // If a file ID is provided, attach it to the message
       if (fileId) {
         messageData.file_id = fileId;
       }
@@ -636,8 +237,18 @@ const ConsultationRoom = () => {
 
       setMessages([...messages, data as unknown as Message]);
       setNewMessage("");
+      
+      toast({
+        title: "Erfolg",
+        description: "Nachricht wurde gesendet.",
+      });
     } catch (error) {
       console.error("Error:", error);
+      toast({
+        title: "Fehler",
+        description: "Beim Senden der Nachricht ist ein Fehler aufgetreten.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -664,7 +275,6 @@ const ConsultationRoom = () => {
         (payload) => {
           if (payload.new.sender_id !== user?.id) {
             setMessages(prev => [...prev, payload.new as unknown as Message]);
-            
             supabase
               .from('telemedizin_messages')
               .update({ is_read: true })
@@ -693,7 +303,6 @@ const ConsultationRoom = () => {
           filter: `consultation_id=eq.${consultation.id}` 
         }, 
         (payload) => {
-          // Only add the file if it wasn't uploaded by the current user
           if (payload.new.uploader_id !== user?.id) {
             setFiles(prev => [payload.new as unknown as TelemedizinFile, ...prev]);
           }
@@ -706,19 +315,6 @@ const ConsultationRoom = () => {
     };
   }, [consultation, user]);
 
-  // Add double-check for video elements after streams are set
-  useEffect(() => {
-    if (localStream && localVideoRef.current) {
-      console.log('🔍 Double-checking local video reference');
-      localVideoRef.current.srcObject = localStream;
-    }
-    
-    if (remoteStream && remoteVideoRef.current) {
-      console.log('🔍 Double-checking remote video reference');
-      remoteVideoRef.current.srcObject = remoteStream;
-    }
-  }, [localStream, remoteStream]);
-
   // File upload handler
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files || event.target.files.length === 0 || !consultation || !user) {
@@ -728,10 +324,8 @@ const ConsultationRoom = () => {
     const filesArray = Array.from(event.target.files);
     
     for (const file of filesArray) {
-      // Create a unique ID for tracking upload progress
       const uploadId = Math.random().toString(36).substring(2, 15);
       
-      // Add to uploading files state
       setUploadingFiles(prev => [
         ...prev,
         {
@@ -742,40 +336,12 @@ const ConsultationRoom = () => {
       ]);
       
       try {
-        // First store the file metadata
-        const fileData = {
-          consultation_id: consultation.id,
-          uploader_id: user.id,
-          file_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          storage_path: `telemedizin/${consultation.id}/${Date.now()}_${file.name}`
-        };
+        const storagePath = `telemedizin/${consultation.id}/${Date.now()}_${file.name}`;
         
-        const { data: metadataData, error: metadataError } = await supabase
-          .from('telemedizin_files')
-          .insert(fileData)
-          .select()
-          .single();
-          
-        if (metadataError) {
-          console.error("Error storing file metadata:", metadataError);
-          toast({
-            title: "Fehler",
-            description: "Datei konnte nicht hochgeladen werden.",
-            variant: "destructive",
-          });
-          
-          // Remove from uploading files
-          setUploadingFiles(prev => prev.filter(item => item.id !== uploadId));
-          continue;
-        }
-        
-        // Then upload the actual file
         const { data: storageData, error: storageError } = await supabase
           .storage
           .from('telemedizin-files')
-          .upload(fileData.storage_path, file, {
+          .upload(storagePath, file, {
             onUploadProgress: (progress) => {
               const percent = Math.round((progress.loaded / progress.total) * 100);
               setUploadingFiles(prev => 
@@ -789,31 +355,53 @@ const ConsultationRoom = () => {
           } as any);
           
         if (storageError) {
-          console.error("Error uploading file:", storageError);
-          
-          // Delete the metadata since the upload failed
-          await supabase
-            .from('telemedizin_files')
-            .delete()
-            .eq('id', metadataData.id);
-            
+          console.error("Error uploading file to storage:", storageError);
           toast({
             title: "Fehler",
             description: "Datei konnte nicht hochgeladen werden.",
             variant: "destructive",
           });
-        } else {
-          // Add the new file to the files list
-          setFiles(prev => [metadataData as unknown as TelemedizinFile, ...prev]);
-          
-          // Send a message about the new file
-          await sendMessage(`Datei hochgeladen: ${file.name}`, metadataData.id);
-          
-          toast({
-            title: "Erfolg",
-            description: "Datei wurde hochgeladen.",
-          });
+          setUploadingFiles(prev => prev.filter(item => item.id !== uploadId));
+          continue;
         }
+        
+        const fileData = {
+          consultation_id: consultation.id,
+          uploader_id: user.id,
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          storage_path: storagePath
+        };
+        
+        const { data: metadataData, error: metadataError } = await supabase
+          .from('telemedizin_files')
+          .insert(fileData)
+          .select()
+          .single();
+          
+        if (metadataError) {
+          console.error("Error storing file metadata:", metadataError);
+          await supabase
+            .storage
+            .from('telemedizin-files')
+            .remove([storagePath]);
+          toast({
+            title: "Fehler",
+            description: "Datei-Metadaten konnten nicht gespeichert werden.",
+            variant: "destructive",
+          });
+          setUploadingFiles(prev => prev.filter(item => item.id !== uploadId));
+          continue;
+        }
+        
+        setFiles(prev => [metadataData as unknown as TelemedizinFile, ...prev]);
+        await sendMessage(`Datei hochgeladen: ${file.name}`, metadataData.id);
+        
+        toast({
+          title: "Erfolg",
+          description: "Datei wurde hochgeladen.",
+        });
       } catch (error) {
         console.error("Error in file upload process:", error);
         toast({
@@ -822,12 +410,10 @@ const ConsultationRoom = () => {
           variant: "destructive",
         });
       } finally {
-        // Remove from uploading files
         setUploadingFiles(prev => prev.filter(item => item.id !== uploadId));
       }
     }
     
-    // Clear the file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -851,7 +437,6 @@ const ConsultationRoom = () => {
         return;
       }
       
-      // Create a download link
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
@@ -865,145 +450,6 @@ const ConsultationRoom = () => {
       toast({
         title: "Fehler",
         description: "Beim Herunterladen der Datei ist ein Fehler aufgetreten.",
-        variant: "destructive",
-      });
-    }
-  };
-  
-  // Camera zoom control
-  const handleZoom = (direction: 'in' | 'out') => {
-    if (!localStream) return;
-    
-    try {
-      const videoTrack = localStream.getVideoTracks()[0];
-      
-      if (videoTrack) {
-        const capabilities = videoTrack.getCapabilities() as any;
-        const settings = videoTrack.getSettings() as any;
-        
-        console.log('🔍 Attempting to zoom', direction);
-        console.log('🔍 Current settings:', settings);
-        
-        // Mobile-friendly zoom approach 1: Try standard zoom
-        if (capabilities.zoom) {
-          const currentZoom = settings.zoom || 1;
-          const min = capabilities.zoom?.min || 1;
-          const max = capabilities.zoom?.max || 10;
-          const step = (max - min) / 10; // 10 steps from min to max
-          
-          let newZoom = currentZoom;
-          if (direction === 'in') {
-            newZoom = Math.min(currentZoom + step, max);
-          } else {
-            newZoom = Math.max(currentZoom - step, min);
-          }
-          
-          console.log(`🔍 Applying zoom: ${currentZoom} → ${newZoom}`);
-          
-          // Use type assertion for the constraints
-          videoTrack.applyConstraints({
-            advanced: [{ zoom: newZoom } as any]
-          }).then(() => {
-            console.log('✅ Zoom applied successfully');
-            setZoomLevel(newZoom);
-          }).catch(err => {
-            console.error('❌ Error applying zoom:', err);
-          });
-        } 
-        // Mobile-friendly zoom approach 2: Try digital zoom through manipulation of width/height
-        else {
-          // Simulate zoom by requesting a different crop of the camera
-          const zoomFactor = direction === 'in' ? 1.2 : 0.8;
-          const newZoomLevel = direction === 'in' 
-            ? Math.min(zoomLevel * zoomFactor, 5) 
-            : Math.max(zoomLevel * zoomFactor, 1);
-            
-          console.log(`🔍 Applying digital zoom: ${zoomLevel} → ${newZoomLevel}`);
-          
-          // Calculate new width/height to simulate zoom
-          const baseWidth = 1280;
-          const baseHeight = 720;
-          const scaledWidth = Math.round(baseWidth / newZoomLevel);
-          const scaledHeight = Math.round(baseHeight / newZoomLevel);
-          
-          videoTrack.applyConstraints({
-            width: { ideal: scaledWidth },
-            height: { ideal: scaledHeight }
-          }).then(() => {
-            console.log('✅ Digital zoom applied successfully');
-            setZoomLevel(newZoomLevel);
-          }).catch(err => {
-            console.error('❌ Error applying digital zoom:', err);
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error controlling camera zoom:", error);
-    }
-  };
-  
-  // Toggle wide angle (switch between front/back camera on mobile)
-  const toggleWideAngle = async () => {
-    if (!localStream) return;
-    
-    try {
-      console.log('📱 Toggling camera mode');
-      console.log('📱 Current wide angle state:', isWideAngle);
-      
-      // Stop all tracks in the current stream
-      localStream.getTracks().forEach(track => track.stop());
-      
-      // Request a new stream with the opposite facing mode
-      const newFacingMode = isWideAngle ? "user" : "environment";
-      console.log('📱 Requesting new camera with facing mode:', newFacingMode);
-      
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: newFacingMode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        audio: true
-      });
-      
-      console.log('📱 New stream obtained:', newStream);
-      
-      // Log the new video track info
-      const newVideoTrack = newStream.getVideoTracks()[0];
-      console.log('📱 New video track:', newVideoTrack);
-      console.log('📱 New track settings:', newVideoTrack.getSettings());
-      
-      // Replace tracks in the peer connection
-      if (peerConnectionRef.current) {
-        const senders = peerConnectionRef.current.getSenders();
-        
-        for (const sender of senders) {
-          if (sender.track?.kind === 'video') {
-            const newVideoTrack = newStream.getVideoTracks()[0];
-            console.log('📱 Replacing track in peer connection');
-            await sender.replaceTrack(newVideoTrack);
-          }
-        }
-      }
-      
-      // Update local video
-      if (localVideoRef.current) {
-        console.log('📱 Updating local video ref');
-        localVideoRef.current.srcObject = newStream;
-      }
-      
-      setLocalStream(newStream);
-      setIsWideAngle(!isWideAngle);
-      console.log('📱 Camera switch completed');
-      
-      // Check capabilities of the new camera - pass through the useEffect hook
-      // by updating the stream state which will trigger the effect
-      setLocalStream(newStream);
-    } catch (error) {
-      console.error("Error toggling camera mode:", error);
-      toast({
-        title: "Fehler",
-        description: "Kamera konnte nicht umgeschaltet werden.",
         variant: "destructive",
       });
     }
@@ -1053,7 +499,7 @@ const ConsultationRoom = () => {
           <Button 
             variant="destructive" 
             size="sm" 
-            onClick={endCall}
+            onClick={() => navigate("/telemedizin")}
           >
             <PhoneOff className="h-4 w-4 mr-2" />
             Beenden
@@ -1084,7 +530,6 @@ const ConsultationRoom = () => {
                 ref={(el) => {
                   remoteVideoRef.current = el;
                   if (el && remoteStream) {
-                    console.log('🖥️ Setting remote video stream (inline ref)');
                     el.srcObject = remoteStream;
                   }
                 }}
@@ -1116,7 +561,6 @@ const ConsultationRoom = () => {
                   ref={(el) => {
                     localVideoRef.current = el;
                     if (el && localStream) {
-                      console.log('🖥️ Setting local video stream (inline ref)');
                       el.srcObject = localStream;
                     }
                   }}
@@ -1131,70 +575,6 @@ const ConsultationRoom = () => {
                   </div>
                 )}
               </div>
-              
-              {/* Camera control buttons - always show during development for testing */}
-              {(isConnected || true) && (cameraCapabilities.hasZoom || true) && (
-                <div className="absolute top-4 right-4 flex flex-col gap-2">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="secondary" 
-                          size="icon"
-                          className="rounded-full bg-black/50 hover:bg-black/70 text-white"
-                          onClick={() => handleZoom('in')}
-                        >
-                          <ZoomIn className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Zoom In</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="secondary" 
-                          size="icon"
-                          className="rounded-full bg-black/50 hover:bg-black/70 text-white"
-                          onClick={() => handleZoom('out')}
-                        >
-                          <ZoomOut className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Zoom Out</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              )}
-              
-              {/* Wide angle toggle button - always show during development for testing */}
-              {(isConnected || true) && (cameraCapabilities.hasWideAngle || true) && (
-                <div className="absolute top-4 left-4">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="secondary" 
-                          size="icon"
-                          className="rounded-full bg-black/50 hover:bg-black/70 text-white"
-                          onClick={toggleWideAngle}
-                        >
-                          <Maximize className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{isWideAngle ? "Frontkamera" : "Rückkamera"}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              )}
             </div>
             
             <div className="flex justify-center items-center space-x-4 mt-4">
@@ -1202,7 +582,14 @@ const ConsultationRoom = () => {
                 variant={isVideoEnabled ? "default" : "outline"} 
                 size="icon"
                 className="rounded-full h-12 w-12"
-                onClick={toggleVideo}
+                onClick={() => {
+                  if (localStream) {
+                    localStream.getVideoTracks().forEach(track => {
+                      track.enabled = !isVideoEnabled;
+                    });
+                    setIsVideoEnabled(!isVideoEnabled);
+                  }
+                }}
               >
                 {isVideoEnabled ? <Video /> : <VideoOff />}
               </Button>
@@ -1210,7 +597,14 @@ const ConsultationRoom = () => {
                 variant={isAudioEnabled ? "default" : "outline"} 
                 size="icon"
                 className="rounded-full h-12 w-12"
-                onClick={toggleAudio}
+                onClick={() => {
+                  if (localStream) {
+                    localStream.getAudioTracks().forEach(track => {
+                      track.enabled = !isAudioEnabled;
+                    });
+                    setIsAudioEnabled(!isAudioEnabled);
+                  }
+                }}
               >
                 {isAudioEnabled ? <Mic /> : <MicOff />}
               </Button>
@@ -1218,7 +612,21 @@ const ConsultationRoom = () => {
                 variant="destructive" 
                 size="icon"
                 className="rounded-full h-12 w-12"
-                onClick={endCall}
+                onClick={() => {
+                  if (consultation) {
+                    supabase
+                      .from('video_consultations')
+                      .update({ 
+                        status: "completed",
+                        actual_end: new Date().toISOString()
+                      })
+                      .eq("id", consultation.id);
+                  }
+                  if (localStream) {
+                    localStream.getTracks().forEach(track => track.stop());
+                  }
+                  navigate("/telemedizin");
+                }}
               >
                 <PhoneOff />
               </Button>
@@ -1244,7 +652,6 @@ const ConsultationRoom = () => {
                 </div>
               ) : (
                 <>
-                  {/* Files list */}
                   {files.length > 0 && (
                     <div className="mb-6">
                       <h4 className="font-medium text-sm mb-2">Dateien</h4>
@@ -1288,7 +695,6 @@ const ConsultationRoom = () => {
                     </div>
                   )}
                   
-                  {/* Messages */}
                   {messages.map((message) => {
                     const isSender = message.sender_id === user?.id;
                     return (
@@ -1314,7 +720,6 @@ const ConsultationRoom = () => {
                 </>
               )}
               
-              {/* Uploading files progress */}
               {uploadingFiles.length > 0 && (
                 <div className="space-y-2 mt-4">
                   {uploadingFiles.map((file) => (
