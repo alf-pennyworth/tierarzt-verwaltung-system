@@ -1,8 +1,9 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mic, MicOff } from "lucide-react";
+import { Mic, MicOff, AlertTriangle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { getAllDiagnoses, findDiagnoseByName } from "@/services/diagnoseService";
 import { searchMedications, getPackagingDescriptions, getMedicationTypeByName } from "@/services/medicationService";
+import { updateInventoryAfterUsage, createAutomaticReorder } from "@/services/inventoryIntegration";
 import {
   Select,
   SelectContent,
@@ -552,7 +554,9 @@ const Transcription = () => {
       const diagnose_fallback = diagnoseData ? null : formData.diagnose;
       const amountMatch = formData.medikamentMenge.match(/(\d+(?:[.,]\d+)?)/);
       const amount = amountMatch ? parseFloat(amountMatch[1].replace(",", ".")) : null;
-      const { error: behandlungError } = await supabase
+      
+      // Create treatment record
+      const { data: behandlung, error: behandlungError } = await supabase
         .from("behandlungen")
         .insert({
           diagnose_id,
@@ -564,8 +568,64 @@ const Transcription = () => {
           untersuchung_datum: new Date(formData.untersuchungsDatum).toISOString(),
           praxis_id: patientData?.praxis_id,
           patient_id: state?.patientId,
-        });
+        })
+        .select()
+        .single();
+
       if (behandlungError) throw behandlungError;
+
+      // Update inventory if medication was used
+      if (formData.medikamentId && amount && amount > 0) {
+        try {
+          const inventoryResult = await updateInventoryAfterUsage({
+            medicationId: formData.medikamentId,
+            amount: amount,
+            patientId: state?.patientId || '',
+            treatmentId: behandlung.id
+          });
+
+          if (inventoryResult.lowStockWarning) {
+            toast({
+              title: "Lagerbestand niedrig",
+              description: `${inventoryResult.medicationName} hat nur noch ${inventoryResult.newStock} Einheiten auf Lager.`,
+              variant: "destructive",
+            });
+            
+            // Create automatic reorder if stock is very low
+            await createAutomaticReorder(formData.medikamentId);
+          } else {
+            toast({
+              title: "Lagerbestand aktualisiert",
+              description: `${inventoryResult.medicationName}: ${inventoryResult.newStock} Einheiten verbleibend.`,
+            });
+          }
+        } catch (inventoryError) {
+          console.error('Inventory update failed:', inventoryError);
+          toast({
+            title: "Warnung",
+            description: "Behandlung gespeichert, aber Lagerbestand konnte nicht aktualisiert werden.",
+            variant: "destructive",
+          });
+        }
+      }
+
+      // Create appointment follow-up suggestion
+      if (formData.diagnose.toLowerCase().includes('nachkontrolle') || 
+          formData.soapNotes.toLowerCase().includes('kontroll')) {
+        toast({
+          title: "Nachkontrolle empfohlen",
+          description: "Möchten Sie einen Nachkontrolltermin planen?",
+          action: (
+            <Button 
+              size="sm" 
+              onClick={() => navigate(`/appointments?patientId=${state?.patientId}`)}
+            >
+              Termin planen
+            </Button>
+          ),
+        });
+      }
+
       toast({
         title: "Gespeichert",
         description: "Die Behandlung wurde erfolgreich gespeichert.",

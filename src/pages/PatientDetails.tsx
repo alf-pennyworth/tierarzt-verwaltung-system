@@ -1,12 +1,14 @@
-
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, Edit, Mic, Video, MessageSquare, Package } from "lucide-react";
 import { format } from "date-fns";
-import { Mic } from "lucide-react";
-import { SendOwnerInvite } from "@/components/owner";
+import { de } from "date-fns/locale";
+import PatientInsights from "@/components/patient/PatientInsights";
 
 interface PatientDetails {
   id: string;
@@ -101,7 +103,7 @@ const PatientDetails = () => {
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-4">
+    <div className="container mx-auto p-4 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">{patient.name}</h1>
         <Button
@@ -111,6 +113,45 @@ const PatientDetails = () => {
           Aufnahme starten
         </Button>
       </div>
+
+      {/* Add Patient Insights */}
+      <PatientInsights patientId={id!} />
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Schnellaktionen</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => navigate(`/transcription?patientId=${id}`)}>
+              <Mic className="mr-2 h-4 w-4" />
+              Neue Behandlung
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => navigate(`/appointments?patientId=${id}`)}
+            >
+              <Calendar className="mr-2 h-4 w-4" />
+              Termin planen
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => navigate(`/telemedizin/schedule?patientId=${id}`)}
+            >
+              <Video className="mr-2 h-4 w-4" />
+              Video-Konsultation
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => navigate('/inventory/medications')}
+            >
+              <Package className="mr-2 h-4 w-4" />
+              Lagerbestand
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
