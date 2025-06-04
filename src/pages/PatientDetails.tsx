@@ -9,6 +9,7 @@ import { Calendar, Edit, Mic, Video, MessageSquare, Package } from "lucide-react
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import PatientInsights from "@/components/patient/PatientInsights";
+import { SendOwnerInvite } from "@/components/owner";
 
 interface PatientDetails {
   id: string;

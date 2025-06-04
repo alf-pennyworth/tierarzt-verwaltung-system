@@ -98,7 +98,7 @@ const PatientInsights = ({ patientId }: PatientInsightsProps) => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              {Object.entries(insights.medicationsUsed).map(([med, count]) => (
+              {Object.entries(insights.medicationsUsed as Record<string, number>).map(([med, count]) => (
                 <Badge key={med} variant="secondary">
                   {med} ({count}x)
                 </Badge>
@@ -123,7 +123,7 @@ const PatientInsights = ({ patientId }: PatientInsightsProps) => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              {Object.entries(insights.commonDiagnoses).map(([diag, count]) => (
+              {Object.entries(insights.commonDiagnoses as Record<string, number>).map(([diag, count]) => (
                 <Badge key={diag} variant="outline">
                   {diag} ({count}x)
                 </Badge>
