@@ -1142,6 +1142,47 @@ export type Database = {
   }
 }
 
+// TAMG Antibiotic Prescriptions Table
+interface AntibioticPrescription {
+  id: string
+  practice_id: string
+  patient_id: string | null
+  treatment_id: string | null
+  
+  // Drug information
+  drug_name: string
+  drug_id: string | null
+  atc_code: string | null
+  
+  // Prescription details
+  amount: number
+  unit: string
+  dosage_form: string | null
+  strength: string | null
+  
+  // Animal information
+  animal_species: string
+  animal_count: number | null
+  animal_age_category: string | null
+  
+  // Treatment context
+  diagnosis_code: string | null
+  treatment_purpose: string | null
+  treatment_duration_days: number | null
+  
+  // Prescribing veterinarian
+  prescribing_vet_id: string | null
+  
+  // BVL reporting fields
+  prescribed_at: string
+  bvl_reporting_period: string | null
+  bvl_reported: boolean | null
+  
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
 type DefaultSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
