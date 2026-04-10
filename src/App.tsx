@@ -24,6 +24,8 @@ import Telemedizin from "./pages/Telemedizin";
 import OwnerApp from "./pages/OwnerApp";
 import Owners from "./pages/Owners";
 import OwnerDetail from "./pages/OwnerDetail";
+import TAMG from "./pages/TAMG";
+import { TAMGDashboard, AntibioticForm, BVLExport } from "./components/tamg";
 
 const queryClient = new QueryClient();
 
@@ -213,6 +215,36 @@ const App = () => (
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
                   <Telemedizin />
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tamg"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <TAMG />
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tamg/new"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <TAMG />
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tamg/export"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <TAMG />
                 </WithNavigation>
               </ProtectedRoute>
             }
