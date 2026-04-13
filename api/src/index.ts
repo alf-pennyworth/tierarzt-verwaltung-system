@@ -32,6 +32,7 @@ import apiKeysRouter from './routes/api-keys.js';
 import patientsRouter from './routes/patients.js';
 import treatmentsRouter from './routes/treatments.js';
 import tamgRouter from './routes/tamg.js';
+import aiRouter from './routes/ai.js';
 import { addPortalRoute } from './portal.js';
 
 const app = new Hono();
@@ -115,6 +116,9 @@ app.get('/health', (c) => {
       'POST /tamg/prescriptions',
       'GET  /tamg/export',
       'GET  /tamg/antibiotics',
+      'POST /transcribe',
+      'POST /extract',
+      'POST /soap',
     ],
   });
 });
@@ -148,6 +152,9 @@ app.use('/api-keys/*', authMiddleware, rateLimitMiddleware);
 app.use('/patients/*', authMiddleware, rateLimitMiddleware);
 app.use('/treatments/*', authMiddleware, rateLimitMiddleware);
 app.use('/tamg/*', authMiddleware, rateLimitMiddleware);
+app.use('/transcribe/*', authMiddleware, rateLimitMiddleware);
+app.use('/extract/*', authMiddleware, rateLimitMiddleware);
+app.use('/soap/*', authMiddleware, rateLimitMiddleware);
 
 // ============================================
 // Routes
@@ -156,6 +163,7 @@ app.route('/api-keys', apiKeysRouter);
 app.route('/patients', patientsRouter);
 app.route('/treatments', treatmentsRouter);
 app.route('/tamg', tamgRouter);
+app.route('/', aiRouter);
 
 // Portal page
 addPortalRoute(app);
