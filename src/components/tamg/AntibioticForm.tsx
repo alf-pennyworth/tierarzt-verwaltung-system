@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   TAMG_ANIMAL_CATEGORIES, 
   ANTIBIOTIC_CLASSES, 
@@ -31,15 +32,17 @@ interface Patient {
   species: string;
 }
 
-interface Medication {
+interface AntibioticDrug {
   id: string;
-  name: string;
-  active_ingredient: string;
+  drug_name: string;
+  active_substance: string;
+  antibiotic_class: AntibioticClass;
+  atc_code: string | null;
+  approved_species: TamgAnimalCategory[] | null;
 }
 
 interface FormData {
   patient_id: string;
-  medication_id: string;
   drug_name: string;
   active_substance: string;
   antibiotic_class: AntibioticClass;
@@ -60,25 +63,28 @@ interface FormData {
 export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: AntibioticFormProps) {
   const { toast } = useToast();
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [medications, setMedications] = useState<Medication[]>([]);
+  const [antibiotics, setAntibiotics] = useState<AntibioticDrug[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedDrug, setSelectedDrug] = useState<AntibioticDrug | null>(null);
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormData>({
-    resolver: (values, context, options) => {
-      const errors: any = {};
-      if (!values.patient_id) errors.patient_id = { type: 'required', message: 'Patient ist erforderlich' };
-      if (!values.medication_id) errors.medication_id = { type: 'required', message: 'Antibiotikum ist erforderlich' };
-      if (!values.dosage) errors.dosage = { type: 'required', message: 'Dosierung ist erforderlich' };
-      if (!values.duration_days || values.duration_days < 1) errors.duration_days = { type: 'min', message: 'Mindestens 1 Tag' };
-      return { values, errors };
-    },
     defaultValues: {
       patient_id: "",
-      medication_id: "",
-      dosage: "",
-      duration_days: 7,
+      drug_name: "",
+      active_substance: "",
+      antibiotic_class: "other",
+      amount_prescribed: 1,
+      unit: "ml",
+      concentration: "",
+      animal_species: "dogs",
+      animal_count: 1,
+      animal_weight_kg: 0,
+      treatment_duration_days: 7,
+      route_of_administration: "oral",
+      diagnosis: "",
       indication: "",
+      prescription_type: "therapeutic",
       notes: "",
     },
   });
@@ -87,16 +93,42 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
     loadData();
   }, [practiceId]);
 
+  // Auto-fill from patient selection
+  useEffect(() => {
+    const patientId = watch("patient_id");
+    if (patientId) {
+      const patient = patients.find(p => p.id === patientId);
+      if (patient) {
+        // Map patient species to TAMG category
+        const speciesMap: Record<string, TamgAnimalCategory> = {
+          'Hund': 'dogs',
+          'Katze': 'cats',
+          'Pferd': 'horses',
+          'Rind': 'cattle',
+          'Schwein': 'pigs',
+          'Schaf': 'sheep',
+          'Ziege': 'goats',
+          'Huhn': 'chickens',
+          'Ente': 'ducks',
+          'Gans': 'geese',
+          'Kaninchen': 'rabbits',
+        };
+        const tamgSpecies = speciesMap[patient.species] || 'other';
+        setValue("animal_species", tamgSpecies);
+      }
+    }
+  }, [watch("patient_id"), patients]);
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [patientsRes, medsRes] = await Promise.all([
-        supabase.from("patient").select("id, name, species").eq("praxis_id", practiceId),
-        supabase.from("medikamente").select("id, name, active_ingredient").contains("category", ["antibiotic"]),
+      const [patientsRes, antibioticsRes] = await Promise.all([
+        supabase.from("patient").select("id, name, species").eq("praxis_id", practiceId).is('deleted_at', null),
+        supabase.from("antibiotic_drugs").select("*").eq("is_active", true).order("drug_name"),
       ]);
 
       if (patientsRes.data) setPatients(patientsRes.data);
-      if (medsRes.data) setMedications(medsRes.data as Medication[]);
+      if (antibioticsRes.data) setAntibiotics(antibioticsRes.data);
     } catch (error) {
       console.error("Error loading data:", error);
       toast({
@@ -109,25 +141,61 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
     }
   };
 
+  const handleDrugSelect = (drugId: string) => {
+    const drug = antibiotics.find(d => d.id === drugId);
+    if (drug) {
+      setSelectedDrug(drug);
+      setValue("drug_name", drug.drug_name);
+      setValue("active_substance", drug.active_substance);
+      setValue("antibiotic_class", drug.antibiotic_class);
+    }
+  };
+
   const onSubmit = async (data: FormData) => {
     setSubmitting(true);
     try {
-      // Get selected medication info
-      const selectedMed = medications.find(m => m.id === data.medication_id);
+      const patient = patients.find(p => p.id === data.patient_id);
       
+      // Calculate total weight
+      const totalWeight = data.animal_weight_kg > 0 
+        ? data.animal_weight_kg * data.animal_count 
+        : null;
+
       const { error } = await supabase.from("antibiotic_prescriptions").insert({
-        practice_id: practiceId,
-        patient_id: data.patient_id,
-        drug_id: data.medication_id,
-        drug_name: selectedMed?.name || 'Unknown',
-        prescribing_vet_id: vetId,
-        amount: data.dosage,
-        unit: 'tablet',
-        treatment_duration_days: data.duration_days,
-        animal_species: patients.find(p => p.id === data.patient_id)?.species || 'Unbekannt',
-        treatment_purpose: 'therapy',
-        prescribed_at: new Date().toISOString(),
-        bvl_reported: false,
+        praxis_id: practiceId,
+        patient_id: data.patient_id || null,
+        prescribed_by: vetId,
+        
+        // Drug information
+        drug_name: data.drug_name,
+        active_substance: data.active_substance,
+        antibiotic_class: data.antibiotic_class,
+        
+        // Quantity and dosing
+        amount_prescribed: data.amount_prescribed,
+        unit: data.unit,
+        concentration: data.concentration || null,
+        
+        // Animal information
+        animal_species: data.animal_species,
+        animal_count: data.animal_count,
+        animal_weight_kg: data.animal_weight_kg || null,
+        total_animal_weight_kg: totalWeight,
+        
+        // Treatment details
+        diagnosis: data.diagnosis || null,
+        indication: data.indication || null,
+        route_of_administration: data.route_of_administration,
+        treatment_duration_days: data.treatment_duration_days,
+        prescription_type: data.prescription_type,
+        
+        // Prescription details
+        prescription_date: new Date().toISOString().split('T')[0],
+        reported_to_bvl: false,
+        
+        // Metadata
+        notes: data.notes || null,
+        created_by: vetId,
       });
 
       if (error) throw error;
@@ -156,94 +224,277 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
       {/* Screen reader error summary */}
       {Object.keys(errors).length > 0 && (
         <div className="sr-only" role="alert" aria-live="assertive">
           Bitte füllen Sie alle Pflichtfelder aus.
         </div>
       )}
-      
-      <div className="space-y-2">
-        <Label htmlFor="patient_id">Patient *</Label>
-        <Select
-          onValueChange={(value) => setValue("patient_id", value)}
-          value={watch("patient_id")}
-        >
-          <SelectTrigger id="patient_id" aria-invalid={errors.patient_id ? "true" : "false"}>
-            <SelectValue placeholder="Patient auswählen" />
-          </SelectTrigger>
-          <SelectContent>
-            {patients.map((patient) => (
-              <SelectItem key={patient.id} value={patient.id}>
-                {patient.name} ({patient.species})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {errors.patient_id && <p className="text-sm text-destructive">Patient ist erforderlich</p>}
-      </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="medication_id">Antibiotikum *</Label>
-        <Select
-          onValueChange={(value) => setValue("medication_id", value)}
-          value={watch("medication_id")}
-        >
-          <SelectTrigger id="medication_id" aria-invalid={errors.medication_id ? "true" : "false"}>
-            <SelectValue placeholder="Antibiotikum auswählen" />
-          </SelectTrigger>
-          <SelectContent>
-            {medications.map((med) => (
-              <SelectItem key={med.id} value={med.id}>
-                {med.name} {med.active_ingredient && `(${med.active_ingredient})`}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {errors.medication_id && <p className="text-sm text-destructive">Antibiotikum ist erforderlich</p>}
-      </div>
+      {/* Patient Selection */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Patient</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="patient_id">Patient auswählen</Label>
+              <Select
+                onValueChange={(value) => setValue("patient_id", value)}
+                value={watch("patient_id")}
+              >
+                <SelectTrigger id="patient_id">
+                  <SelectValue placeholder="Patient auswählen (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {patients.map((patient) => (
+                    <SelectItem key={patient.id} value={patient.id}>
+                      {patient.name} ({patient.species})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="animal_species">Tierart *</Label>
+              <Select
+                onValueChange={(value) => setValue("animal_species", value as TamgAnimalCategory)}
+                value={watch("animal_species")}
+              >
+                <SelectTrigger id="animal_species" aria-required="true">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TAMG_ANIMAL_CATEGORIES).map(([key, value]) => (
+                    <SelectItem key={key} value={key}>
+                      {value.de} ({value.en})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="animal_count">Anzahl behandelte Tiere *</Label>
+              <Input
+                id="animal_count"
+                type="number"
+                min={1}
+                {...register("animal_count", { valueAsNumber: true, min: 1 })}
+                aria-required="true"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="animal_weight_kg">Durchschnittsgewicht (kg)</Label>
+              <Input
+                id="animal_weight_kg"
+                type="number"
+                step="0.1"
+                min="0"
+                {...register("animal_weight_kg", { valueAsNumber: true })}
+                placeholder="Optional"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="dosage">Dosierung *</Label>
-          <Input
-            {...register("dosage")}
-            placeholder="z.B. 10 mg/kg"
-            aria-required="true"
-          />
-          {errors.dosage && <p className="text-sm text-destructive">Dosierung ist erforderlich</p>}
-        </div>
+      {/* Drug Information */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Antibiotikum</CardTitle>
+          <CardDescription>Wählen Sie ein registriertes Antibiotikum oder geben Sie die Daten manuell ein</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="drug_select">Antibiotikum aus Datenbank</Label>
+            <Select onValueChange={handleDrugSelect}>
+              <SelectTrigger id="drug_select">
+                <SelectValue placeholder="Antibiotikum auswählen (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                {antibiotics.map((drug) => (
+                  <SelectItem key={drug.id} value={drug.id}>
+                    {drug.drug_name} - {drug.active_substance}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="duration_days">Behandlungsdauer (Tage) *</Label>
-          <Input
-            type="number"
-            {...register("duration_days", { valueAsNumber: true, min: 1, max: 30 })}
-            min={1}
-            max={30}
-            aria-required="true"
-          />
-          {errors.duration_days && <p className="text-sm text-destructive">{errors.duration_days.message}</p>}
-        </div>
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="drug_name">Handelsname *</Label>
+              <Input
+                id="drug_name"
+                {...register("drug_name", { required: true })}
+                placeholder="z.B. Baytril"
+                aria-required="true"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="active_substance">Wirkstoff *</Label>
+              <Input
+                id="active_substance"
+                {...register("active_substance", { required: true })}
+                placeholder="z.B. Enrofloxacin"
+                aria-required="true"
+              />
+            </div>
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="indication">Indikation</Label>
-        <Input
-          {...register("indication")}
-          placeholder="z.B. Atemwegsinfektion"
-        />
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="antibiotic_class">Antibiotika-Klasse *</Label>
+              <Select
+                onValueChange={(value) => setValue("antibiotic_class", value as AntibioticClass)}
+                value={watch("antibiotic_class")}
+              >
+                <SelectTrigger id="antibiotic_class" aria-required="true">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ANTIBIOTIC_CLASSES).map(([key, value]) => (
+                    <SelectItem key={key} value={key}>
+                      {value.de}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="amount_prescribed">Menge *</Label>
+              <Input
+                id="amount_prescribed"
+                type="number"
+                step="0.01"
+                min="0.01"
+                {...register("amount_prescribed", { valueAsNumber: true, min: 0.01 })}
+                aria-required="true"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="unit">Einheit *</Label>
+              <Select
+                onValueChange={(value) => setValue("unit", value)}
+                value={watch("unit")}
+              >
+                <SelectTrigger id="unit" aria-required="true">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ml">ml</SelectItem>
+                  <SelectItem value="mg">mg</SelectItem>
+                  <SelectItem value="g">g</SelectItem>
+                  <SelectItem value="Tablette">Tablette</SelectItem>
+                  <SelectItem value="Stück">Stück</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="notes">Anmerkungen</Label>
-        <Textarea
-          {...register("notes")}
-          placeholder="Zusätzliche Anmerkungen..."
-          rows={3}
-        />
-      </div>
+          <div className="space-y-2">
+            <Label htmlFor="concentration">Konzentration (optional)</Label>
+            <Input
+              id="concentration"
+              {...register("concentration")}
+              placeholder="z.B. 100 mg/ml"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Treatment Details */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Behandlung</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="route_of_administration">Applikationsart</Label>
+              <Select
+                onValueChange={(value) => setValue("route_of_administration", value as AdministrationRoute)}
+                value={watch("route_of_administration")}
+              >
+                <SelectTrigger id="route_of_administration">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ADMINISTRATION_ROUTES).map(([key, value]) => (
+                    <SelectItem key={key} value={key}>
+                      {value.de}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="treatment_duration_days">Behandlungsdauer (Tage) *</Label>
+              <Input
+                id="treatment_duration_days"
+                type="number"
+                min={1}
+                max={365}
+                {...register("treatment_duration_days", { valueAsNumber: true, min: 1 })}
+                aria-required="true"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="prescription_type">Verordnungstyp</Label>
+              <Select
+                onValueChange={(value) => setValue("prescription_type", value as PrescriptionType)}
+                value={watch("prescription_type")}
+              >
+                <SelectTrigger id="prescription_type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(PRESCRIPTION_TYPES).map(([key, value]) => (
+                    <SelectItem key={key} value={key}>
+                      {value.de}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="diagnosis">Diagnose</Label>
+            <Input
+              id="diagnosis"
+              {...register("diagnosis")}
+              placeholder="z.B. Atemwegsinfektion, Mastitis"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="indication">Indikation</Label>
+            <Input
+              id="indication"
+              {...register("indication")}
+              placeholder="z.B. Behandlung einer bakteriellen Infektion"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notes">Anmerkungen</Label>
+            <Textarea
+              id="notes"
+              {...register("notes")}
+              placeholder="Zusätzliche Anmerkungen..."
+              rows={3}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="flex justify-end gap-2">
         {onCancel && (
@@ -252,7 +503,7 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
           </Button>
         )}
         <Button type="submit" disabled={submitting}>
-          {submitting ? "Speichern..." : "Speichern"}
+          {submitting ? "Speichern..." : "Verschreibung speichern"}
         </Button>
       </div>
     </form>
