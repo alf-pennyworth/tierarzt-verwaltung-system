@@ -6,7 +6,7 @@
 
 import { Context, Next } from 'hono';
 import { createMiddleware } from 'hono/factory';
-import { sha256 } from 'bun';
+import { createClient } from '@supabase/supabase-js';
 
 interface ApiKeyData {
   id: string;
@@ -22,8 +22,13 @@ declare module 'hono' {
     apiKey: ApiKeyData;
     praxisId: string;
     requestId: string;
+    supabase: ReturnType<typeof createClient>;
   }
 }
+
+// Supabase client for auth
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_KEY;
 
 /**
  * Extract API key from Authorization header
@@ -68,38 +73,34 @@ function getKeyPrefix(key: string): string {
  * Validate API key against database
  */
 async function validateApiKey(key: string): Promise<ApiKeyData | null> {
-  // TODO: Replace with actual database query
-  // For now, return mock data for testing
-  
   const keyHash = await hashApiKey(key);
   const keyPrefix = getKeyPrefix(key);
   
-  // Mock: Accept test key
-  if (key === 'vet_test_1234567890abcdefghijklmno') {
-    return {
-      id: '00000000-0000-0000-0000-000000000001',
-      praxisId: '00000000-0000-0000-0000-000000000001',
-      name: 'Test API Key',
-      environment: 'test',
-      scopes: ['read', 'write'],
-      rateLimit: 100,
-    };
+  // Create Supabase client with service role for auth
+  const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_KEY!);
+  
+  // Query api_keys table
+  const { data, error } = await supabase
+    .from('api_keys')
+    .select('id, praxis_id, name, environment, scopes, rate_limit')
+    .eq('key_prefix', keyPrefix)
+    .eq('key_hash', keyHash)
+    .is('revoked_at', null)
+    .limit(1)
+    .single();
+  
+  if (error || !data) {
+    return null;
   }
   
-  // TODO: Query database
-  // const result = await db.query.apiKeys.findFirst({
-  //   where: and(
-  //     eq(apiKeys.keyPrefix, keyPrefix),
-  //     eq(apiKeys.keyHash, keyHash),
-  //     isNull(apiKeys.revokedAt),
-  //     or(
-  //       isNull(apiKeys.expiresAt),
-  //       gt(apiKeys.expiresAt, new Date())
-  //     )
-  //   )
-  // });
-  
-  return null;
+  return {
+    id: data.id,
+    praxisId: data.praxis_id,
+    name: data.name,
+    environment: data.environment,
+    scopes: data.scopes || ['read'],
+    rateLimit: data.rate_limit || 100,
+  };
 }
 
 /**
@@ -111,8 +112,12 @@ export function authMiddleware() {
     const requestId = crypto.randomUUID();
     c.set('requestId', requestId);
     
+    // Create Supabase client with service role for this request
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_KEY!);
+    c.set('supabase', supabase);
+    
     // Skip auth for health endpoints
-    if (c.req.path === '/health' || c.req.path === '/health/ready') {
+    if (c.req.path === '/health' || c.req.path === '/health/ready' || c.req.path === '/openapi.json') {
       return next();
     }
     
@@ -150,7 +155,12 @@ export function authMiddleware() {
     c.set('praxisId', keyData.praxisId);
     
     // Update last used timestamp (async, don't wait)
-    // TODO: db.update(apiKeys).set({ lastUsedAt: new Date() }).where(eq(apiKeys.id, keyData.id));
+    supabase
+      .from('api_keys')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('id', keyData.id)
+      .then(() => {})
+      .catch(() => {});
     
     return next();
   });
