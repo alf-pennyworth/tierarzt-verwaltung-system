@@ -5,11 +5,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Edit, Mic, Video, MessageSquare, Package } from "lucide-react";
+import { Calendar, Edit, Mic, Video, MessageSquare, Package, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import PatientInsights from "@/components/patient/PatientInsights";
 import { SendOwnerInvite } from "@/components/owner";
+import { PatientDialog } from "@/components/patient";
+import { useToast } from "@/hooks/use-toast";
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface PatientDetails {
   id: string;
@@ -18,11 +21,11 @@ interface PatientDetails {
   rasse: string | null;
   geburtsdatum: string | null;
   besitzer: {
-    id: string; // Added id to be able to pass to SendOwnerInvite
+    id: string;
     name: string;
     telefonnummer: string | null;
     email: string | null;
-    auth_id: string | null; // Added to check if owner has account
+    auth_id: string | null;
   };
   behandlungen: {
     id: string;
@@ -42,7 +45,9 @@ interface PatientDetails {
 const PatientDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [patient, setPatient] = useState<PatientDetails | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   const fetchPatientDetails = async () => {
     if (!id) return;
@@ -99,14 +104,66 @@ const PatientDetails = () => {
     fetchPatientDetails();
   }, [id]);
 
+  const handleDelete = async () => {
+    if (!id) return;
+    try {
+      const { error } = await supabase
+        .from("patient")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Patient gelöscht",
+        description: "Der Patient wurde erfolgreich archiviert.",
+      });
+      navigate("/patients");
+    } catch (error) {
+      console.error("Error deleting patient:", error);
+      toast({
+        variant: "destructive",
+        title: "Fehler",
+        description: "Patient konnte nicht gelöscht werden.",
+      });
+    }
+  };
+
   if (!patient) {
-    return <div>Loading...</div>;
+    return <div className="p-8 text-center">Laden...</div>;
   }
 
   return (
     <div className="container mx-auto p-4 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">{patient.name}</h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold">{patient.name}</h1>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setIsEditing(true)}>
+              <Edit className="mr-2 h-3 w-3" />
+              Bearbeiten
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="sm" variant="destructive">
+                  <Trash2 className="mr-2 h-3 w-3" />
+                  Löschen
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Patient löschen?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Sind Sie sicher, dass Sie {patient.name} löschen möchten? Diese Aktion wird als Archivierung (deleted_at) durchgeführt.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogAction onClick={handleDelete}>Ja, löschen</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
         <Button
           onClick={() => navigate("/transcription", { state: { patientId: patient.id } })}
         >
@@ -255,6 +312,16 @@ const PatientDetails = () => {
           </div>
         </CardContent>
       </Card>
+
+      {isEditing && (
+        <PatientDialog 
+          patientId={id!} 
+          onSuccess={() => {
+            setIsEditing(false);
+            fetchPatientDetails();
+          }} 
+        />
+      )}
     </div>
   );
 };

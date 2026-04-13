@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
-import { AddPatientDialog } from "@/components/patient";
+import { PatientDialog } from "@/components/patient";
 
 interface Patient {
   id: string;

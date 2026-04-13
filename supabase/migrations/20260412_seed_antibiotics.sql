@@ -38,4 +38,53 @@ VALUES
 -- Fluoroquinolones (QJ01G)
 (gen_random_uuid(), 'Enrofloxacin', 'Enrofloxacin', 'QJ01G01', true, 'Injektionslösung', true),
 (gen_random_uuid(), 'Marbofloxacin', 'Marbofloxacin', 'QJ01G01', true, 'Injektionslösung', true),
-(gen_random_uuid(), 'Florfenicol', 'Florfenicol', 'QJ01G01', true, 'Injektionslösung', true);
+(gen_random_uuid(), 'Florfenicol', 'Florfenicol', 'QJ01G01', true, 'Injektionslösung', true),
+
+-- Sulfonamides (QJ01E/QJ01Q)
+(gen_random_uuid(), 'Sulfadiazin/Trimethoprim', 'Sulfadiazin/Trimethoprim', 'QJ01E01', true, 'Injektionslösung', true),
+(gen_random_uuid(), 'Sulfadimethoxin', 'Sulfadimethoxin', 'QJ01E02', true, 'Tabletten', true),
+(gen_random_uuid(), 'Sulfadoxin/Trimethoprim', 'Sulfadoxin/Trimethoprim', 'QJ01E01', true, 'Injektionslösung', true),
+
+-- Polypeptides (QJ01X)
+(gen_random_uuid(), 'Colistin', 'Colistin', 'QJ01X01', true, 'Oralpulver', true),
+(gen_random_uuid(), 'Bacitracin', 'Bacitracin', 'QJ01X02', true, 'Salbe', true),
+
+-- Nitroimidazoles (QJ01XW)
+(gen_random_uuid(), 'Metronidazol', 'Metronidazol', 'QJ01XW01', true, 'Tabletten', true),
+(gen_random_uuid(), 'Ronidazol', 'Ronidazol', 'QJ01XW02', true, 'Pulver', true),
+
+-- Nitrofuranes
+(gen_random_uuid(), 'Nitrofurantoin', 'Nitrofurantoin', 'QJ01X02', true, 'Tabletten', true),
+
+-- Others (QJ01X)
+(gen_random_uuid(), 'Rifampicin', 'Rifampicin', 'QJ04A', true, 'Kapseln', true),
+(gen_random_uuid(), 'Spiramycin', 'Spiramycin', 'QJ01E02', true, 'Tabletten', true),
+(gen_random_uuid(), 'Josamycin', 'Josamycin', 'QJ01F01', true, 'Tabletten', true),
+
+-- Combination antibiotics
+(gen_random_uuid(), 'Amoxicillin/Sulbactam', 'Amoxicillin/Sulbactam', 'QJ01A03', true, 'Injektionslösung', true),
+(gen_random_uuid(), 'Penicillin/Streptomycin', 'Penicillin/Streptomycin', 'QJ01A01', true, 'Injektionslösung', true),
+(gen_random_uuid(), 'Tylosin/Sulfadimethoxin', 'Tylosin/Sulfadimethoxin', 'QJ01E01', true, 'Pulver', true),
+
+-- Additional common German veterinary antibiotics
+(gen_random_uuid(), 'Cefalexin', 'Cefalexin', 'QJ01B02', true, 'Tabletten', true),
+(gen_random_uuid(), 'Cefapirin', 'Cefapirin', 'QJ01B01', true, 'Injektionslösung', true),
+(gen_random_uuid(), 'Danofloxacin', 'Danofloxacin', 'QJ01G01', true, 'Injektionslösung', true),
+(gen_random_uuid(), 'Difloxacin', 'Difloxacin', 'QJ01G01', true, 'Tabletten', true),
+(gen_random_uuid(), 'Orbifloxacin', 'Orbifloxacin', 'QJ01G01', true, 'Tabletten', true),
+(gen_random_uuid(), 'Spectinomycin', 'Spectinomycin', 'QJ01X03', true, 'Injektionslösung', true),
+(gen_random_uuid(), 'Tiamulin', 'Tiamulin', 'QJ01X04', true, 'Pulver', true),
+(gen_random_uuid(), 'Valnemulin', 'Valnemulin', 'QJ01X04', true, 'Pulver', true),
+(gen_random_uuid(), 'Thiamphenicol', 'Thiamphenicol', 'QJ01G01', true, 'Injektionslösung', true),
+(gen_random_uuid(), 'Clindamycin', 'Clindamycin', 'QJ01F01', true, 'Tabletten', true),
+(gen_random_uuid(), 'Erythromycin', 'Erythromycin', 'QJ01E01', true, 'Tabletten', true),
+(gen_random_uuid(), 'Azithromycin', 'Azithromycin', 'QJ01E01', true, 'Tabletten', true),
+(gen_random_uuid(), 'Claritromycin', 'Clarithromycin', 'QJ01E01', true, 'Tabletten', true),
+
+-- Topical antibiotics
+(gen_random_uuid(), 'Bacitracin/Zink', 'Bacitracin/Zink', 'QJ01X02', true, 'Salbe', true),
+(gen_random_uuid(), 'Fusidinsäure', 'Fusidinsäure', 'QJ01X05', true, 'Salbe', true),
+(gen_random_uuid(), 'Mupirocin', 'Mupirocin', 'QJ01X06', true, 'Salbe', true),
+(gen_random_uuid(), 'Polymyxin B', 'Polymyxin B', 'QJ01X01', true, 'Salbe', true),
+(gen_random_uuid(), 'Tobramycin', 'Tobramycin', 'QJ01D01', true, 'Augentropfen', true),
+(gen_random_uuid(), 'Chloramphenicol', 'Chloramphenicol', 'QJ01C01', true, 'Augentropfen', true);
