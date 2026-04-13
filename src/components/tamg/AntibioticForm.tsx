@@ -7,6 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import { 
+  TAMG_ANIMAL_CATEGORIES, 
+  ANTIBIOTIC_CLASSES, 
+  ADMINISTRATION_ROUTES,
+  PRESCRIPTION_TYPES,
+  type TamgAnimalCategory,
+  type AntibioticClass,
+  type AdministrationRoute,
+  type PrescriptionType
+} from "@/types/tamg";
 
 interface AntibioticFormProps {
   practiceId: string;
@@ -30,9 +40,20 @@ interface Medication {
 interface FormData {
   patient_id: string;
   medication_id: string;
-  dosage: string;
-  duration_days: number;
+  drug_name: string;
+  active_substance: string;
+  antibiotic_class: AntibioticClass;
+  amount_prescribed: number;
+  unit: string;
+  concentration: string;
+  animal_species: TamgAnimalCategory;
+  animal_count: number;
+  animal_weight_kg: number;
+  treatment_duration_days: number;
+  route_of_administration: AdministrationRoute;
+  diagnosis: string;
   indication: string;
+  prescription_type: PrescriptionType;
   notes: string;
 }
 
