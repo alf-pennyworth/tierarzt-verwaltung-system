@@ -42,7 +42,7 @@ app.get('/prescriptions', async (c) => {
     .order('prescribed_at', { ascending: false });
   
   if (error) {
-    return c.json({ error: 'Failed to fetch prescriptions' }, 500);
+    return c.json({ error: 'Failed to fetch prescriptions', details: error.message }, 500);
   }
   
   return c.json({ data });
@@ -73,7 +73,7 @@ app.post('/prescriptions', zValidator('json', PrescriptionCreateSchema), async (
     .single();
   
   if (error) {
-    return c.json({ error: 'Failed to create prescription' }, 500);
+    return c.json({ error: 'Failed to create prescription', details: error.message }, 500);
   }
   
   return c.json({ data }, 201);
@@ -101,7 +101,7 @@ app.get('/export', zValidator('query', ExportQuerySchema), async (c) => {
     .order('prescribed_at');
   
   if (error) {
-    return c.json({ error: 'Failed to fetch prescriptions' }, 500);
+    return c.json({ error: 'Failed to fetch prescriptions', details: error.message }, 500);
   }
   
   if (format === 'json') {
