@@ -8,219 +8,185 @@
 
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-
-import { 
-  PatientCreateSchema, 
-  PatientQuerySchema,
-  PatientResponseSchema,
-  UUIDSchema 
-} from '../schemas/index.js';
-import { ApiError } from '../middleware/error-handler.js';
-import { requireScope } from '../middleware/auth.js';
+import { z } from 'zod';
 
 const app = new Hono();
+
+const PatientCreateSchema = z.object({
+  name: z.string().min(1).max(200),
+  species: z.string().min(1).max(100),
+  breed: z.string().max(100).optional(),
+  gender: z.enum(['male', 'female', 'unknown']).optional(),
+  birth_date: z.string().date().optional().nullable(),
+  owner_name: z.string().max(200).optional(),
+  owner_phone: z.string().max(50).optional(),
+  owner_email: z.string().email().optional().nullable(),
+  owner_bnr15: z.string().max(15).optional(),
+  notes: z.string().optional(),
+});
+
+const PatientQuerySchema = z.object({
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(20),
+  species: z.string().optional(),
+  search: z.string().optional(),
+});
 
 // ============================================
 // GET /patients - List patients
 // ============================================
 
-app.get('/', 
-  requireScope('read'),
-  zValidator('query', PatientQuerySchema),
-  async (c) => {
-    const praxisId = c.get('praxisId');
-    const { page, limit, species, search } = c.req.valid('query');
-    
-    // TODO: Replace with actual database query
-    // const { data, count } = await db.query.patients.findMany({
-    //   where: and(
-    //     eq(patients.praxisId, praxisId),
-    //     species ? eq(patients.species, species) : undefined,
-    //     search ? ilike(patients.name, `%${search}%`) : undefined,
-    //   ),
-    //   limit,
-    //   offset: (page - 1) * limit,
-    //   orderBy: desc(patients.createdAt),
-    // });
-    
-    // Mock response for development
-    const mockPatients = [
-      {
-        id: '00000000-0000-0000-0000-000000000001',
-        praxis_id: praxisId,
-        name: 'Bello',
-        species: 'Hund',
-        breed: 'Labrador',
-        gender: 'male',
-        birth_date: '2020-03-15',
-        owner_name: 'Max Mustermann',
-        owner_phone: '+49 30 123456',
-        owner_email: 'max@example.de',
-        notes: 'Regular patient',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ];
-    
-    const total = 1;
-    const totalPages = Math.ceil(total / limit);
-    
-    return c.json({
-      data: mockPatients,
-      pagination: {
-        page,
-        limit,
-        total,
-        total_pages: totalPages,
-      },
-    });
+app.get('/', zValidator('query', PatientQuerySchema), async (c) => {
+  const praxisId = c.get('praxisId');
+  const { page, limit, species, search } = c.req.valid('query');
+  const supabase = c.get('supabase');
+  
+  let query = supabase
+    .from('patient')
+    .select('*', { count: 'exact' })
+    .eq('praxis_id', praxisId)
+    .order('created_at', { ascending: false })
+    .range((page - 1) * limit, page * limit - 1);
+  
+  if (species) {
+    query = query.eq('species', species);
   }
-);
+  if (search) {
+    query = query.ilike('name', `%${search}%`);
+  }
+  
+  const { data, count, error } = await query;
+  
+  if (error) {
+    return c.json({ error: 'Failed to fetch patients', details: error.message }, 500);
+  }
+  
+  return c.json({
+    data,
+    pagination: {
+      page,
+      limit,
+      total: count || 0,
+      total_pages: Math.ceil((count || 0) / limit),
+    },
+  });
+});
 
 // ============================================
 // POST /patients - Create patient
 // ============================================
 
-app.post('/',
-  requireScope('write'),
-  zValidator('json', PatientCreateSchema),
-  async (c) => {
-    const praxisId = c.get('praxisId');
-    const data = c.req.valid('json');
-    
-    // TODO: Insert into database
-    // const patient = await db.insert(patients).values({
-    //   ...data,
-    //   praxisId,
-    // }).returning();
-    
-    // Mock response
-    const patient = {
-      id: crypto.randomUUID(),
+app.post('/', zValidator('json', PatientCreateSchema), async (c) => {
+  const praxisId = c.get('praxisId');
+  const input = c.req.valid('json');
+  const supabase = c.get('supabase');
+  
+  const { data, error } = await supabase
+    .from('patient')
+    .insert({
       praxis_id: praxisId,
-      ...data,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    
-    return c.json(patient, 201);
+      ...input,
+    })
+    .select()
+    .single();
+  
+  if (error) {
+    return c.json({ error: 'Failed to create patient', details: error.message }, 500);
   }
-);
+  
+  return c.json({ data }, 201);
+});
 
 // ============================================
 // GET /patients/:id - Get patient by ID
 // ============================================
 
-app.get('/:id',
-  requireScope('read'),
-  async (c) => {
-    const praxisId = c.get('praxisId');
-    const id = c.req.param('id');
-    
-    // Validate UUID
-    const parseResult = UUIDSchema.safeParse(id);
-    if (!parseResult.success) {
-      throw ApiError.badRequest('Invalid patient ID', [
-        { field: 'id', message: 'ID must be a valid UUID' }
-      ]);
-    }
-    
-    // TODO: Query database
-    // const patient = await db.query.patients.findFirst({
-    //   where: and(
-    //     eq(patients.id, id),
-    //     eq(patients.praxisId, praxisId),
-    //   ),
-    // });
-    
-    // Mock response
-    const patient = {
-      id,
-      praxis_id: praxisId,
-      name: 'Bello',
-      species: 'Hund',
-      breed: 'Labrador',
-      gender: 'male',
-      birth_date: '2020-03-15',
-      owner_name: 'Max Mustermann',
-      owner_phone: '+49 30 123456',
-      owner_email: 'max@example.de',
-      notes: 'Regular patient',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    
-    // if (!patient) {
-    //   throw ApiError.notFound('Patient');
-    // }
-    
-    return c.json(patient);
+app.get('/:id', async (c) => {
+  const praxisId = c.get('praxisId');
+  const id = c.req.param('id');
+  const supabase = c.get('supabase');
+  
+  // Validate UUID
+  if (!z.string().uuid().safeParse(id).success) {
+    return c.json({ error: 'Invalid patient ID' }, 400);
   }
-);
+  
+  const { data, error } = await supabase
+    .from('patient')
+    .select('*')
+    .eq('id', id)
+    .eq('praxis_id', praxisId)
+    .single();
+  
+  if (error || !data) {
+    return c.json({ error: 'Patient not found' }, 404);
+  }
+  
+  return c.json({ data });
+});
 
 // ============================================
 // PUT /patients/:id - Update patient
 // ============================================
 
-app.put('/:id',
-  requireScope('write'),
-  zValidator('json', PatientCreateSchema.partial()),
-  async (c) => {
-    const praxisId = c.get('praxisId');
-    const id = c.req.param('id');
-    const data = c.req.valid('json');
-    
-    // Validate UUID
-    const parseResult = UUIDSchema.safeParse(id);
-    if (!parseResult.success) {
-      throw ApiError.badRequest('Invalid patient ID');
-    }
-    
-    // TODO: Update in database
-    // const patient = await db.update(patients)
-    //   .set({ ...data, updatedAt: new Date() })
-    //   .where(and(
-    //     eq(patients.id, id),
-    //     eq(patients.praxisId, praxisId),
-    //   ))
-    //   .returning();
-    
-    // Mock response
-    const patient = {
-      id,
-      praxis_id: praxisId,
-      ...data,
-      updated_at: new Date().toISOString(),
-    };
-    
-    return c.json(patient);
+app.put('/:id', zValidator('json', PatientCreateSchema.partial()), async (c) => {
+  const praxisId = c.get('praxisId');
+  const id = c.req.param('id');
+  const input = c.req.valid('json');
+  const supabase = c.get('supabase');
+  
+  // Validate UUID
+  if (!z.string().uuid().safeParse(id).success) {
+    return c.json({ error: 'Invalid patient ID' }, 400);
   }
-);
+  
+  const { data, error } = await supabase
+    .from('patient')
+    .update({
+      ...input,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .eq('praxis_id', praxisId)
+    .select()
+    .single();
+  
+  if (error) {
+    return c.json({ error: 'Failed to update patient', details: error.message }, 500);
+  }
+  
+  if (!data) {
+    return c.json({ error: 'Patient not found' }, 404);
+  }
+  
+  return c.json({ data });
+});
 
 // ============================================
 // DELETE /patients/:id - Delete patient
 // ============================================
 
-app.delete('/:id',
-  requireScope('write'),
-  async (c) => {
-    const praxisId = c.get('praxisId');
-    const id = c.req.param('id');
-    
-    // Validate UUID
-    const parseResult = UUIDSchema.safeParse(id);
-    if (!parseResult.success) {
-      throw ApiError.badRequest('Invalid patient ID');
-    }
-    
-    // TODO: Delete from database (or soft delete)
-    // await db.delete(patients).where(and(
-    //   eq(patients.id, id),
-    //   eq(patients.praxisId, praxisId),
-    // ));
-    
-    return c.json({ success: true }, 204);
+app.delete('/:id', async (c) => {
+  const praxisId = c.get('praxisId');
+  const id = c.req.param('id');
+  const supabase = c.get('supabase');
+  
+  // Validate UUID
+  if (!z.string().uuid().safeParse(id).success) {
+    return c.json({ error: 'Invalid patient ID' }, 400);
   }
-);
+  
+  const { error } = await supabase
+    .from('patient')
+    .delete()
+    .eq('id', id)
+    .eq('praxis_id', praxisId);
+  
+  if (error) {
+    return c.json({ error: 'Failed to delete patient', details: error.message }, 500);
+  }
+  
+  return c.json({ success: true });
+});
 
 export default app;
