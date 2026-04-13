@@ -10,31 +10,41 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { nanoid } from 'nanoid';
-import { createHash, randomBytes } from 'crypto';
 
 const app = new Hono();
 
 // Schemas
 const CreateKeySchema = z.object({
   name: z.string().min(1).max(100),
-  scopes: z.array(z.enum(['read', 'write', 'transcribe', 'admin'])).default(['read']),
+  environment: z.enum(['live', 'test']).default('live'),
+  scopes: z.array(z.enum(['read', 'write', 'transcribe', 'admin'])).default(['read', 'write']),
   rate_limit: z.number().min(10).max(1000).default(100),
   expires_in_days: z.number().min(1).max(365).optional(),
 });
 
-const UpdateKeySchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  scopes: z.array(z.enum(['read', 'write', 'transcribe', 'admin'])).optional(),
-  rate_limit: z.number().min(10).max(1000).optional(),
-  is_active: z.boolean().optional(),
-});
-
 // Generate secure API key
-function generateApiKey(): { key: string; hash: string } {
-  const rawKey = `vet_${nanoid(32)}`;
-  const hash = createHash('sha256').update(rawKey).digest('hex');
-  return { key: rawKey, hash };
+async function generateApiKey(environment: string): Promise<{ key: string; prefix: string; hash: string }> {
+  // Generate random bytes
+  const randomBytes = new Uint8Array(24);
+  crypto.getRandomValues(randomBytes);
+  
+  // Base64 encode and make URL-safe
+  const random = btoa(String.fromCharCode(...randomBytes))
+    .replace(/\+/g, 'a')
+    .replace(/\//g, 'b')
+    .replace(/=/g, '');
+  
+  const key = `vet_${environment}_${random}`;
+  const prefix = key.substring(0, 12);
+  
+  // Hash the key
+  const encoder = new TextEncoder();
+  const data = encoder.encode(key);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  return { key, prefix, hash };
 }
 
 // ============================================
@@ -46,12 +56,13 @@ app.get('/', async (c) => {
   
   const { data, error } = await supabase
     .from('api_keys')
-    .select('id, name, scopes, rate_limit, last_used_at, expires_at, is_active, created_at')
+    .select('id, name, environment, scopes, rate_limit, last_used_at, expires_at, revoked_at, created_at')
     .eq('praxis_id', praxisId)
+    .is('revoked_at', null)
     .order('created_at', { ascending: false });
   
   if (error) {
-    return c.json({ error: 'Failed to fetch API keys' }, 500);
+    return c.json({ error: 'Failed to fetch API keys', details: error.message }, 500);
   }
   
   return c.json({ data });
@@ -65,7 +76,7 @@ app.post('/', zValidator('json', CreateKeySchema), async (c) => {
   const input = c.req.valid('json');
   const supabase = c.get('supabase');
   
-  const { key, hash } = generateApiKey();
+  const { key, prefix, hash } = await generateApiKey(input.environment);
   
   const expiresAt = input.expires_in_days 
     ? new Date(Date.now() + input.expires_in_days * 24 * 60 * 60 * 1000).toISOString()
@@ -75,25 +86,26 @@ app.post('/', zValidator('json', CreateKeySchema), async (c) => {
     .from('api_keys')
     .insert({
       praxis_id: praxisId,
-      key_hash: hash,
       name: input.name,
+      key_prefix: prefix,
+      key_hash: hash,
+      environment: input.environment,
       scopes: input.scopes,
       rate_limit: input.rate_limit,
       expires_at: expiresAt,
-      is_active: true,
     })
-    .select('id, name, scopes, rate_limit, expires_at, created_at')
+    .select('id, name, environment, scopes, rate_limit, expires_at, created_at')
     .single();
   
   if (error) {
-    return c.json({ error: 'Failed to create API key' }, 500);
+    return c.json({ error: 'Failed to create API key', details: error.message }, 500);
   }
   
   // Return the key ONCE - cannot be retrieved again
   return c.json({
     ...data,
     key, // Only shown once!
-    warning: 'Store this key securely. It cannot be retrieved again.',
+    warning: '⚠️ Store this key securely. It cannot be retrieved again.',
   }, 201);
 });
 
@@ -105,44 +117,19 @@ app.delete('/:id', async (c) => {
   const keyId = c.req.param('id');
   const supabase = c.get('supabase');
   
+  // Soft delete - set revoked_at
   const { error } = await supabase
     .from('api_keys')
-    .delete()
+    .update({ revoked_at: new Date().toISOString() })
     .eq('id', keyId)
-    .eq('praxis_id', praxisId);
+    .eq('praxis_id', praxisId)
+    .is('revoked_at', null);
   
   if (error) {
-    return c.json({ error: 'Failed to revoke API key' }, 500);
+    return c.json({ error: 'Failed to revoke API key', details: error.message }, 500);
   }
   
   return c.json({ success: true, message: 'API key revoked' });
-});
-
-// ============================================
-// PATCH /api-keys/:id - Update API key
-// ============================================
-app.patch('/:id', zValidator('json', UpdateKeySchema), async (c) => {
-  const praxisId = c.get('praxisId');
-  const keyId = c.req.param('id');
-  const input = c.req.valid('json');
-  const supabase = c.get('supabase');
-  
-  const { data, error } = await supabase
-    .from('api_keys')
-    .update({
-      ...input,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', keyId)
-    .eq('praxis_id', praxisId)
-    .select('id, name, scopes, rate_limit, is_active, expires_at')
-    .single();
-  
-  if (error) {
-    return c.json({ error: 'Failed to update API key' }, 500);
-  }
-  
-  return c.json({ data });
 });
 
 export default app;
