@@ -137,15 +137,20 @@ app.get('/antibiotics', async (c) => {
   
   const { data, error } = await supabase
     .from('medikamente')
-    .select('id, product_name, product_name_de, atc_vet_code, pharmaceutical_form')
-    .eq('is_antibiotic', true)
-    .order('product_name_de');
+    .select('id, name, manufacturer, dosage_form, strength, unit')
+    .or('category.cs.["antibiotic"],category.cs.[antibiotic]')
+    .limit(100);
   
   if (error) {
-    return c.json({ error: 'Failed to fetch antibiotics' }, 500);
+    return c.json({ error: 'Failed to fetch antibiotics', details: error.message }, 500);
   }
   
-  return c.json({ data });
+  // Filter for antibiotics (client-side since JSON contains is tricky)
+  const antibiotics = (data || []).filter((m: any) => 
+    m.category?.includes('antibiotic')
+  );
+  
+  return c.json({ data: antibiotics, total: antibiotics.length });
 });
 
 function getUsageForm(species: string): string {
