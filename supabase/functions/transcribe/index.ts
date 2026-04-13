@@ -1,16 +1,42 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import "https://deno.land/x/xhr@0.2.1/mod.ts"
+import { rateLimiter, getUserIdFromRequest, rateLimitResponse } from "../_shared/rate-limiter.ts"
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+// Rate limiter: 10 requests per minute per user
+const limiter = rateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 10
+})
+
+// Production CORS - restrict to actual domains before launch
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:8080',
+  'http://localhost:8081',
+  'https://vet-app.supabase.co',
+  // Add production domain when known
+]
+
+const corsHeaders = (origin: string) => ({
+  'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+})
 
 serve(async (req) => {
+  const origin = req.headers.get('origin') || ALLOWED_ORIGINS[0]
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders(origin) })
+  }
+
+  // Rate limiting
+  const userId = getUserIdFromRequest(req) || 'anonymous'
+  const { allowed, remaining, resetAt } = await limiter.check(userId)
+  
+  if (!allowed) {
+    return rateLimitResponse(remaining, resetAt)
   }
 
   try {
@@ -149,8 +175,9 @@ serve(async (req) => {
       }),
       { 
         headers: { 
-          ...corsHeaders,
-          'Content-Type': 'application/json' 
+          ...corsHeaders(origin),
+          'Content-Type': 'application/json',
+          'X-RateLimit-Remaining': remaining.toString()
         } 
       }
     )
@@ -161,7 +188,7 @@ serve(async (req) => {
       { 
         status: 500, 
         headers: { 
-          ...corsHeaders,
+          ...corsHeaders(origin),
           'Content-Type': 'application/json' 
         } 
       }

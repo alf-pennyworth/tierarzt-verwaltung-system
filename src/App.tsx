@@ -26,6 +26,7 @@ import Owners from "./pages/Owners";
 import OwnerDetail from "./pages/OwnerDetail";
 import TAMG from "./pages/TAMG";
 import { TAMGDashboard, AntibioticForm, BVLExport } from "./components/tamg";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -66,8 +67,9 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <Routes>
           <Route path="/owner/*" element={<OwnerApp />} />
           <Route
             path="/"
@@ -253,6 +255,7 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+      </ErrorBoundary>
     </TooltipProvider>
   </QueryClientProvider>
 );

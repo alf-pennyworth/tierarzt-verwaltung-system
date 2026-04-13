@@ -43,7 +43,15 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const { register, handleSubmit, setValue, watch, reset } = useForm<FormData>({
+  const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormData>({
+    resolver: (values, context, options) => {
+      const errors: any = {};
+      if (!values.patient_id) errors.patient_id = { type: 'required', message: 'Patient ist erforderlich' };
+      if (!values.medication_id) errors.medication_id = { type: 'required', message: 'Antibiotikum ist erforderlich' };
+      if (!values.dosage) errors.dosage = { type: 'required', message: 'Dosierung ist erforderlich' };
+      if (!values.duration_days || values.duration_days < 1) errors.duration_days = { type: 'min', message: 'Mindestens 1 Tag' };
+      return { values, errors };
+    },
     defaultValues: {
       patient_id: "",
       medication_id: "",
@@ -83,15 +91,20 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
   const onSubmit = async (data: FormData) => {
     setSubmitting(true);
     try {
+      // Get selected medication info
+      const selectedMed = medications.find(m => m.id === data.medication_id);
+      
       const { error } = await supabase.from("antibiotic_prescriptions").insert({
         practice_id: practiceId,
         patient_id: data.patient_id,
-        medication_id: data.medication_id,
+        drug_id: data.medication_id,
+        drug_name: selectedMed?.name || 'Unknown',
         prescribing_vet_id: vetId,
-        dosage: data.dosage,
-        duration_days: data.duration_days,
-        indication: data.indication,
-        notes: data.notes,
+        amount: data.dosage,
+        unit: 'tablet',
+        treatment_duration_days: data.duration_days,
+        animal_species: patients.find(p => p.id === data.patient_id)?.species || 'Unbekannt',
+        treatment_purpose: 'therapy',
         prescribed_at: new Date().toISOString(),
         bvl_reported: false,
       });
@@ -118,18 +131,25 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
   };
 
   if (loading) {
-    return <div className="p-4">Laden...</div>;
+    return <div className="p-4" role="status" aria-live="polite">Laden...</div>;
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+      {/* Screen reader error summary */}
+      {Object.keys(errors).length > 0 && (
+        <div className="sr-only" role="alert" aria-live="assertive">
+          Bitte füllen Sie alle Pflichtfelder aus.
+        </div>
+      )}
+      
       <div className="space-y-2">
-        <Label htmlFor="patient_id">Patient</Label>
+        <Label htmlFor="patient_id">Patient *</Label>
         <Select
           onValueChange={(value) => setValue("patient_id", value)}
           value={watch("patient_id")}
         >
-          <SelectTrigger>
+          <SelectTrigger id="patient_id" aria-invalid={errors.patient_id ? "true" : "false"}>
             <SelectValue placeholder="Patient auswählen" />
           </SelectTrigger>
           <SelectContent>
@@ -140,15 +160,16 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
             ))}
           </SelectContent>
         </Select>
+        {errors.patient_id && <p className="text-sm text-destructive">Patient ist erforderlich</p>}
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="medication_id">Antibiotikum</Label>
+        <Label htmlFor="medication_id">Antibiotikum *</Label>
         <Select
           onValueChange={(value) => setValue("medication_id", value)}
           value={watch("medication_id")}
         >
-          <SelectTrigger>
+          <SelectTrigger id="medication_id" aria-invalid={errors.medication_id ? "true" : "false"}>
             <SelectValue placeholder="Antibiotikum auswählen" />
           </SelectTrigger>
           <SelectContent>
@@ -159,25 +180,30 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
             ))}
           </SelectContent>
         </Select>
+        {errors.medication_id && <p className="text-sm text-destructive">Antibiotikum ist erforderlich</p>}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="dosage">Dosierung</Label>
+          <Label htmlFor="dosage">Dosierung *</Label>
           <Input
             {...register("dosage")}
             placeholder="z.B. 10 mg/kg"
+            aria-required="true"
           />
+          {errors.dosage && <p className="text-sm text-destructive">Dosierung ist erforderlich</p>}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="duration_days">Behandlungsdauer (Tage)</Label>
+          <Label htmlFor="duration_days">Behandlungsdauer (Tage) *</Label>
           <Input
             type="number"
-            {...register("duration_days", { valueAsNumber: true })}
+            {...register("duration_days", { valueAsNumber: true, min: 1, max: 30 })}
             min={1}
             max={30}
+            aria-required="true"
           />
+          {errors.duration_days && <p className="text-sm text-destructive">{errors.duration_days.message}</p>}
         </div>
       </div>
 

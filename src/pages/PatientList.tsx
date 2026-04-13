@@ -79,33 +79,41 @@ const PatientList = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {patients.map((patient) => (
-                <TableRow
-                  key={patient.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => navigate(`/patient/${patient.id}`)}
-                >
-                  <TableCell>{patient.name}</TableCell>
-                  <TableCell>
-                    <span 
-                      className="cursor-pointer hover:underline" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/owner/${patient.besitzer.id}`);
-                      }}
-                    >
-                      {patient.besitzer.name}
-                    </span>
-                  </TableCell>
-                  <TableCell>{patient.spezies}</TableCell>
-                  <TableCell>{patient.rasse || "-"}</TableCell>
-                  <TableCell>
-                    {patient.geburtsdatum
-                      ? format(new Date(patient.geburtsdatum), "dd.MM.yyyy")
-                      : "-"}
+              {patients.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                    Keine Patienten gefunden. Legen Sie einen neuen Patienten an.
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                patients.map((patient) => (
+                  <TableRow
+                    key={patient.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => navigate(`/patient/${patient.id}`)}
+                  >
+                    <TableCell>{patient.name}</TableCell>
+                    <TableCell>
+                      <span 
+                        className="cursor-pointer hover:underline" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/owner/${patient.besitzer.id}`);
+                        }}
+                      >
+                        {patient.besitzer.name}
+                      </span>
+                    </TableCell>
+                    <TableCell>{patient.spezies}</TableCell>
+                    <TableCell>{patient.rasse || "-"}</TableCell>
+                    <TableCell>
+                      {patient.geburtsdatum
+                        ? format(new Date(patient.geburtsdatum), "dd.MM.yyyy")
+                        : "-"}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

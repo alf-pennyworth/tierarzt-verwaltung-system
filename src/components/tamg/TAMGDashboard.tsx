@@ -24,12 +24,14 @@ interface AntibioticPrescription {
   id: string;
   drug_name: string;
   patient_id: string;
-  dosage: string;
-  duration_days: number;
-  indication: string;
+  amount: number;
+  unit: string;
+  treatment_duration_days: number;
+  animal_species: string;
+  treatment_purpose: string;
   prescribed_at: string;
   bvl_reported: boolean;
-  patients?: { name: string; species: string };
+  patient?: { name: string; species: string };
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
@@ -74,10 +76,10 @@ export function TAMGDashboard({ practiceId }: TAMGDashboardProps) {
       const speciesCounts: Record<string, number> = {};
 
       (data || []).forEach((p: any) => {
-        const drugName = p.medication?.name || "Unbekannt";
+        const drugName = p.drug_name || "Unbekannt";
         drugCounts[drugName] = (drugCounts[drugName] || 0) + 1;
 
-        const species = p.patient?.species || "Unbekannt";
+        const species = p.animal_species || p.patient?.species || "Unbekannt";
         speciesCounts[species] = (speciesCounts[species] || 0) + 1;
       });
 
@@ -103,7 +105,7 @@ export function TAMGDashboard({ practiceId }: TAMGDashboardProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
+      <div className="flex items-center justify-center p-8" role="status" aria-live="polite">
         <div>Laden...</div>
       </div>
     );
@@ -111,9 +113,14 @@ export function TAMGDashboard({ practiceId }: TAMGDashboardProps) {
 
   return (
     <div className="space-y-6">
+      {/* Screen reader announcement for data loaded */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {loading ? "Daten werden geladen" : `${prescriptions.length} Verschreibungen angezeigt`}
+      </div>
+      
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">TAMG Dashboard</h2>
-        <Select value={timeRange} onValueChange={(v) => setTimeRange(v as any)}>
+        <Select value={timeRange} onValueChange={(v) => setTimeRange(v as any)} aria-label="Zeitraum auswählen">
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Zeitraum" />
           </SelectTrigger>
@@ -183,7 +190,7 @@ export function TAMGDashboard({ practiceId }: TAMGDashboardProps) {
         <Card>
           <CardHeader>
             <CardTitle>Verteilung nach Tierart</CardTitle>
-            <CardDescription>Antibiotikaeinsatz nach Spezies</CardDescription>
+            <CardDescription>Antibiotika-Einsatz nach Spezies</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -219,44 +226,51 @@ export function TAMGDashboard({ practiceId }: TAMGDashboardProps) {
           <CardDescription>Die letzten 10 Antibiotika-Verschreibungen</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2">Datum</th>
-                  <th className="text-left py-2">Antibiotikum</th>
-                  <th className="text-left py-2">Patient</th>
-                  <th className="text-left py-2">Indikation</th>
-                  <th className="text-left py-2">BVL Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {prescriptions.slice(0, 10).map((p) => (
-                  <tr key={p.id} className="border-b">
-                    <td className="py-2">
-                      {new Date(p.prescribed_at).toLocaleDateString("de-DE")}
-                    </td>
-                    <td className="py-2">{p.drug_name}</td>
-                    <td className="py-2">
-                      {(p as any).patient?.name || "Unbekannt"}
-                    </td>
-                    <td className="py-2">{p.indication}</td>
-                    <td className="py-2">
-                      <span
-                        className={`px-2 py-1 rounded text-xs ${
-                          p.bvl_reported
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {p.bvl_reported ? "Gemeldet" : "Offen"}
-                      </span>
-                    </td>
+          {prescriptions.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground" role="status">
+              <p>Keine Verschreibungen im ausgewählten Zeitraum.</p>
+              <p className="text-sm mt-2">Erstellen Sie eine neue Verschreibung über den Tab "Neue Verschreibung".</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2">Datum</th>
+                    <th className="text-left py-2">Antibiotikum</th>
+                    <th className="text-left py-2">Patient</th>
+                    <th className="text-left py-2">Indikation</th>
+                    <th className="text-left py-2">BVL Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {prescriptions.slice(0, 10).map((p) => (
+                    <tr key={p.id} className="border-b">
+                      <td className="py-2">
+                        {new Date(p.prescribed_at).toLocaleDateString("de-DE")}
+                      </td>
+                      <td className="py-2">{p.drug_name}</td>
+                      <td className="py-2">
+                        {(p as any).patient?.name || "Unbekannt"}
+                      </td>
+                      <td className="py-2">{p.indication}</td>
+                      <td className="py-2">
+                        <span
+                          className={`px-2 py-1 rounded text-xs ${
+                            p.bvl_reported
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {p.bvl_reported ? "Gemeldet" : "Offen"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

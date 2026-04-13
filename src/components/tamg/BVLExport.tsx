@@ -92,6 +92,16 @@ export function BVLExport({ practiceId }: BVLExportProps) {
       return;
     }
 
+    // Validate date range
+    if (new Date(startDate) > new Date(endDate)) {
+      toast({
+        title: "Fehler",
+        description: "Das Startdatum muss vor dem Enddatum liegen.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       // Fetch antibiotic prescriptions within date range
@@ -100,22 +110,16 @@ export function BVLExport({ practiceId }: BVLExportProps) {
         .select(`
           id,
           prescribed_at,
-          dosage,
-          duration_days,
-          indication,
+          drug_name,
+          amount,
+          unit,
+          treatment_duration_days,
+          animal_species,
+          treatment_purpose,
           bvl_reported,
-          medication:medication_id (
-            name,
-            active_ingredient
-          ),
           patient:patient_id (
             name,
-            species,
-            betriebsnummer,
-            besitzer_bnr
-          ),
-          prescribing_vet:user_id (
-            betriebsnummer
+            species
           )
         `)
         .eq('practice_id', practiceId)
@@ -135,16 +139,18 @@ export function BVLExport({ practiceId }: BVLExportProps) {
 
       // Transform to BVL format
       const records: ExportRecord[] = prescriptions.map((p: any, index: number) => ({
-        BNR15: p.prescribing_vet?.betriebsnummer || '09 000 000 00 00', // Vet operation number
-        BNR15_HA: p.patient?.besitzer_bnr || p.patient?.betriebsnummer || '09 000 000 00 00', // Owner operation number
-        TAMB_FORM: getUsageForm(p.patient?.species), // Usage type based on species
-        TAMX_TIANZ: 1, // Number of treated animals
-        TAMA_NAME: p.medication?.name || 'Unbekannt', // Medicinal product name
-        TAMX_AWMEN: parseFloat(p.dosage) || 1, // Application amount
-        TAMX_AW_ME: 'ST', // Unit (ST = Stück, can be expanded)
+        // TODO: Get BNR15 from practice table once column is added via Supabase migration
+        // Currently using placeholder - production needs real 15-digit operation number
+        BNR15: '09 000 000 00 001', // Praxis BNR15 (Betriebsnummer)
+        BNR15_HA: '09 000 000 00 002', // Owner BNR15 (Halterbetriebsnummer) - TODO: Get from patient
+        TAMB_FORM: getUsageForm(p.animal_species || p.patient?.species), // Usage type based on species
+        TAMX_TIANZ: p.animal_count || 1, // Number of treated animals
+        TAMA_NAME: p.drug_name || 'Unbekannt', // Medicinal product name
+        TAMX_AWMEN: p.amount || 1, // Application amount
+        TAMX_AW_ME: p.unit?.toUpperCase() || 'ST', // Unit
         TAMX_AWDAT: new Date(p.prescribed_at).toISOString().split('T')[0], // Application date
-        TAMX_LFNR: index + 1, // Sequential number
-        TAMX_BEHAT: p.duration_days || 1, // Treatment days
+        TAMX_LFNR: (index + 1).toString().padStart(5, '0'), // Sequential number - BVL often expects padded
+        TAMX_BEHAT: p.treatment_duration_days || 1, // Treatment days
       }));
 
       // Build CSV content with header
@@ -221,7 +227,7 @@ export function BVLExport({ practiceId }: BVLExportProps) {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Date Range */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="start-date">Von (Startdatum)</Label>
               <Input
@@ -229,6 +235,8 @@ export function BVLExport({ practiceId }: BVLExportProps) {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                aria-required="true"
+                max={endDate}
               />
             </div>
             <div className="space-y-2">
@@ -238,6 +246,8 @@ export function BVLExport({ practiceId }: BVLExportProps) {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
+                aria-required="true"
+                min={startDate}
               />
             </div>
           </div>
