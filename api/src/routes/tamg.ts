@@ -135,10 +135,10 @@ app.get('/export', zValidator('query', ExportQuerySchema), async (c) => {
 app.get('/antibiotics', async (c) => {
   const supabase = c.get('supabase');
   
+  // Simple query - filter client-side for reliability
   const { data, error } = await supabase
     .from('medikamente')
-    .select('id, name, manufacturer, dosage_form, strength, unit')
-    .or('category.cs.["antibiotic"],category.cs.[antibiotic]')
+    .select('id, name, manufacturer, dosage_form, strength, unit, category')
     .limit(100);
   
   if (error) {
