@@ -1,53 +1,86 @@
-# Welcome to your Lovable project
+# Vet Transcription System
 
-## Project info
+A TAMG-compliant veterinary practice management system with antibiotic tracking and BVL reporting for German veterinarians.
 
-**URL**: https://lovable.dev/projects/3f9001c1-c4fc-41ca-b0bf-d70fc8874677
+## Features
 
-## How can I edit this code?
+- **TAMG Module:** Antibiotic prescription tracking compliant with German Tierarzneimittelgesetz
+- **BVL Export:** CSV export in BVL format (Windows-1252 encoding)
+- **AI Integration:** Transcription, extraction, and SOAP note generation (AssemblyAI + Gemini 2.5 Pro)
+- **Headless API:** REST API for third-party integrations
+- **Multi-tenant:** Row-level security for practice isolation
 
-There are several ways of editing your application.
+## Quick Start
 
-**Use Lovable**
+```bash
+# Install dependencies
+bun install
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/3f9001c1-c4fc-41ca-b0bf-d70fc8874677) and start prompting.
+# Start development server
+bun run dev
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Start API (separate terminal)
+cd api && bun run src/index.ts
 ```
 
-**Edit a file directly in GitHub**
+## API Endpoints
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Health check + database status |
+| GET | `/portal` | API documentation |
+| GET | `/api-keys` | List API keys |
+| POST | `/api-keys` | Create API key |
+| GET | `/patients` | List patients |
+| POST | `/patients` | Create patient |
+| GET | `/treatments` | List treatments |
+| POST | `/treatments` | Create treatment |
+| GET | `/tamg/prescriptions` | List antibiotic prescriptions |
+| POST | `/tamg/prescriptions` | Create prescription |
+| GET | `/tamg/export` | BVL CSV export |
+| GET | `/tamg/antibiotics` | List 46 antibiotics |
+| POST | `/transcribe` | Audio transcription (AssemblyAI) |
+| POST | `/extract` | Medical data extraction (Gemini 2.5 Pro) |
+| POST | `/soap` | SOAP note generation (Gemini 2.5 Pro) |
 
-**Use GitHub Codespaces**
+## Environment Variables
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
+```bash
+# Supabase (required)
+VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_ANON_KEY=xxx
+SUPABASE_SERVICE_ROLE_KEY=xxx
+
+# AI APIs (required for AI endpoints)
+ASSEMBLYAI_API_KEY=xxx
+GEMINI_API_KEY=xxx
+
+# Optional: UPD drug database integration
+UPD_CLIENT_ID=xxx
+UPD_CLIENT_SECRET=xxx
+```
+
+## Testing
+
+```bash
+# Run all tests
+bun test
+
+# Run API tests only
+cd api && bun test
+```
+
+## Demo
+
+See `DEMO_SCRIPT.md` for demo walkthrough and `scripts/demo-data.sh` for test data setup.
+
+---
+
+**Built with:** React, TypeScript, Supabase, Hono, AssemblyAI, Gemini 2.5 Pro
+
+---
+
+# Original Lovable Project Info
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
 ## What technologies are used for this project?
