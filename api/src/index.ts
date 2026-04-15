@@ -99,11 +99,35 @@ app.use('*', errorHandler());
 // ============================================
 // Health Check (no auth required)
 // ============================================
-app.get('/health', (c) => {
+app.get('/health', async (c) => {
+  const supabase = c.get('supabase');
+  
+  // Check database connectivity
+  let dbStatus = 'ok';
+  let antibioticCount = 0;
+  
+  try {
+    const { count, error } = await supabase
+      .from('antibiotics')
+      .select('*', { count: 'exact', head: true });
+    
+    if (error) {
+      dbStatus = 'error';
+    } else {
+      antibioticCount = count || 0;
+    }
+  } catch {
+    dbStatus = 'error';
+  }
+  
   return c.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
+    database: {
+      status: dbStatus,
+      antibiotics: antibioticCount,
+    },
     endpoints: [
       'GET  /health',
       'GET  /api-keys',

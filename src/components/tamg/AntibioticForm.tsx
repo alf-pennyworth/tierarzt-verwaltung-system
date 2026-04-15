@@ -8,6 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { 
   TAMG_ANIMAL_CATEGORIES, 
   ANTIBIOTIC_CLASSES, 
@@ -68,7 +71,9 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
   const [submitting, setSubmitting] = useState(false);
   const [selectedDrug, setSelectedDrug] = useState<AntibioticDrug | null>(null);
 
-  const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, setValue, watch, reset, formState: { errors, touchedFields }, trigger } = useForm<FormData>({
+    mode: "onBlur",
+    reValidateMode: "onChange",
     defaultValues: {
       patient_id: "",
       drug_name: "",
@@ -88,6 +93,15 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
       notes: "",
     },
   });
+
+  // Validation error messages in German
+  const validationMessages: Record<string, string> = {
+    drug_name_required: "Handelsname ist erforderlich",
+    active_substance_required: "Wirkstoff ist erforderlich",
+    amount_prescribed_min: "Menge muss größer als 0 sein",
+    treatment_duration_min: "Behandlungsdauer muss mindestens 1 Tag betragen",
+    animal_count_min: "Anzahl Tiere muss mindestens 1 betragen",
+  };
 
   useEffect(() => {
     loadData();
@@ -223,13 +237,33 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
     return <div className="p-4" role="status" aria-live="polite">Laden...</div>;
   }
 
+  // Helper to get error state for a field
+  const getFieldState = (fieldName: keyof FormData) => {
+    const hasError = !!errors[fieldName];
+    const isTouched = touchedFields[fieldName];
+    return { hasError, isTouched, showError: hasError && isTouched };
+  };
+
+  // Count validation errors
+  const errorCount = Object.keys(errors).length;
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
-      {/* Screen reader error summary */}
-      {Object.keys(errors).length > 0 && (
-        <div className="sr-only" role="alert" aria-live="assertive">
-          Bitte füllen Sie alle Pflichtfelder aus.
-        </div>
+      {/* Validation error summary - visible */}
+      {errorCount > 0 && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Bitte überprüfen Sie Ihre Eingaben:</strong>
+            <ul className="mt-2 list-disc list-inside text-sm">
+              {errors.drug_name && <li>Handelsname ist erforderlich</li>}
+              {errors.active_substance && <li>Wirkstoff ist erforderlich</li>}
+              {errors.amount_prescribed && <li>Menge muss größer als 0 sein</li>}
+              {errors.treatment_duration_days && <li>Behandlungsdauer ist erforderlich</li>}
+              {errors.animal_count && <li>Anzahl Tiere ist erforderlich</li>}
+            </ul>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Patient Selection */}
@@ -278,14 +312,28 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="animal_count">Anzahl behandelte Tiere *</Label>
+              <Label htmlFor="animal_count" className={cn(errors.animal_count && "text-destructive")}>
+                Anzahl behandelte Tiere *
+              </Label>
               <Input
                 id="animal_count"
                 type="number"
                 min={1}
-                {...register("animal_count", { valueAsNumber: true, min: 1 })}
+                {...register("animal_count", { 
+                  valueAsNumber: true, 
+                  required: "Anzahl Tiere ist erforderlich",
+                  min: { value: 1, message: "Mindestens 1 Tier" }
+                })}
                 aria-required="true"
+                aria-invalid={!!errors.animal_count}
+                className={cn(errors.animal_count && "border-destructive focus-visible:ring-destructive")}
               />
+              {errors.animal_count && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.animal_count.message || "Ungültiger Wert"}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="animal_weight_kg">Durchschnittsgewicht (kg)</Label>
@@ -327,22 +375,42 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="drug_name">Handelsname *</Label>
+              <Label htmlFor="drug_name" className={cn(errors.drug_name && "text-destructive")}>
+                Handelsname *
+              </Label>
               <Input
                 id="drug_name"
-                {...register("drug_name", { required: true })}
+                {...register("drug_name", { required: "Handelsname ist erforderlich" })}
                 placeholder="z.B. Baytril"
                 aria-required="true"
+                aria-invalid={!!errors.drug_name}
+                className={cn(errors.drug_name && "border-destructive focus-visible:ring-destructive")}
               />
+              {errors.drug_name && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.drug_name.message}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="active_substance">Wirkstoff *</Label>
+              <Label htmlFor="active_substance" className={cn(errors.active_substance && "text-destructive")}>
+                Wirkstoff *
+              </Label>
               <Input
                 id="active_substance"
-                {...register("active_substance", { required: true })}
+                {...register("active_substance", { required: "Wirkstoff ist erforderlich" })}
                 placeholder="z.B. Enrofloxacin"
                 aria-required="true"
+                aria-invalid={!!errors.active_substance}
+                className={cn(errors.active_substance && "border-destructive focus-visible:ring-destructive")}
               />
+              {errors.active_substance && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.active_substance.message}
+                </p>
+              )}
             </div>
           </div>
 
@@ -366,15 +434,29 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="amount_prescribed">Menge *</Label>
+              <Label htmlFor="amount_prescribed" className={cn(errors.amount_prescribed && "text-destructive")}>
+                Menge *
+              </Label>
               <Input
                 id="amount_prescribed"
                 type="number"
                 step="0.01"
                 min="0.01"
-                {...register("amount_prescribed", { valueAsNumber: true, min: 0.01 })}
+                {...register("amount_prescribed", { 
+                  valueAsNumber: true, 
+                  required: "Menge ist erforderlich",
+                  min: { value: 0.01, message: "Menge muss größer als 0 sein" }
+                })}
                 aria-required="true"
+                aria-invalid={!!errors.amount_prescribed}
+                className={cn(errors.amount_prescribed && "border-destructive focus-visible:ring-destructive")}
               />
+              {errors.amount_prescribed && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.amount_prescribed.message}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="unit">Einheit *</Label>
@@ -433,15 +515,29 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="treatment_duration_days">Behandlungsdauer (Tage) *</Label>
+              <Label htmlFor="treatment_duration_days" className={cn(errors.treatment_duration_days && "text-destructive")}>
+                Behandlungsdauer (Tage) *
+              </Label>
               <Input
                 id="treatment_duration_days"
                 type="number"
                 min={1}
                 max={365}
-                {...register("treatment_duration_days", { valueAsNumber: true, min: 1 })}
+                {...register("treatment_duration_days", { 
+                  valueAsNumber: true, 
+                  required: "Behandlungsdauer ist erforderlich",
+                  min: { value: 1, message: "Mindestens 1 Tag" }
+                })}
                 aria-required="true"
+                aria-invalid={!!errors.treatment_duration_days}
+                className={cn(errors.treatment_duration_days && "border-destructive focus-visible:ring-destructive")}
               />
+              {errors.treatment_duration_days && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.treatment_duration_days.message}
+                </p>
+              )}
             </div>
           </div>
 
