@@ -1,10 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { TAMG_ANIMAL_CATEGORIES, ANTIBIOTIC_CLASSES, type AntibioticClass, type TamgAnimalCategory } from "@/types/tamg";
 import { getAnimalSpeciesName, getAntibioticClassName } from "@/services/tamgService";
+import { AlertTriangle, RefreshCw, Activity, FileSpreadsheet, PlusCircle, ClipboardList } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface UsageStats {
   antibiotic_class: AntibioticClass;
@@ -40,23 +44,22 @@ interface TAMGDashboardProps {
 }
 
 export function TAMGDashboard({ practiceId }: TAMGDashboardProps) {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [prescriptions, setPrescriptions] = useState<AntibioticPrescription[]>([]);
   const [classStats, setClassStats] = useState<UsageStats[]>([]);
   const [speciesStats, setSpeciesStats] = useState<SpeciesStats[]>([]);
   const [timeRange, setTimeRange] = useState<"7" | "30" | "90">("30");
 
-  useEffect(() => {
-    loadData();
-  }, [practiceId, timeRange]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - parseInt(timeRange));
 
-      const { data, error } = await supabase
+      const { data, error: queryError } = await supabase
         .from("antibiotic_prescriptions")
         .select(`
           id,
@@ -78,7 +81,7 @@ export function TAMGDashboard({ practiceId }: TAMGDashboardProps) {
         .is("deleted_at", null)
         .order("prescription_date", { ascending: false });
 
-      if (error) throw error;
+      if (queryError) throw queryError;
 
       setPrescriptions((data || []) as AntibioticPrescription[]);
 
@@ -116,12 +119,17 @@ export function TAMGDashboard({ practiceId }: TAMGDashboardProps) {
           .sort((a, b) => b.count - a.count)
       );
 
-    } catch (error) {
-      console.error("Error loading data:", error);
+    } catch (err) {
+      console.error("Error loading data:", err);
+      setError("Daten konnten nicht geladen werden. Bitte versuchen Sie es erneut.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [practiceId, timeRange]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // Prepare data for charts
   const chartData = classStats.map(stat => ({
@@ -135,10 +143,80 @@ export function TAMGDashboard({ practiceId }: TAMGDashboardProps) {
     value: stat.count,
   }));
 
+  // Error state with retry option
+  if (error && !loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px] p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Fehler beim Laden
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground">
+              {error}
+            </p>
+            <Button onClick={loadData} className="w-full gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Erneut versuchen
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Loading state with skeleton
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8" role="status" aria-live="polite">
-        <div>Laden...</div>
+      <div className="space-y-6" role="status" aria-live="polite" aria-label="Daten werden geladen">
+        {/* Header skeleton */}
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-10 w-[180px]" />
+        </div>
+        
+        {/* Summary cards skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-32" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        
+        {/* Charts skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[1, 2].map((i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-64 mt-2" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-[300px] w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        
+        {/* Table skeleton */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-64 mt-2" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-[200px] w-full" />
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -280,9 +358,28 @@ export function TAMGDashboard({ practiceId }: TAMGDashboardProps) {
         </CardHeader>
         <CardContent>
           {prescriptions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground" role="status">
-              <p>Keine Verschreibungen im ausgewählten Zeitraum.</p>
-              <p className="text-sm mt-2">Erstellen Sie eine neue Verschreibung über den Tab "Neue Verschreibung".</p>
+            <div className="text-center py-12 space-y-6" role="status">
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+                  <ClipboardList className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium">Noch keine Verschreibungen</h3>
+                  <p className="text-muted-foreground max-w-sm">
+                    Im ausgewählten Zeitraum ({timeRange === "7" ? "7 Tage" : timeRange === "30" ? "30 Tage" : "90 Tage"}) wurden noch keine Antibiotika-Verschreibungen dokumentiert.
+                  </p>
+                </div>
+                <Button 
+                  onClick={() => navigate('/tamg/new')}
+                  className="gap-2 mt-2"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  Erste Verschreibung anlegen
+                </Button>
+              </div>
+              <div className="text-xs text-muted-foreground border-t pt-4 max-w-md mx-auto">
+                <strong>Tipp:</strong> Die TAMG-Dokumentation hilft Ihnen, alle Antibiotika-Gaben gemäß Tierarzneimittelgesetz zu erfassen und für die BVL-Meldung vorzubereiten.
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto">
