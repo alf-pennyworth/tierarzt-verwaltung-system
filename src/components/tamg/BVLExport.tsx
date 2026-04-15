@@ -6,10 +6,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Download, FileSpreadsheet, Eye, AlertCircle, CheckCircle } from "lucide-react";
 
 interface BVLExportProps {
   practiceId: string;
+}
+
+interface PrescriptionPreview {
+  id: string;
+  drug_name: string;
+  animal_species: string;
+  amount: number;
+  unit: string;
+  prescribed_at: string;
+  treatment_duration_days: number;
+  bvl_reported: boolean;
 }
 
 interface ExportRecord {
@@ -72,6 +85,9 @@ const toWindows1252Blob = (content: string): Blob => {
 export function BVLExport({ practiceId }: BVLExportProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [previewData, setPreviewData] = useState<PrescriptionPreview[] | null>(null);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [startDate, setStartDate] = useState<string>(() => {
     const d = new Date();
     d.setDate(1); // First of month
@@ -82,7 +98,7 @@ export function BVLExport({ practiceId }: BVLExportProps) {
   });
   const [action, setAction] = useState<'I' | 'X' | 'S'>('X');
 
-  const handleExport = async () => {
+  const handlePreview = async () => {
     if (!startDate || !endDate) {
       toast({
         title: "Fehler",
@@ -92,7 +108,6 @@ export function BVLExport({ practiceId }: BVLExportProps) {
       return;
     }
 
-    // Validate date range
     if (new Date(startDate) > new Date(endDate)) {
       toast({
         title: "Fehler",
@@ -102,55 +117,77 @@ export function BVLExport({ practiceId }: BVLExportProps) {
       return;
     }
 
-    setLoading(true);
+    setPreviewing(true);
     try {
-      // Fetch antibiotic prescriptions within date range
-      const { data: prescriptions, error } = await supabase
+      const { data, error } = await supabase
         .from('antibiotic_prescriptions')
         .select(`
           id,
-          prescribed_at,
           drug_name,
-          amount,
-          unit,
-          treatment_duration_days,
           animal_species,
-          treatment_purpose,
-          bvl_reported,
-          patient:patient_id (
-            name,
-            species
-          )
+          amount_prescribed,
+          unit,
+          prescription_date,
+          treatment_duration_days,
+          reported_to_bvl
         `)
-        .eq('practice_id', practiceId)
-        .gte('prescribed_at', startDate)
-        .lte('prescribed_at', endDate + 'T23:59:59')
-        .order('prescribed_at', { ascending: true });
+        .eq('praxis_id', practiceId)
+        .gte('prescription_date', startDate)
+        .lte('prescription_date', endDate)
+        .is('deleted_at', null)
+        .order('prescription_date', { ascending: true });
 
       if (error) throw error;
 
-      if (!prescriptions || prescriptions.length === 0) {
-        toast({
-          title: "Keine Daten",
-          description: "Keine Verschreibungen im gewählten Zeitraum gefunden.",
-        });
-        return;
-      }
+      const previews: PrescriptionPreview[] = (data || []).map((p: any) => ({
+        id: p.id,
+        drug_name: p.drug_name || 'Unbekannt',
+        animal_species: p.animal_species || 'Sonstige',
+        amount: p.amount_prescribed || 0,
+        unit: p.unit || 'ST',
+        prescribed_at: p.prescription_date,
+        treatment_duration_days: p.treatment_duration_days || 1,
+        bvl_reported: p.reported_to_bvl || false,
+      }));
 
+      setPreviewData(previews);
+      setShowPreviewDialog(true);
+    } catch (error) {
+      console.error('Preview error:', error);
+      toast({
+        title: "Fehler",
+        description: "Vorschau konnte nicht geladen werden.",
+        variant: "destructive",
+      });
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!previewData || previewData.length === 0) {
+      toast({
+        title: "Fehler",
+        description: "Keine Daten zum Exportieren.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
       // Transform to BVL format
-      const records: ExportRecord[] = prescriptions.map((p: any, index: number) => ({
-        // TODO: Get BNR15 from practice table once column is added via Supabase migration
-        // Currently using placeholder - production needs real 15-digit operation number
-        BNR15: '09 000 000 00 001', // Praxis BNR15 (Betriebsnummer)
-        BNR15_HA: '09 000 000 00 002', // Owner BNR15 (Halterbetriebsnummer) - TODO: Get from patient
-        TAMB_FORM: getUsageForm(p.animal_species || p.patient?.species), // Usage type based on species
-        TAMX_TIANZ: p.animal_count || 1, // Number of treated animals
-        TAMA_NAME: p.drug_name || 'Unbekannt', // Medicinal product name
-        TAMX_AWMEN: p.amount || 1, // Application amount
-        TAMX_AW_ME: p.unit?.toUpperCase() || 'ST', // Unit
-        TAMX_AWDAT: new Date(p.prescribed_at).toISOString().split('T')[0], // Application date
-        TAMX_LFNR: (index + 1).toString().padStart(5, '0'), // Sequential number - BVL often expects padded
-        TAMX_BEHAT: p.treatment_duration_days || 1, // Treatment days
+      const records: ExportRecord[] = previewData.map((p, index) => ({
+        BNR15: '09 000 000 00 001',
+        BNR15_HA: '09 000 000 00 002',
+        TAMB_FORM: getUsageForm(p.animal_species),
+        TAMX_TIANZ: 1,
+        TAMA_NAME: p.drug_name,
+        TAMX_AWMEN: p.amount,
+        TAMX_AW_ME: p.unit.toUpperCase(),
+        TAMX_AWDAT: new Date(p.prescribed_at).toISOString().split('T')[0],
+        TAMX_LFNR: (index + 1).toString().padStart(5, '0'),
+        TAMX_BEHAT: p.treatment_duration_days,
       }));
 
       // Build CSV content with header
@@ -173,11 +210,14 @@ export function BVLExport({ practiceId }: BVLExportProps) {
       URL.revokeObjectURL(url);
 
       // Mark as reported
-      const prescriptionIds = prescriptions.map((p: any) => p.id);
+      const prescriptionIds = previewData.map(p => p.id);
       await supabase
         .from('antibiotic_prescriptions')
-        .update({ bvl_reported: true })
+        .update({ reported_to_bvl: true })
         .in('id', prescriptionIds);
+
+      setShowPreviewDialog(false);
+      setPreviewData(null);
 
       toast({
         title: "Export erfolgreich",
@@ -299,16 +339,111 @@ export function BVLExport({ practiceId }: BVLExportProps) {
               Zurücksetzen
             </Button>
             <Button
-              onClick={handleExport}
-              disabled={loading || !startDate || !endDate}
+              variant="secondary"
+              onClick={handlePreview}
+              disabled={previewing || !startDate || !endDate}
               className="gap-2"
             >
-              <Download className="h-4 w-4" />
-              {loading ? 'Wird exportiert...' : 'CSV exportieren'}
+              <Eye className="h-4 w-4" />
+              {previewing ? 'Laden...' : 'Vorschau'}
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Preview Dialog */}
+      <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Export-Vorschau</DialogTitle>
+            <DialogDescription>
+              Überprüfen Sie die zu exportierenden Datensätze vor dem Download.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {previewData && (
+            <>
+              <div className="flex items-center gap-4 py-2 border-b">
+                <Badge variant="secondary" className="gap-1">
+                  <FileSpreadsheet className="h-3 w-3" />
+                  {previewData.length} Datensätze
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  Zeitraum: {new Date(startDate).toLocaleDateString('de-DE')} - {new Date(endDate).toLocaleDateString('de-DE')}
+                </span>
+                {previewData.some(p => p.bvl_reported) && (
+                  <Badge variant="outline" className="gap-1 text-yellow-600">
+                    <AlertCircle className="h-3 w-3" />
+                    {previewData.filter(p => p.bvl_reported).length} bereits gemeldet
+                  </Badge>
+                )}
+              </div>
+              
+              <div className="flex-1 overflow-auto py-4">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-background">
+                    <tr className="border-b">
+                      <th className="text-left py-2 px-2">Datum</th>
+                      <th className="text-left py-2 px-2">Antibiotikum</th>
+                      <th className="text-left py-2 px-2">Tierart</th>
+                      <th className="text-right py-2 px-2">Menge</th>
+                      <th className="text-center py-2 px-2">Tage</th>
+                      <th className="text-center py-2 px-2">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewData.slice(0, 50).map((p, i) => (
+                      <tr key={p.id} className={i % 2 === 0 ? 'bg-muted/30' : ''}>
+                        <td className="py-2 px-2">
+                          {new Date(p.prescribed_at).toLocaleDateString('de-DE')}
+                        </td>
+                        <td className="py-2 px-2 font-medium">{p.drug_name}</td>
+                        <td className="py-2 px-2">{p.animal_species}</td>
+                        <td className="py-2 px-2 text-right">
+                          {p.amount} {p.unit}
+                        </td>
+                        <td className="py-2 px-2 text-center">{p.treatment_duration_days}</td>
+                        <td className="py-2 px-2 text-center">
+                          {p.bvl_reported ? (
+                            <Badge variant="secondary" className="gap-1 text-xs">
+                              <CheckCircle className="h-3 w-3" />
+                              Gemeldet
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="gap-1 text-xs">
+                              <AlertCircle className="h-3 w-3" />
+                              Offen
+                            </Badge>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {previewData.length > 50 && (
+                  <p className="text-center text-sm text-muted-foreground py-4">
+                    ... und weitere {previewData.length - 50} Datensätze
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+
+          <DialogFooter className="border-t pt-4">
+            <Button variant="outline" onClick={() => setShowPreviewDialog(false)}>
+              Abbrechen
+            </Button>
+            <Button
+              onClick={handleExport}
+              disabled={loading || !previewData || previewData.length === 0}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              {loading ? 'Wird exportiert...' : 'CSV herunterladen'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Field Reference */}
       <Card>
