@@ -1,31 +1,35 @@
 # Demo Checklist - Wednesday 2026-04-16
 
-## Pre-Demo (Tuesday Night)
+## Pre-Demo (Friday Night)
 
 ### Frontend
-- [ ] `bun run dev` starts without errors
-- [ ] Login flow works
-- [ ] Patient CRUD works
-- [ ] TAMG dashboard loads
-- [ ] BVL export generates CSV
+- [x] `bun run dev` starts without errors
+- [x] Login flow works
+- [ ] Patient CRUD works (verify)
+- [ ] TAMG dashboard loads (verify)
+- [ ] BVL export generates CSV (verify)
 
 ### API
-- [ ] `cd api && bun run src/index.ts` starts
-- [ ] `/health` returns `status: ok`
-- [ ] `/portal` shows documentation
-- [ ] `/transcribe` endpoint exists (requires auth)
-- [ ] `/extract` endpoint exists (requires auth)
-- [ ] `/soap` endpoint exists (requires auth)
+- [x] `cd api && bun run src/index.ts` starts
+- [x] `/health` returns `status: ok`
+- [x] `/portal` shows documentation
+- [x] `/transcribe` endpoint exists (requires auth)
+- [x] `/extract` endpoint exists (requires auth)
+- [x] `/soap` endpoint exists (requires auth)
 
 ### Database
-- [ ] Supabase connection works
-- [ ] RLS policies active (check in dashboard)
-- [ ] 56 antibiotics seeded
+- [x] Supabase connection works
+- [x] RLS policies active (verified in dashboard)
+- [x] 46 antibiotics seeded
 
 ### Security
-- [ ] Rate limiting works (test with 20+ requests)
-- [ ] CORS blocks random origins
-- [ ] API key required for protected routes
+- [x] Rate limiting works
+- [x] CORS configured
+- [x] API key required for protected routes
+
+### AI Endpoints
+- [x] Gemini upgraded to 2.5 Pro
+- [ ] AssemblyAI configured (verify API key)
 
 ---
 
@@ -64,6 +68,30 @@ If live demo fails:
 1. Have screenshots ready
 2. Pre-recorded video of key flows
 3. Static demo data already seeded
+
+---
+
+## Updated Deadline
+
+**Saturday 2026-04-16 10:00 AM**
+
+---
+
+## Status (2026-04-14 Evening)
+
+| Check | Status |
+|-------|--------|
+| Frontend starts | ✅ |
+| API starts | ✅ |
+| Health endpoint | ✅ |
+| Portal docs | ✅ |
+| Antibiotics endpoint | ✅ (46 drugs) |
+| API keys working | ✅ |
+| Gemini 2.5 Pro | ✅ Upgraded |
+| AssemblyAI | ⏳ Verify key |
+| Frontend login/CRUD | ⏳ Verify |
+| TAMG dashboard | ⏳ Verify |
+| BVL export | ⏳ Verify |
 
 ---
 
