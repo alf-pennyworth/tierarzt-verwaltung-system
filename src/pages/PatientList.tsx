@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { PatientDialog } from "@/components/patient";
 import { AddPatientDialog } from "@/components/patient";
-import { Loader2, PawPrint, Search, ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
+import { PawPrint, Search, ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Patient {
   id: string;
@@ -253,9 +254,42 @@ const PatientList = () => {
           )}
 
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="mt-4 text-muted-foreground">Patienten werden geladen...</p>
+            /* Loading Skeleton */
+            <div className="space-y-4" role="status" aria-live="polite" aria-label="Patienten werden geladen">
+              {/* Filter skeleton */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Skeleton className="h-10 flex-1" />
+                <Skeleton className="h-10 w-full sm:w-[180px]" />
+              </div>
+              
+              {/* Table skeleton */}
+              <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3"><Skeleton className="h-5 w-20" /></th>
+                      <th className="text-left py-3"><Skeleton className="h-5 w-20" /></th>
+                      <th className="text-left py-3 hidden sm:table-cell"><Skeleton className="h-5 w-16" /></th>
+                      <th className="text-left py-3 hidden sm:table-cell"><Skeleton className="h-5 w-16" /></th>
+                      <th className="text-left py-3 hidden md:table-cell"><Skeleton className="h-5 w-12" /></th>
+                      <th className="text-left py-3"><Skeleton className="h-5 w-24" /></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <tr key={i} className="border-b">
+                        <TableCell className="whitespace-nowrap"><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell className="whitespace-nowrap"><Skeleton className="h-5 w-28" /></TableCell>
+                        <TableCell className="hidden sm:table-cell whitespace-nowrap"><Skeleton className="h-5 w-20" /></TableCell>
+                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-16" /></TableCell>
+                        <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
+                        <TableCell className="whitespace-nowrap"><Skeleton className="h-5 w-24" /></TableCell>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <span className="sr-only">Patienten werden geladen...</span>
             </div>
           ) : patients.length === 0 ? (
             /* Empty State */
