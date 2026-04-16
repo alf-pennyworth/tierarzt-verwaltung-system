@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,29 +7,33 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
 import Navigation from "./components/Navigation";
 import ModulesNavigation from "./components/ModulesNavigation";
-import Index from "./pages/Index";
+import LoadingSpinner from "./components/LoadingSpinner";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+
+// Eagerly loaded components (critical for initial render)
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import Transcription from "./pages/Transcription";
-import PatientList from "./pages/PatientList";
-import PatientDetails from "./pages/PatientDetails";
-import PatientHistoryPage from "./pages/PatientHistoryPage";
-import TreatmentDetails from "./pages/TreatmentDetails";
-import Dashboard from "./pages/Dashboard";
-import Employees from "./pages/Employees";
-import EmployeeDetail from "./pages/EmployeeDetail";
-import Reports from "./pages/Reports";
-import Profile from "./pages/Profile";
-import AppointmentScheduling from "./pages/AppointmentScheduling";
-import Inventory from "./pages/Inventory";
-import Telemedizin from "./pages/Telemedizin";
-import OwnerApp from "./pages/OwnerApp";
-import Owners from "./pages/Owners";
-import OwnerDetail from "./pages/OwnerDetail";
-import TAMG from "./pages/TAMG";
-import Settings from "./pages/Settings";
-import { TAMGDashboard, AntibioticForm, BVLExport } from "./components/tamg";
-import { ErrorBoundary } from "./components/ErrorBoundary";
+
+// Lazy loaded page components
+const Index = lazy(() => import("./pages/Index"));
+const Transcription = lazy(() => import("./pages/Transcription"));
+const PatientList = lazy(() => import("./pages/PatientList"));
+const PatientDetails = lazy(() => import("./pages/PatientDetails"));
+const PatientHistoryPage = lazy(() => import("./pages/PatientHistoryPage"));
+const TreatmentDetails = lazy(() => import("./pages/TreatmentDetails"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Employees = lazy(() => import("./pages/Employees"));
+const EmployeeDetail = lazy(() => import("./pages/EmployeeDetail"));
+const Reports = lazy(() => import("./pages/Reports"));
+const Profile = lazy(() => import("./pages/Profile"));
+const AppointmentScheduling = lazy(() => import("./pages/AppointmentScheduling"));
+const Inventory = lazy(() => import("./pages/Inventory"));
+const Telemedizin = lazy(() => import("./pages/Telemedizin"));
+const OwnerApp = lazy(() => import("./pages/OwnerApp"));
+const Owners = lazy(() => import("./pages/Owners"));
+const OwnerDetail = lazy(() => import("./pages/OwnerDetail"));
+const TAMG = lazy(() => import("./pages/TAMG"));
+const Settings = lazy(() => import("./pages/Settings"));
 
 const queryClient = new QueryClient();
 
@@ -36,7 +41,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div>Laden...</div>;
+    return <LoadingSpinner />;
   }
 
   if (!user) {
@@ -72,13 +77,19 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-          <Route path="/owner/*" element={<OwnerApp />} />
+          <Route path="/owner/*" element={
+            <Suspense fallback={<LoadingSpinner />}>
+              <OwnerApp />
+            </Suspense>
+          } />
           <Route
             path="/"
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true} isModulesPage={true}>
-                  <Index />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <Index />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -88,7 +99,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <PatientDetails />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <PatientDetails />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -98,7 +111,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <TreatmentDetails />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <TreatmentDetails />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -108,7 +123,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <Transcription />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <Transcription />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -118,7 +135,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <PatientList />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <PatientList />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -128,7 +147,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <PatientHistoryPage />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <PatientHistoryPage />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -138,7 +159,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <Dashboard />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <Dashboard />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -148,7 +171,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <Employees />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <Employees />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -158,7 +183,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <EmployeeDetail />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <EmployeeDetail />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -168,7 +195,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <Owners />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <Owners />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -178,7 +207,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <OwnerDetail />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <OwnerDetail />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -188,7 +219,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <Reports />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <Reports />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -198,7 +231,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <Profile />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <Profile />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -208,7 +243,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <AppointmentScheduling />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <AppointmentScheduling />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -218,7 +255,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <Inventory />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <Inventory />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -228,7 +267,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <Telemedizin />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <Telemedizin />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -238,7 +279,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <TAMG />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <TAMG />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -248,7 +291,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <TAMG />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <TAMG />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -258,7 +303,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <TAMG />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <TAMG />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
@@ -268,7 +315,9 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
-                  <Settings />
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <Settings />
+                  </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
             }
