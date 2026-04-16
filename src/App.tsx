@@ -25,6 +25,7 @@ import OwnerApp from "./pages/OwnerApp";
 import Owners from "./pages/Owners";
 import OwnerDetail from "./pages/OwnerDetail";
 import TAMG from "./pages/TAMG";
+import Settings from "./pages/Settings";
 import { TAMGDashboard, AntibioticForm, BVLExport } from "./components/tamg";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -247,6 +248,16 @@ const App = () => (
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
                   <TAMG />
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Settings />
                 </WithNavigation>
               </ProtectedRoute>
             }

@@ -18,6 +18,7 @@ import {
   Stethoscope,
   Video,
   FileAudio,
+  Settings,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 
@@ -177,6 +178,11 @@ const Navigation = () => {
       name: "Profil",
       href: "/profile",
       icon: UserCircle,
+    },
+    {
+      name: "Einstellungen",
+      href: "/settings",
+      icon: Settings,
     },
   ];
 
