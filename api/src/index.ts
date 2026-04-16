@@ -120,6 +120,12 @@ app.get('/health', async (c) => {
     dbStatus = 'error';
   }
   
+  // Check AI services configuration
+  const aiServices = {
+    assemblyai: process.env.ASSEMBLYAI_API_KEY ? 'configured' : 'not_configured',
+    gemini: (process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY) ? 'configured' : 'not_configured',
+  };
+  
   return c.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -128,6 +134,7 @@ app.get('/health', async (c) => {
       status: dbStatus,
       antibiotics: antibioticCount,
     },
+    ai: aiServices,
     endpoints: [
       'GET  /health',
       'GET  /api-keys',
