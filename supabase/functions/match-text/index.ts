@@ -1,12 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Max-Age': '86400',
-}
+import { corsHeaders, handleCors } from "../_shared/cors.ts"
 
 const normalizeText = (text: string): string => {
   return text.toLowerCase().trim();
@@ -139,12 +133,9 @@ const findDiagnoseMatches = (
 };
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders
-    })
-  }
+  // Handle CORS preflight
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
     if (req.method !== 'POST') {
@@ -206,7 +197,7 @@ serve(async (req) => {
       }),
       { 
         headers: { 
-          ...corsHeaders,
+          ...corsHeaders(req),
           'Content-Type': 'application/json'
         }
       }
@@ -223,7 +214,7 @@ serve(async (req) => {
       { 
         status: 500,
         headers: { 
-          ...corsHeaders,
+          ...corsHeaders(req),
           'Content-Type': 'application/json'
         }
       }

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { websocketCorsHeaders, handleCors } from "../_shared/cors.ts";
 
 interface WebSocketClient extends WebSocket {
   roomId?: string;
@@ -10,16 +11,10 @@ const connectedClients: Map<string, RoomClients> = new Map();
 const HEARTBEAT_INTERVAL = 30000; // 30 seconds
 const HEARTBEAT_TIMEOUT = 35000; // 35 seconds
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   const { headers } = req;
   const upgradeHeader = headers.get("upgrade") || "";
@@ -258,7 +253,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error handling WebSocket connection:", error);
     return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...websocketCorsHeaders(req), 'Content-Type': 'application/json' },
       status: 500,
     });
   }
