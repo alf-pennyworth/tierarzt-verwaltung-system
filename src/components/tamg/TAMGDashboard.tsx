@@ -9,6 +9,7 @@ import { TAMG_ANIMAL_CATEGORIES, ANTIBIOTIC_CLASSES, type AntibioticClass, type 
 import { getAnimalSpeciesName, getAntibioticClassName } from "@/services/tamgService";
 import { AlertTriangle, RefreshCw, Activity, FileSpreadsheet, PlusCircle, ClipboardList } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { BVLReminder } from "./BVLReminder";
 
 interface UsageStats {
   antibiotic_class: AntibioticClass;
@@ -228,6 +229,9 @@ export function TAMGDashboard({ practiceId }: TAMGDashboardProps) {
         {loading ? "Daten werden geladen" : `${prescriptions.length} Verschreibungen angezeigt`}
       </div>
       
+      {/* BVL Reporting Deadline Reminder */}
+      <BVLReminder practiceId={practiceId} />
+
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">TAMG Dashboard</h2>
         <Select value={timeRange} onValueChange={(v) => setTimeRange(v as any)} aria-label="Zeitraum auswählen">

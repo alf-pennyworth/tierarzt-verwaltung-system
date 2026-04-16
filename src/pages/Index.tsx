@@ -4,8 +4,19 @@ import { CalendarClock, FileSpreadsheet, Pill, Stethoscope, User, FileAudio, Tru
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { BVLReminder } from "@/components/tamg/BVLReminder";
+import {
+  getReportingDeadline,
+  getNextDeadline,
+  getDaysRemaining,
+  getTimeRemaining,
+  isDeadlineUrgent,
+  isDeadlineOverdue,
+  formatGermanDate,
+} from "@/lib/bvl-deadlines";
 
 const MODULES = [
   {
@@ -335,6 +346,11 @@ const Index = () => {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* BVL Quarterly Deadline Reminder */}
+      {userInfo?.praxisId && (
+        <BVLReminder practiceId={userInfo.praxisId} compact={true} />
       )}
 
       {/* Recent Activity */}

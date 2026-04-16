@@ -252,6 +252,24 @@ export function BVLExport({ practiceId }: BVLExportProps) {
         .update({ reported_to_bvl: true })
         .in('id', prescriptionIds);
 
+      // Create export batch record for history
+      const { error: batchError } = await supabase
+        .from('tamg_export_batches')
+        .insert({
+          praxis_id: practiceId,
+          period_start: startDate,
+          period_end: endDate,
+          format: 'csv',
+          records_count: records.length,
+          total_amount_mg: previewData.reduce((sum, p) => sum + (p.amount || 0), 0),
+          status: 'completed',
+        });
+
+      if (batchError) {
+        console.error('Failed to create export batch record:', batchError);
+        // Don't fail the export if batch record fails
+      }
+
       setShowPreviewDialog(false);
       setPreviewData(null);
 
