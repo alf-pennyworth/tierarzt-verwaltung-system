@@ -272,7 +272,7 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
           <CardTitle className="text-base">Patient</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="patient_id">Patient auswählen</Label>
               <Select
@@ -310,7 +310,7 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="animal_count" className={cn(errors.animal_count && "text-destructive")}>
                 Anzahl behandelte Tiere *
@@ -373,7 +373,7 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
             </Select>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="drug_name" className={cn(errors.drug_name && "text-destructive")}>
                 Handelsname *
@@ -414,7 +414,7 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="antibiotic_class">Antibiotika-Klasse *</Label>
               <Select
@@ -495,7 +495,7 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
           <CardTitle className="text-base">Behandlung</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="route_of_administration">Applikationsart</Label>
               <Select

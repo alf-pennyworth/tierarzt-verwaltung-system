@@ -429,29 +429,29 @@ export function BVLExport({ practiceId }: BVLExportProps) {
               </div>
               
               <div className="flex-1 overflow-auto py-4">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[500px]">
                   <thead className="sticky top-0 bg-background">
                     <tr className="border-b">
-                      <th className="text-left py-2 px-2">Datum</th>
-                      <th className="text-left py-2 px-2">Antibiotikum</th>
-                      <th className="text-left py-2 px-2">Tierart</th>
-                      <th className="text-right py-2 px-2">Menge</th>
-                      <th className="text-center py-2 px-2">Tage</th>
-                      <th className="text-center py-2 px-2">Status</th>
+                      <th className="text-left py-2 px-2 whitespace-nowrap">Datum</th>
+                      <th className="text-left py-2 px-2 whitespace-nowrap">Antibiotikum</th>
+                      <th className="text-left py-2 px-2 hidden sm:table-cell whitespace-nowrap">Tierart</th>
+                      <th className="text-right py-2 px-2 whitespace-nowrap">Menge</th>
+                      <th className="text-center py-2 px-2 hidden sm:table-cell whitespace-nowrap">Tage</th>
+                      <th className="text-center py-2 px-2 whitespace-nowrap">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {previewData.slice(0, 50).map((p, i) => (
                       <tr key={p.id} className={i % 2 === 0 ? 'bg-muted/30' : ''}>
-                        <td className="py-2 px-2">
+                        <td className="py-2 px-2 whitespace-nowrap">
                           {new Date(p.prescribed_at).toLocaleDateString('de-DE')}
                         </td>
-                        <td className="py-2 px-2 font-medium">{p.drug_name}</td>
-                        <td className="py-2 px-2">{p.animal_species}</td>
-                        <td className="py-2 px-2 text-right">
+                        <td className="py-2 px-2 font-medium whitespace-nowrap">{p.drug_name}</td>
+                        <td className="py-2 px-2 hidden sm:table-cell">{p.animal_species}</td>
+                        <td className="py-2 px-2 text-right whitespace-nowrap">
                           {p.amount} {p.unit}
                         </td>
-                        <td className="py-2 px-2 text-center">{p.treatment_duration_days}</td>
+                        <td className="py-2 px-2 text-center hidden sm:table-cell">{p.treatment_duration_days}</td>
                         <td className="py-2 px-2 text-center">
                           {p.bvl_reported ? (
                             <Badge variant="secondary" className="gap-1 text-xs">
@@ -500,7 +500,7 @@ export function BVLExport({ practiceId }: BVLExportProps) {
           <CardTitle className="text-base">Felderklärung (TAM v2)</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
               <strong>BNR15:</strong> Betriebsnummer des Tierarztes
             </div>

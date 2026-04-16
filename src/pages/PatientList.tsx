@@ -129,46 +129,48 @@ const PatientList = () => {
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Besitzer</TableHead>
-                  <TableHead>Spezies</TableHead>
-                  <TableHead>Rasse</TableHead>
-                  <TableHead>Geburtsdatum</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPatients.map((patient) => (
-                  <TableRow
-                    key={patient.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => navigate(`/patient/${patient.id}`)}
-                  >
-                    <TableCell>{patient.name}</TableCell>
-                    <TableCell>
-                      <span 
-                        className="cursor-pointer hover:underline" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/owner/${patient.besitzer.id}`);
-                        }}
-                      >
-                        {patient.besitzer.name}
-                      </span>
-                    </TableCell>
-                    <TableCell>{patient.spezies}</TableCell>
-                    <TableCell>{patient.rasse || "-"}</TableCell>
-                    <TableCell>
-                      {patient.geburtsdatum
-                        ? format(new Date(patient.geburtsdatum), "dd.MM.yyyy")
-                        : "-"}
-                    </TableCell>
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Name</TableHead>
+                    <TableHead className="whitespace-nowrap">Besitzer</TableHead>
+                    <TableHead className="hidden sm:table-cell whitespace-nowrap">Spezies</TableHead>
+                    <TableHead className="hidden md:table-cell whitespace-nowrap">Rasse</TableHead>
+                    <TableHead className="whitespace-nowrap">Geburtsdatum</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredPatients.map((patient) => (
+                    <TableRow
+                      key={patient.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => navigate(`/patient/${patient.id}`)}
+                    >
+                      <TableCell className="whitespace-nowrap">{patient.name}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <span 
+                          className="cursor-pointer hover:underline" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/owner/${patient.besitzer.id}`);
+                          }}
+                        >
+                          {patient.besitzer.name}
+                        </span>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">{patient.spezies}</TableCell>
+                      <TableCell className="hidden md:table-cell">{patient.rasse || "-"}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {patient.geburtsdatum
+                          ? format(new Date(patient.geburtsdatum), "dd.MM.yyyy")
+                          : "-"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

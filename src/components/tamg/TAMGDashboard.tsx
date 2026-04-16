@@ -382,35 +382,35 @@ export function TAMGDashboard({ practiceId }: TAMGDashboardProps) {
               </div>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <table className="w-full text-sm min-w-[600px]">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-2">Datum</th>
-                    <th className="text-left py-2">Antibiotikum</th>
-                    <th className="text-left py-2">Wirkstoff</th>
-                    <th className="text-left py-2">Tierart</th>
-                    <th className="text-left py-2">Diagnose</th>
-                    <th className="text-left py-2">Typ</th>
-                    <th className="text-left py-2">BVL Status</th>
+                    <th className="text-left py-2 whitespace-nowrap">Datum</th>
+                    <th className="text-left py-2 whitespace-nowrap">Antibiotikum</th>
+                    <th className="text-left py-2 hidden sm:table-cell whitespace-nowrap">Wirkstoff</th>
+                    <th className="text-left py-2 whitespace-nowrap">Tierart</th>
+                    <th className="text-left py-2 hidden md:table-cell whitespace-nowrap">Diagnose</th>
+                    <th className="text-left py-2 hidden sm:table-cell whitespace-nowrap">Typ</th>
+                    <th className="text-left py-2 whitespace-nowrap">BVL Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {prescriptions.slice(0, 10).map((p) => (
                     <tr key={p.id} className="border-b">
-                      <td className="py-2">
+                      <td className="py-2 whitespace-nowrap">
                         {new Date(p.prescription_date).toLocaleDateString("de-DE")}
                       </td>
-                      <td className="py-2 font-medium">{p.drug_name}</td>
-                      <td className="py-2">{p.active_substance}</td>
-                      <td className="py-2">
+                      <td className="py-2 font-medium whitespace-nowrap">{p.drug_name}</td>
+                      <td className="py-2 hidden sm:table-cell">{p.active_substance}</td>
+                      <td className="py-2 whitespace-nowrap">
                         {TAMG_ANIMAL_CATEGORIES[p.animal_species]?.de || p.animal_species}
                       </td>
-                      <td className="py-2">{p.diagnosis || "-"}</td>
-                      <td className="py-2 capitalize">{p.prescription_type}</td>
+                      <td className="py-2 hidden md:table-cell">{p.diagnosis || "-"}</td>
+                      <td className="py-2 hidden sm:table-cell capitalize whitespace-nowrap">{p.prescription_type}</td>
                       <td className="py-2">
                         <span
-                          className={`px-2 py-1 rounded text-xs ${
+                          className={`px-2 py-1 rounded text-xs whitespace-nowrap ${
                             p.reported_to_bvl
                               ? "bg-green-100 text-green-800"
                               : "bg-yellow-100 text-yellow-800"

@@ -233,27 +233,27 @@ const Index = () => {
   };
 
   return (
-    <div className="container py-8 space-y-8">
-      <h1 className="text-3xl font-bold">Veterinary Management System</h1>
+    <div className="container py-4 sm:py-8 space-y-6 sm:space-y-8">
+      <h1 className="text-2xl sm:text-3xl font-bold">Veterinary Management System</h1>
 
       {/* Quick Stats Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
         {loading ? (
           <>
             <Card>
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <Skeleton className="h-4 w-24 mb-2" />
                 <Skeleton className="h-8 w-16" />
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <Skeleton className="h-4 w-24 mb-2" />
                 <Skeleton className="h-8 w-16" />
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <Skeleton className="h-4 w-24 mb-2" />
                 <Skeleton className="h-8 w-16" />
               </CardContent>
@@ -262,42 +262,42 @@ const Index = () => {
         ) : (
           <>
             <Card className="cursor-pointer hover:shadow-md transition-all" onClick={() => navigate('/patients')}>
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Patienten</p>
-                    <p className="text-3xl font-bold">{stats?.patientsCount ?? 0}</p>
+                    <p className="text-2xl sm:text-3xl font-bold">{stats?.patientsCount ?? 0}</p>
                   </div>
-                  <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                    <Users className="h-6 w-6 text-green-600" />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-green-100 flex items-center justify-center">
+                    <Users className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="cursor-pointer hover:shadow-md transition-all" onClick={() => navigate('/tamg')}>
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Verschreibungen diesen Monat</p>
-                    <p className="text-3xl font-bold">{stats?.prescriptionsThisMonth ?? 0}</p>
+                    <p className="text-2xl sm:text-3xl font-bold">{stats?.prescriptionsThisMonth ?? 0}</p>
                   </div>
-                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                    <ClipboardList className="h-6 w-6 text-blue-600" />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                    <ClipboardList className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="cursor-pointer hover:shadow-md transition-all" onClick={() => navigate('/tamg')}>
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Offene BVL-Meldungen</p>
-                    <p className="text-3xl font-bold">{stats?.pendingBvlReports ?? 0}</p>
+                    <p className="text-2xl sm:text-3xl font-bold">{stats?.pendingBvlReports ?? 0}</p>
                   </div>
-                  <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
-                    <AlertCircle className={`h-6 w-6 ${(stats?.pendingBvlReports ?? 0) > 0 ? 'text-amber-600' : 'text-gray-400'}`} />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                    <AlertCircle className={`h-5 w-5 sm:h-6 sm:w-6 ${(stats?.pendingBvlReports ?? 0) > 0 ? 'text-amber-600' : 'text-gray-400'}`} />
                   </div>
                 </div>
                 {(stats?.pendingBvlReports ?? 0) > 0 && (
@@ -392,8 +392,8 @@ const Index = () => {
 
       {/* Module Navigation */}
       <div>
-        <h2 className="text-xl font-semibold mb-4">Module</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Module</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {MODULES.map((module) => (
             <Card 
               key={module.name}
@@ -402,14 +402,14 @@ const Index = () => {
               }`}
               onClick={() => handleModuleClick(module)}
             >
-              <CardContent className="p-6 flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <module.icon className="h-8 w-8 text-primary" />
+              <CardContent className="p-4 sm:p-6 flex flex-col items-center text-center">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-primary/10 flex items-center justify-center mb-3 sm:mb-4">
+                  <module.icon className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
                 </div>
-                <h3 className="font-bold text-lg mb-2">{module.name}</h3>
-                <p className="text-sm text-muted-foreground">{module.description}</p>
+                <h3 className="font-bold text-base sm:text-lg mb-1 sm:mb-2">{module.name}</h3>
+                <p className="text-xs sm:text-sm text-muted-foreground">{module.description}</p>
                 {module.comingSoon && (
-                  <span className="mt-3 px-3 py-1 bg-muted text-muted-foreground text-xs rounded-full">
+                  <span className="mt-2 sm:mt-3 px-2 sm:px-3 py-1 bg-muted text-muted-foreground text-xs rounded-full">
                     Coming Soon
                   </span>
                 )}
