@@ -78,6 +78,9 @@ const Owners = () => {
             <div className="text-center py-4">Keine Besitzer gefunden.</div>
           ) : (
             <Table>
+              <caption className="sr-only">
+                Besitzerverzeichnis mit {owners.length} Besitzern
+              </caption>
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>

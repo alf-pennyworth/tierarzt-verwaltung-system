@@ -147,17 +147,17 @@ const PatientList = () => {
         patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         patient.besitzer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         patient.spezies.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesSpecies = !speciesFilter || speciesFilter === 'all' || 
+
+      const matchesSpecies = !speciesFilter || speciesFilter === 'all' ||
         patient.spezies === speciesFilter;
-      
+
       return matchesSearch && matchesSpecies;
     });
 
     // Sort patients
     result.sort((a, b) => {
       let comparison = 0;
-      
+
       switch (sortConfig.field) {
         case 'name':
           comparison = a.name.localeCompare(b.name, 'de');
@@ -169,7 +169,7 @@ const PatientList = () => {
           comparison = a.besitzer.name.localeCompare(b.besitzer.name, 'de');
           break;
       }
-      
+
       return sortConfig.direction === 'desc' ? -comparison : comparison;
     });
 
@@ -180,7 +180,7 @@ const PatientList = () => {
     if (sortConfig.field !== field) {
       return <ArrowUpDown className="h-4 w-4 opacity-50" />;
     }
-    return sortConfig.direction === 'asc' 
+    return sortConfig.direction === 'asc'
       ? <ArrowUp className="h-4 w-4" />
       : <ArrowDown className="h-4 w-4" />;
   };
@@ -207,7 +207,7 @@ const PatientList = () => {
                     className="pl-9"
                   />
                 </div>
-                
+
                 {/* Species Filter */}
                 <Select value={speciesFilter} onValueChange={handleSpeciesChange}>
                   <SelectTrigger className="w-full sm:w-[180px]">
@@ -223,7 +223,7 @@ const PatientList = () => {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               {/* Active Filters & Clear */}
               {hasActiveFilters && (
                 <div className="flex items-center gap-2">
@@ -281,39 +281,45 @@ const PatientList = () => {
           ) : (
             <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
               <Table>
+                <caption className="sr-only">
+                  Patientenliste mit {filteredPatients.length} Patienten, sortierbar nach Name, Besitzer und Erstelldatum
+                </caption>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="whitespace-nowrap">
+                    <TableHead className="whitespace-nowrap" aria-sort={sortConfig.field === 'name' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleSortChange('name')}
                         className="-ml-3 h-8 data-[state=on]:bg-accent"
                         data-state={sortConfig.field === 'name' ? 'on' : 'off'}
+                        aria-label="Nach Name sortieren"
                       >
                         Name
                         <SortIcon field="name" />
                       </Button>
                     </TableHead>
-                    <TableHead className="whitespace-nowrap">
+                    <TableHead className="whitespace-nowrap" aria-sort={sortConfig.field === 'owner' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleSortChange('owner')}
                         className="-ml-3 h-8 data-[state=on]:bg-accent"
                         data-state={sortConfig.field === 'owner' ? 'on' : 'off'}
+                        aria-label="Nach Besitzer sortieren"
                       >
                         Besitzer
                         <SortIcon field="owner" />
                       </Button>
                     </TableHead>
-                    <TableHead className="hidden sm:table-cell whitespace-nowrap">
+                    <TableHead className="hidden sm:table-cell whitespace-nowrap" aria-sort={sortConfig.field === 'created_at' ? (sortConfig.direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleSortChange('created_at')}
                         className="-ml-3 h-8 data-[state=on]:bg-accent"
                         data-state={sortConfig.field === 'created_at' ? 'on' : 'off'}
+                        aria-label="Nach Erstelldatum sortieren"
                       >
                         Erstellt
                         <SortIcon field="created_at" />
@@ -333,11 +339,21 @@ const PatientList = () => {
                     >
                       <TableCell className="whitespace-nowrap">{patient.name}</TableCell>
                       <TableCell className="whitespace-nowrap">
-                        <span 
-                          className="cursor-pointer hover:underline" 
+                        <span
+                          className="cursor-pointer hover:underline text-primary"
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Besitzer ${patient.besitzer.name} anzeigen`}
                           onClick={(e) => {
                             e.stopPropagation();
                             navigate(`/owner/${patient.besitzer.id}`);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              navigate(`/owner/${patient.besitzer.id}`);
+                            }
                           }}
                         >
                           {patient.besitzer.name}

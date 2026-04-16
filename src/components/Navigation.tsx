@@ -253,8 +253,10 @@ const Navigation = () => {
             ref={buttonRef}
             className="absolute left-1/2 -translate-x-1/2 -top-6 rounded-full w-12 h-12 p-0 shadow-lg z-50"
             onClick={toggleMenu}
+            aria-expanded={isMenuOpen}
+            aria-label="Menü öffnen"
           >
-            <div className="relative w-5 h-5">
+            <div className="relative w-5 h-5" aria-hidden="true">
               <Menu className={cn(
                 "absolute inset-0 h-5 w-5 transition-all duration-300 ease-in-out",
                 isMenuOpen ? "opacity-0 rotate-90 scale-0" : "opacity-100 rotate-0 scale-100"
@@ -304,9 +306,10 @@ const Navigation = () => {
             variant="ghost"
             className="p-2 mr-4"
             onClick={toggleMenu}
-            aria-label="Menu"
+            aria-expanded={isMenuOpen}
+            aria-label="Menü öffnen"
           >
-            <div className="relative w-6 h-6">
+            <div className="relative w-6 h-6" aria-hidden="true">
               <Menu className={cn(
                 "absolute inset-0 h-6 w-6 transition-all duration-300 ease-in-out",
                 isMenuOpen ? "opacity-0 rotate-90 scale-0" : "opacity-100 rotate-0 scale-100"
