@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 import Transcription from "./pages/Transcription";
 import PatientList from "./pages/PatientList";
 import PatientDetails from "./pages/PatientDetails";
+import PatientHistoryPage from "./pages/PatientHistoryPage";
 import TreatmentDetails from "./pages/TreatmentDetails";
 import Dashboard from "./pages/Dashboard";
 import Employees from "./pages/Employees";
@@ -118,6 +119,16 @@ const App = () => (
               <ProtectedRoute>
                 <WithNavigation showNav={true}>
                   <PatientList />
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/patients/:id"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <PatientHistoryPage />
                 </WithNavigation>
               </ProtectedRoute>
             }

@@ -329,7 +329,7 @@ const PatientList = () => {
                     <TableRow
                       key={patient.id}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => navigate(`/patient/${patient.id}`)}
+                      onClick={() => navigate(`/patients/${patient.id}`)}
                     >
                       <TableCell className="whitespace-nowrap">{patient.name}</TableCell>
                       <TableCell className="whitespace-nowrap">
