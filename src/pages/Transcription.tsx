@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mic, MicOff, AlertTriangle } from "lucide-react";
+import { Mic, MicOff, AlertTriangle, Copy, Check, FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -87,6 +87,9 @@ const Transcription = () => {
   const [patientData, setPatientData] = useState<PatientData | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+  const [isGeneratingSoap, setIsGeneratingSoap] = useState(false);
+  const [copiedTranscript, setCopiedTranscript] = useState(false);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -417,6 +420,7 @@ const Transcription = () => {
 
   const transcribeAudio = async (audioData: string) => {
     setIsProcessing(true);
+    setTranscriptionError(null);
     try {
       console.log("Calling transcribe function with audio data length:", audioData.length);
       const { data, error } = await supabase.functions.invoke("transcribe", {
@@ -466,13 +470,91 @@ const Transcription = () => {
       }
     } catch (error) {
       console.error("Transcription error:", error);
+      setTranscriptionError("Die Transkription konnte nicht erstellt werden. Bitte versuchen Sie es erneut.");
       toast({
         variant: "destructive",
-        title: "Fehler",
-        description: "Die Transkription konnte nicht erstellt werden.",
+        title: "Fehler bei der Transkription",
+        description: "Die Transkription konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
       });
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const generateSoapNote = async () => {
+    if (!transcription) {
+      toast({
+        variant: "destructive",
+        title: "Kein Transkript",
+        description: "Bitte erstellen Sie zuerst eine Transkription.",
+      });
+      return;
+    }
+
+    setIsGeneratingSoap(true);
+    try {
+      const response = await fetch('/api/soap', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          transcript: transcription,
+          patient_info: {
+            name: patientData?.name,
+            species: patientData?.spezies,
+            breed: patientData?.rasse,
+          },
+          language: 'de',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'SOAP-Generierung fehlgeschlagen');
+      }
+
+      const result = await response.json();
+      
+      if (result.soap) {
+        setFormData((prev) => ({
+          ...prev,
+          soapNotes: result.soap,
+        }));
+        toast({
+          title: "SOAP-Notiz erstellt",
+          description: "Die SOAP-Notiz wurde erfolgreich generiert.",
+        });
+      }
+    } catch (error: any) {
+      console.error("SOAP generation error:", error);
+      toast({
+        variant: "destructive",
+        title: "Fehler bei der SOAP-Generierung",
+        description: error.message || "Die SOAP-Notiz konnte nicht erstellt werden.",
+      });
+    } finally {
+      setIsGeneratingSoap(false);
+    }
+  };
+
+  const copyTranscriptToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(transcription);
+      setCopiedTranscript(true);
+      toast({
+        title: "Kopiert",
+        description: "Transkript wurde in die Zwischenablage kopiert.",
+      });
+      setTimeout(() => setCopiedTranscript(false), 2000);
+    } catch (error) {
+      console.error("Copy error:", error);
+      toast({
+        variant: "destructive",
+        title: "Fehler",
+        description: "Transkript konnte nicht kopiert werden.",
+      });
     }
   };
 
@@ -682,12 +764,73 @@ const Transcription = () => {
             )}
             {isProcessing && (
               <div className="text-center text-gray-500">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
                 Transkription wird erstellt...
+              </div>
+            )}
+            {transcriptionError && !isProcessing && (
+              <div className="flex items-center justify-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg">
+                <AlertTriangle className="h-4 w-4" />
+                <span>{transcriptionError}</span>
               </div>
             )}
           </div>
         </CardContent>
       </Card>
+
+      {/* Transcript Display Card */}
+      {transcription && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Transkript</span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={copyTranscriptToClipboard}
+                  disabled={isProcessing}
+                >
+                  {copiedTranscript ? (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Kopiert
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Kopieren
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={generateSoapNote}
+                  disabled={isGeneratingSoap || isProcessing}
+                >
+                  {isGeneratingSoap ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generiere...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="mr-2 h-4 w-4" />
+                      SOAP-Notiz generieren
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-gray-50 p-4 rounded-lg whitespace-pre-wrap text-sm">
+              {transcription}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -797,14 +940,7 @@ const Transcription = () => {
                 placeholder="SOAP Notizen"
               />
             </div>
-            {transcription && (
-              <div className="mt-4">
-                <Label htmlFor="transcription">Transkription</Label>
-                <div className="bg-gray-50 p-4 rounded-lg whitespace-pre-wrap mt-2">
-                  {transcription}
-                </div>
-              </div>
-            )}
+
             <div className="flex justify-end">
               <Button type="button" onClick={handleSave} disabled={isProcessing}>
                 Speichern
