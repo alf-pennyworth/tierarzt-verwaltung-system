@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle } from "lucide-react";
+import { AlertCircle, CheckCircle, Calculator, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { 
   TAMG_ANIMAL_CATEGORIES, 
@@ -70,6 +70,7 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectedDrug, setSelectedDrug] = useState<AntibioticDrug | null>(null);
+  const [drugValidationWarning, setDrugValidationWarning] = useState<string | null>(null);
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, touchedFields }, trigger } = useForm<FormData>({
     mode: "onBlur",
@@ -162,6 +163,123 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
       setValue("drug_name", drug.drug_name);
       setValue("active_substance", drug.active_substance);
       setValue("antibiotic_class", drug.antibiotic_class);
+      setDrugValidationWarning(null); // Clear warning when selecting from database
+    }
+  };
+
+  /**
+   * Validate drug name against antibiotics database
+   * Shows warning if drug is not in the approved list
+   */
+  const validateDrugName = useCallback((drugName: string) => {
+    if (!drugName || drugName.trim() === '') {
+      setDrugValidationWarning(null);
+      return true;
+    }
+
+    const normalizedInput = drugName.toLowerCase().trim();
+    const matchingDrug = antibiotics.find(
+      d => d.drug_name.toLowerCase() === normalizedInput ||
+           d.active_substance.toLowerCase().includes(normalizedInput) ||
+           normalizedInput.includes(d.active_substance.toLowerCase())
+    );
+
+    if (!matchingDrug) {
+      setDrugValidationWarning(
+        `"${drugName}" wurde nicht in der zugelassenen Antibiotika-Datenbank gefunden. ` +
+        `Bitte stellen Sie sicher, dass es sich um ein zugelassenes Tierarzneimittel handelt.`
+      );
+      return false;
+    }
+
+    setDrugValidationWarning(null);
+    return true;
+  }, [antibiotics]);
+
+  /**
+   * Check if selected drug is approved for the current animal species
+   */
+  const checkSpeciesApproval = useMemo(() => {
+    if (!selectedDrug || !watch("animal_species")) return null;
+    
+    const currentSpecies = watch("animal_species") as TamgAnimalCategory;
+    
+    if (selectedDrug.approved_species && selectedDrug.approved_species.length > 0) {
+      if (!selectedDrug.approved_species.includes(currentSpecies)) {
+        const approvedSpeciesNames = selectedDrug.approved_species
+          .map(s => TAMG_ANIMAL_CATEGORIES[s]?.de || s)
+          .join(', ');
+        return {
+          warning: true,
+          message: `Dieses Antibiotikum ist nur für folgende Tierarten zugelassen: ${approvedSpeciesNames}`
+        };
+      }
+    }
+    return { warning: false, message: null };
+  }, [selectedDrug, watch("animal_species")]);
+
+  /**
+   * Dosage calculation helper (mg/kg)
+   * Calculates recommended dosage based on animal weight
+   */
+  const dosageCalculation = useMemo(() => {
+    const weight = watch("animal_weight_kg");
+    const animalCount = watch("animal_count");
+    const duration = watch("treatment_duration_days");
+    
+    if (!weight || weight <= 0) return null;
+
+    // Common dosage ranges (mg/kg/day) for reference
+    const dosageGuidelines: Record<AntibioticClass, { typical: string; range: string }> = {
+      penicillins: { typical: '10-20 mg/kg', range: '8-50 mg/kg' },
+      cephalosporins: { typical: '10-25 mg/kg', range: '5-50 mg/kg' },
+      aminoglycosides: { typical: '5-10 mg/kg', range: '2-15 mg/kg' },
+      macrolides: { typical: '5-15 mg/kg', range: '2-25 mg/kg' },
+      tetracyclines: { typical: '10-20 mg/kg', range: '5-30 mg/kg' },
+      fluoroquinolones: { typical: '5-10 mg/kg', range: '2-15 mg/kg' },
+      sulfonamides: { typical: '15-30 mg/kg', range: '10-50 mg/kg' },
+      trimethoprim: { typical: '5-10 mg/kg', range: '2-15 mg/kg' },
+      lincosamides: { typical: '5-15 mg/kg', range: '3-25 mg/kg' },
+      pleuromutilins: { typical: '5-10 mg/kg', range: '2-15 mg/kg' },
+      amphenicols: { typical: '20-40 mg/kg', range: '10-50 mg/kg' },
+      glycopeptides: { typical: '5-15 mg/kg', range: '2-20 mg/kg' },
+      polymyxins: { typical: '2-5 mg/kg', range: '1-10 mg/kg' },
+      other: { typical: '---', range: '---' },
+    };
+
+    const antibioticClass = watch("antibiotic_class") as AntibioticClass;
+    const guideline = dosageGuidelines[antibioticClass] || dosageGuidelines.other;
+    
+    const totalWeight = weight * (animalCount || 1);
+    const treatmentDays = duration || 1;
+
+    return {
+      animalWeight: weight,
+      animalCount: animalCount || 1,
+      totalWeight,
+      treatmentDays,
+      guideline,
+      antibioticClass,
+      // Example calculation placeholder (user must verify with actual drug instructions)
+      note: 'Dosierungshinweise dienen nur als Orientierung. Bitte prüfen Sie die offizielle Fachinformation.'
+    };
+  }, [watch("animal_weight_kg"), watch("animal_count"), watch("treatment_duration_days"), watch("antibiotic_class")]);
+
+  // Handle manual drug name input with validation
+  const handleDrugNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setValue("drug_name", value, { shouldValidate: true });
+    
+    // Debounced validation
+    if (value.length >= 3) {
+      validateDrugName(value);
+    } else {
+      setDrugValidationWarning(null);
+    }
+    
+    // Clear selected drug if manually editing
+    if (selectedDrug && value !== selectedDrug.drug_name) {
+      setSelectedDrug(null);
     }
   };
 
@@ -373,6 +491,37 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
             </Select>
           </div>
 
+          {/* Drug validation warning */}
+          {drugValidationWarning && (
+            <Alert variant="warning" className="bg-amber-50 border-amber-200">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800">
+                <strong>Achtung:</strong> {drugValidationWarning}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Species approval warning */}
+          {checkSpeciesApproval?.warning && (
+            <Alert variant="warning" className="bg-amber-50 border-amber-200">
+              <Info className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800">
+                {checkSpeciesApproval.message}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Selected drug info */}
+          {selectedDrug && (
+            <Alert className="bg-blue-50 border-blue-200">
+              <CheckCircle className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                <strong>Ausgewählt:</strong> {selectedDrug.drug_name} ({selectedDrug.active_substance}) - 
+                {selectedDrug.atc_code && `ATC: ${selectedDrug.atc_code}`}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="drug_name" className={cn(errors.drug_name && "text-destructive")}>
@@ -381,10 +530,14 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
               <Input
                 id="drug_name"
                 {...register("drug_name", { required: "Handelsname ist erforderlich" })}
+                onChange={handleDrugNameChange}
                 placeholder="z.B. Baytril"
                 aria-required="true"
-                aria-invalid={!!errors.drug_name}
-                className={cn(errors.drug_name && "border-destructive focus-visible:ring-destructive")}
+                aria-invalid={!!errors.drug_name || !!drugValidationWarning}
+                className={cn(
+                  errors.drug_name && "border-destructive focus-visible:ring-destructive",
+                  drugValidationWarning && !errors.drug_name && "border-amber-500"
+                )}
               />
               {errors.drug_name && (
                 <p className="text-sm text-destructive flex items-center gap-1">
@@ -488,6 +641,56 @@ export function AntibioticForm({ practiceId, vetId, onSuccess, onCancel }: Antib
           </div>
         </CardContent>
       </Card>
+
+      {/* Dosage Calculation Helper */}
+      {dosageCalculation && (
+        <Card className="border-blue-200 bg-blue-50/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Calculator className="h-5 w-5 text-blue-600" />
+              Dosierungshilfe (mg/kg)
+            </CardTitle>
+            <CardDescription>
+              Orientierungshilfe basierend auf Tiergewicht und Antibiotika-Klasse
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Tiergewicht:</span>
+                <p className="font-medium">{dosageCalculation.animalWeight.toFixed(1)} kg</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Anzahl Tiere:</span>
+                <p className="font-medium">{dosageCalculation.animalCount}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Gesamtgewicht:</span>
+                <p className="font-medium">{dosageCalculation.totalWeight.toFixed(1)} kg</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Behandlungsdauer:</span>
+                <p className="font-medium">{dosageCalculation.treatmentDays} Tage</p>
+              </div>
+            </div>
+            <div className="mt-4 p-3 bg-white/60 rounded border border-blue-100">
+              <p className="text-sm">
+                <strong className="text-blue-700">{ANTIBIOTIC_CLASSES[dosageCalculation.antibioticClass]?.de || 'Unbekannt'}:</strong>
+              </p>
+              <ul className="text-sm mt-1 space-y-1">
+                <li>Typische Dosierung: {dosageCalculation.guideline.typical}</li>
+                <li>Dosierungsbereich: {dosageCalculation.guideline.range}</li>
+              </ul>
+            </div>
+            <Alert className="mt-3 bg-amber-50 border-amber-200">
+              <Info className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800 text-sm">
+                {dosageCalculation.note}
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Treatment Details */}
       <Card>
