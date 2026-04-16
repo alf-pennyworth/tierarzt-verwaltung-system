@@ -52,15 +52,33 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.en
 app.use('*', secureHeaders());
 
 // CORS
+// Configure allowed origins:
+// - Development: localhost variants (5173=Vite dev, 8080=alternative, 3001=API self)
+// - Production: set CORS_ORIGIN env var (comma-separated for multiple domains)
 app.use('*', cors({
   origin: (origin) => {
-    const allowed = [
-      'http://localhost:5173',
-      'http://localhost:8080',
-      'http://localhost:3001',
-      'https://vet-app.de',
-      'https://app.vet-app.de',
+    // Default development origins
+    const devOrigins = [
+      'http://localhost:5173',   // Vite dev server
+      'http://localhost:8080',   // Alternative dev port
+      'http://localhost:3001',   // API server (self-reference)
+      'http://127.0.0.1:5173',   // 127.0.0.1 variants
+      'http://127.0.0.1:8080',
+      'http://127.0.0.1:3001',
     ];
+    
+    // Production origins from environment variable
+    // Set CORS_ORIGIN=https://vet-app.de,https://app.vet-app.de
+    const prodOrigins = process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
+      : [];
+    
+    const allowed = [...devOrigins, ...prodOrigins];
+    
+    // If no origin header (e.g., same-origin requests, curl), allow
+    if (!origin) return allowed[0];
+    
+    // Return the origin if allowed, otherwise fallback to first allowed
     return allowed.includes(origin) ? origin : allowed[0];
   },
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
