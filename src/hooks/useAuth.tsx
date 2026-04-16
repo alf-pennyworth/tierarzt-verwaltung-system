@@ -1,7 +1,9 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import type { User, Session } from "@supabase/supabase-js";
+import { toast } from "@/hooks/use-toast";
 
 interface UserInfo {
   id: string | null; // Adding the id property to fix the TypeScript error
@@ -16,6 +18,77 @@ export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const navigate = useNavigate();
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isRefreshingRef = useRef(false);
+
+  // Clear refresh timeout helper
+  const clearRefreshTimeout = useCallback(() => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Handle session expiry - redirect to login with toast
+  const handleSessionExpired = useCallback(() => {
+    console.log("Session expired, redirecting to login");
+    toast({
+      title: "Sitzung abgelaufen",
+      description: "Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.",
+      variant: "destructive",
+    });
+    setUser(null);
+    setUserInfo(null);
+    navigate("/auth");
+  }, [navigate]);
+
+  // Refresh token before expiry
+  const refreshToken = useCallback(async (session: Session) => {
+    if (isRefreshingRef.current) return;
+    isRefreshingRef.current = true;
+
+    try {
+      const { error } = await supabase.auth.refreshSession();
+      if (error) {
+        console.error("Token refresh failed:", error);
+        handleSessionExpired();
+      } else {
+        console.log("Token refreshed successfully");
+      }
+    } catch (err) {
+      console.error("Token refresh error:", err);
+      handleSessionExpired();
+    } finally {
+      isRefreshingRef.current = false;
+    }
+  }, [handleSessionExpired]);
+
+  // Schedule token refresh before expiry
+  const scheduleTokenRefresh = useCallback((session: Session) => {
+    clearRefreshTimeout();
+
+    if (!session.expires_at) return;
+
+    const expiresAt = session.expires_at * 1000; // Convert to milliseconds
+    const now = Date.now();
+    const timeUntilExpiry = expiresAt - now;
+    
+    // Refresh 5 minutes before expiry, or immediately if less than 5 minutes left
+    const refreshBuffer = 5 * 60 * 1000; // 5 minutes in ms
+    const refreshIn = Math.max(timeUntilExpiry - refreshBuffer, 0);
+
+    if (refreshIn <= 0) {
+      // Token already expired or about to expire - refresh now
+      refreshToken(session);
+      return;
+    }
+
+    console.log(`Scheduling token refresh in ${Math.round(refreshIn / 1000)} seconds`);
+    refreshTimeoutRef.current = setTimeout(() => {
+      refreshToken(session);
+    }, refreshIn);
+  }, [clearRefreshTimeout, refreshToken]);
 
   useEffect(() => {
     const fetchUserInfo = async (userId: string) => {
@@ -66,8 +139,9 @@ export const useAuth = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log("Initial session check:", session?.user?.id);
       setUser(session?.user ?? null);
-      if (session?.user) {
+      if (session?.user && session) {
         fetchUserInfo(session.user.id);
+        scheduleTokenRefresh(session);
       }
       setLoading(false);
     });
@@ -75,19 +149,32 @@ export const useAuth = () => {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log("Auth state changed:", session?.user?.id);
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state changed:", event, session?.user?.id);
       setUser(session?.user ?? null);
-      if (session?.user) {
+      
+      if (session?.user && session) {
         fetchUserInfo(session.user.id);
+        scheduleTokenRefresh(session);
       } else {
         setUserInfo(null);
+        clearRefreshTimeout();
+        
+        // Handle explicit sign out or token refresh failure
+        if (event === 'SIGNED_OUT') {
+          console.log("User signed out");
+        } else if (event === 'TOKEN_REFRESHED') {
+          console.log("Token refreshed event received");
+        }
       }
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      subscription.unsubscribe();
+      clearRefreshTimeout();
+    };
+  }, [scheduleTokenRefresh, clearRefreshTimeout]);
 
   return { user, loading, userInfo };
 };
