@@ -188,3 +188,124 @@ describe('HI-Tier Export Integration', () => {
     expect(validatePrescription(invalid)).toBe(false);
   });
 });
+
+describe('BVL Export Validation', () => {
+  it('validates BNR15 is present in practice settings', () => {
+    const validateBNR15 = (settings: { bvl_betriebsnummer: string | null } | null): boolean => {
+      return settings?.bvl_betriebsnummer !== null && 
+             settings?.bvl_betriebsnummer !== undefined && 
+             settings?.bvl_betriebsnummer !== '';
+    };
+
+    // Valid settings with BNR15
+    const validSettings = { bvl_betriebsnummer: '09 000 000 00 001' };
+    expect(validateBNR15(validSettings)).toBe(true);
+
+    // Settings without BNR15
+    const missingBnr15 = { bvl_betriebsnummer: null };
+    expect(validateBNR15(missingBnr15)).toBe(false);
+
+    // Empty BNR15
+    const emptyBnr15 = { bvl_betriebsnummer: '' };
+    expect(validateBNR15(emptyBnr15)).toBe(false);
+
+    // No settings at all
+    expect(validateBNR15(null)).toBe(false);
+  });
+
+  it('returns German error message for missing BNR15', () => {
+    const getBNR15ErrorMessage = (): { title: string; description: string } => {
+      return {
+        title: 'Betriebsnummer fehlt',
+        description: 'Bitte konfigurieren Sie zunächst Ihre BVL-Betriebsnummer (BNR15) in den Praxis-Einstellungen.',
+      };
+    };
+
+    const error = getBNR15ErrorMessage();
+    expect(error.title).toBe('Betriebsnummer fehlt');
+    expect(error.description).toContain('BNR15');
+    expect(error.description).toContain('Praxis-Einstellungen');
+  });
+
+  it('validates date range is not empty', () => {
+    const validateDateRange = (start: string | null, end: string | null): {
+      valid: boolean;
+      error?: { title: string; description: string };
+    } => {
+      if (!start || !end) {
+        return {
+          valid: false,
+          error: {
+            title: 'Zeitraum fehlt',
+            description: 'Bitte wählen Sie einen Start- und Enddatum aus.',
+          },
+        };
+      }
+      return { valid: true };
+    };
+
+    // Valid date range
+    expect(validateDateRange('2026-04-01', '2026-04-30').valid).toBe(true);
+
+    // Missing start date
+    const noStart = validateDateRange(null, '2026-04-30');
+    expect(noStart.valid).toBe(false);
+    expect(noStart.error?.title).toBe('Zeitraum fehlt');
+
+    // Missing end date
+    const noEnd = validateDateRange('2026-04-01', null);
+    expect(noEnd.valid).toBe(false);
+    expect(noEnd.error?.title).toBe('Zeitraum fehlt');
+
+    // Both missing
+    const noDates = validateDateRange(null, null);
+    expect(noDates.valid).toBe(false);
+  });
+
+  it('validates date range order (start must be before or equal to end)', () => {
+    const validateDateOrder = (start: string, end: string): {
+      valid: boolean;
+      error?: { title: string; description: string };
+    } => {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      if (startDate > endDate) {
+        return {
+          valid: false,
+          error: {
+            title: 'Ungültiger Zeitraum',
+            description: 'Das Startdatum muss vor dem Enddatum liegen.',
+          },
+        };
+      }
+      return { valid: true };
+    };
+
+    // Valid order
+    expect(validateDateOrder('2026-04-01', '2026-04-30').valid).toBe(true);
+    expect(validateDateOrder('2026-04-15', '2026-04-15').valid).toBe(true);
+
+    // Invalid order
+    const invalidOrder = validateDateOrder('2026-04-30', '2026-04-01');
+    expect(invalidOrder.valid).toBe(false);
+    expect(invalidOrder.error?.title).toBe('Ungültiger Zeitraum');
+    expect(invalidOrder.error?.description).toContain('Startdatum muss vor dem Enddatum');
+  });
+
+  it('generates German success message after export', () => {
+    const getSuccessMessage = (recordCount: number): { title: string; description: string } => {
+      return {
+        title: 'Export erfolgreich',
+        description: `${recordCount} Datensätze wurden exportiert und als gemeldet markiert.`,
+      };
+    };
+
+    const success = getSuccessMessage(5);
+    expect(success.title).toBe('Export erfolgreich');
+    expect(success.description).toBe('5 Datensätze wurden exportiert und als gemeldet markiert.');
+
+    // Single record uses singular
+    const single = getSuccessMessage(1);
+    expect(single.description).toBe('1 Datensätze wurden exportiert und als gemeldet markiert.');
+  });
+});

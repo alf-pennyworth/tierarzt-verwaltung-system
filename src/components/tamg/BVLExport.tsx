@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Download, FileSpreadsheet, Eye, AlertCircle, CheckCircle } from "lucide-react";
+import { Download, FileSpreadsheet, Eye, AlertCircle, CheckCircle, AlertTriangle } from "lucide-react";
+import { getPracticeSettings } from "@/services/tamgService";
+import type { TamgPracticeSettings } from "@/types/tamg";
 
 interface BVLExportProps {
   practiceId: string;
@@ -97,12 +99,43 @@ export function BVLExport({ practiceId }: BVLExportProps) {
     return new Date().toISOString().split('T')[0];
   });
   const [action, setAction] = useState<'I' | 'X' | 'S'>('X');
+  const [practiceSettings, setPracticeSettings] = useState<TamgPracticeSettings | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [bnr15Missing, setBnr15Missing] = useState(false);
+
+  // Load practice settings on mount
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const settings = await getPracticeSettings(practiceId);
+        setPracticeSettings(settings);
+        setBnr15Missing(!settings?.bvl_betriebsnummer);
+      } catch (error) {
+        console.error('Failed to load practice settings:', error);
+        setBnr15Missing(true);
+      } finally {
+        setSettingsLoading(false);
+      }
+    }
+    loadSettings();
+  }, [practiceId]);
 
   const handlePreview = async () => {
+    // Validate BNR15 exists
+    if (!practiceSettings?.bvl_betriebsnummer) {
+      toast({
+        title: "Betriebsnummer fehlt",
+        description: "Bitte konfigurieren Sie zunächst Ihre BVL-Betriebsnummer (BNR15) in den Praxis-Einstellungen.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate date range is not empty
     if (!startDate || !endDate) {
       toast({
-        title: "Fehler",
-        description: "Bitte wählen Sie einen Zeitraum aus.",
+        title: "Zeitraum fehlt",
+        description: "Bitte wählen Sie einen Start- und Enddatum aus.",
         variant: "destructive",
       });
       return;
@@ -110,7 +143,7 @@ export function BVLExport({ practiceId }: BVLExportProps) {
 
     if (new Date(startDate) > new Date(endDate)) {
       toast({
-        title: "Fehler",
+        title: "Ungültiger Zeitraum",
         description: "Das Startdatum muss vor dem Enddatum liegen.",
         variant: "destructive",
       });
@@ -176,10 +209,13 @@ export function BVLExport({ practiceId }: BVLExportProps) {
 
     setLoading(true);
     try {
+      // Get BNR15 from practice settings
+      const bnr15 = practiceSettings?.bvl_betriebsnummer;
+      
       // Transform to BVL format
       const records: ExportRecord[] = previewData.map((p, index) => ({
-        BNR15: '09 000 000 00 001',
-        BNR15_HA: '09 000 000 00 002',
+        BNR15: bnr15 || '',
+        BNR15_HA: bnr15 || '',
         TAMB_FORM: getUsageForm(p.animal_species),
         TAMX_TIANZ: 1,
         TAMA_NAME: p.drug_name,
@@ -266,6 +302,19 @@ export function BVLExport({ practiceId }: BVLExportProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* BNR15 Missing Warning */}
+          {bnr15Missing && !settingsLoading && (
+            <div className="flex items-start gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-yellow-800">Betriebsnummer (BNR15) fehlt</p>
+                <p className="text-sm text-yellow-700 mt-1">
+                  Bitte konfigurieren Sie Ihre BVL-Betriebsnummer in den Praxis-Einstellungen, um den Export zu ermöglichen.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Date Range */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">

@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -47,6 +49,7 @@ const Auth = () => {
   const location = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("login");
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [inviteData, setInviteData] = useState<InviteData | null>(null);
@@ -207,6 +210,7 @@ const Auth = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError(null); // Clear previous errors
     setIsLoading(true);
 
     try {
@@ -402,6 +406,7 @@ const Auth = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAuthError(null); // Clear previous errors
     setIsLoading(true);
 
     try {
@@ -426,10 +431,24 @@ const Auth = () => {
       
     } catch (error: any) {
       console.error("Login error:", error);
+      // Set user-friendly error message
+      let errorMessage = "Ein unbekannter Fehler ist aufgetreten.";
+      
+      if (error.message?.includes("Invalid login credentials")) {
+        errorMessage = "Ung&uuml;ltige Anmeldedaten. Bitte &uuml;berpr&uuml;fen Sie Ihre E-Mail und Ihr Passwort.";
+      } else if (error.message?.includes("Email not confirmed")) {
+        errorMessage = "E-Mail noch nicht best&auml;tigt. Bitte &uuml;berpr&uuml;fen Sie Ihr Postfach.";
+      } else if (error.message?.includes("Too many requests")) {
+        errorMessage = "Zu viele Anmeldeversuche. Bitte versuchen Sie es sp&auml;ter erneut.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setAuthError(errorMessage);
       toast({
         variant: "destructive",
         title: "Fehler beim Login",
-        description: error.message,
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
@@ -496,6 +515,13 @@ const Auth = () => {
 
             <TabsContent value="login">
               <form onSubmit={handleSignIn} className="space-y-4">
+                {/* Auth Error Alert */}
+                {authError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{authError}</AlertDescription>
+                  </Alert>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -503,9 +529,10 @@ const Auth = () => {
                     type="email"
                     placeholder="m.mustermann@example.com"
                     value={formData.email}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, email: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      setFormData((prev) => ({ ...prev, email: e.target.value }));
+                      if (authError) setAuthError(null); // Clear error on input
+                    }}
                     required
                   />
                 </div>
@@ -515,9 +542,10 @@ const Auth = () => {
                     id="password"
                     type="password"
                     value={formData.password}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, password: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      setFormData((prev) => ({ ...prev, password: e.target.value }));
+                      if (authError) setAuthError(null); // Clear error on input
+                    }}
                     required
                   />
                 </div>
