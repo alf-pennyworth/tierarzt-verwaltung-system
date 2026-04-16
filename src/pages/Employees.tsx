@@ -115,25 +115,33 @@ const Employees = () => {
         return;
       }
 
-      // Load profile images for employees with profile pictures
-      const employeesWithImages = await Promise.all(
-        data.map(async (employee) => {
-          if (employee.profilbild_url) {
-            try {
-              const { data: imageData, error: imageError } = await supabase.storage
-                .from('Profilbild')
-                .createSignedUrl(employee.profilbild_url, 3600);
-              
-              if (!imageError && imageData) {
-                return { ...employee, imageUrl: imageData.signedUrl };
-              }
-            } catch (err) {
-              console.error('Error getting signed image URL:', err);
+      // Batch load profile images for employees with profile pictures
+      const profilePaths = data
+        .filter(e => e.profilbild_url)
+        .map(e => e.profilbild_url);
+
+      let signedUrls: Record<string, string> = {};
+      
+      if (profilePaths.length > 0) {
+        const { data: urlsData, error: urlsError } = await supabase.storage
+          .from('Profilbild')
+          .createSignedUrls(profilePaths, 3600);
+        
+        if (!urlsError && urlsData) {
+          urlsData.forEach((item: any) => {
+            if (item.signedURL && item.path) {
+              signedUrls[item.path] = item.signedURL;
             }
-          }
-          return { ...employee, imageUrl: null };
-        })
-      );
+          });
+        } else if (urlsError) {
+          console.error('Error batch fetching signed URLs:', urlsError);
+        }
+      }
+
+      const employeesWithImages = data.map(employee => ({
+        ...employee,
+        imageUrl: employee.profilbild_url ? (signedUrls[employee.profilbild_url] || null) : null
+      }));
 
       setEmployees(employeesWithImages);
     } catch (error: any) {

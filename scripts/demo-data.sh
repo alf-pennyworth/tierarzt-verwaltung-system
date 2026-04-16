@@ -144,8 +144,8 @@ echo ""
 echo "💊 Step 5: Verifying antibiotics..."
 echo ""
 
-# Check antibiotics count
-ANTIBIOTICS_COUNT=$(curl -s "$SUPABASE_URL/rest/v1/antibiotics?select=count" \
+# Check antibiotics count (from medikamente table with category='antibiotika')
+ANTIBIOTICS_COUNT=$(curl -s "$SUPABASE_URL/rest/v1/medikamente?select=count&category=eq.antibiotika" \
     -H "apikey: $SUPABASE_ANON_KEY" \
     -H "Prefer: count=exact" | grep -o '"count":[0-9]*' | grep -o '[0-9]*' || echo "0")
 
@@ -153,7 +153,7 @@ if [ "$ANTIBIOTICS_COUNT" -lt 40 ]; then
     echo -e "${YELLOW}⚠️  Only $ANTIBIOTICS_COUNT antibiotics found. Run migrations to seed full list:${NC}"
     echo "   supabase db push"
     echo "   or"
-    echo "   psql -f supabase/migrations/20260412_seed_antibiotics.sql"
+    echo "   psql -f supabase/migrations/20260410_seed_data.sql"
 else
     echo -e "${GREEN}✓${NC} Found $ANTIBIOTICS_COUNT antibiotics"
 fi

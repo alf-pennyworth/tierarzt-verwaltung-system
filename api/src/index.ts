@@ -126,8 +126,9 @@ app.get('/health', async (c) => {
   
   try {
     const { count, error } = await supabase
-      .from('antibiotics')
-      .select('*', { count: 'exact', head: true });
+      .from('medikamente')
+      .select('*', { count: 'exact', head: true })
+      .eq('category', 'antibiotika');
     
     if (error) {
       dbStatus = 'error';
@@ -226,7 +227,7 @@ app.notFound((c) => {
 // ============================================
 // Start Server
 // ============================================
-const port = parseInt(process.env.API_PORT || '3001');
+export const port = parseInt(process.env.API_PORT || '3001');
 
 console.log(`🚀 Vet API starting on port ${port}`);
 console.log(`📚 Health check: http://localhost:${port}/health`);
