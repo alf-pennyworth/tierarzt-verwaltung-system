@@ -177,15 +177,50 @@ async function transcribeWithAssemblyAI(
     throw new Error('No audio data or URL provided');
   }
 
+  // Veterinary key terms for German practice
+  const veterinaryKeyterms = [
+    // Antibiotics (TAMG-relevant)
+    'Amoxicillin', 'Clavulansäure', 'Enrofloxacin', 'Doxycyclin', 'Marbofloxacin',
+    'Cefovecin', 'Amoxicillin-Clavulanat', 'Antibiotikum', 'Verschreibung',
+    // Vaccines
+    'Impfung', 'Impfstoff', 'Tollwut', 'Staupe', 'Parvovirose', 'Leptospirose',
+    'Leptospira', 'Bordetella', 'Canicola', 'Icterohaemorrhagiae',
+    // Common conditions
+    'Untersuchung', 'Anamnese', 'Diagnose', 'Prognose', 'Therapie',
+    'Symptom', 'Befund', 'Röntgen', 'Ultraschall', 'Blutbild',
+    // Medications
+    'Verschreibung', 'Rezept', 'Dosierung', 'Verabreichung', 'Narkose',
+    'Prämedikation', 'Analgetikum', 'Metamizol', 'Meloxicam', 'Carprofen',
+    // Procedures
+    'Wundbehandlung', 'Naht', 'Verband', 'Zahnreinigung', 'Kastration',
+    'Sterilisation', 'Operation', 'Eingriff',
+    // Practice terms
+    'Patientenakte', 'Krankenakte', 'Tierarzt', 'Tierärztin', 'Praxis',
+    'Klinik', 'Behandlung', 'Nachuntersuchung',
+    // Animal species
+    'Hund', 'Katze', 'Kaninchen', 'Meerschweinchen', 'Pferd', 'Vogel',
+    'Reptil', 'Nagetier', 'Heimtier'
+  ];
+
   // Start transcription
   const transcriptConfig: any = {
     audio_url: uploadUrl,
+    // Use Universal-3 Pro for best accuracy
+    speech_model: 'universal-3-pro',
     language_code: language,
+    // Medical Mode - clinical-grade accuracy
+    // Supports German (de), improves drug names, procedures, conditions, dosages
+    domain: 'medical-v1',
+    // Entity detection for structured data extraction
+    entity_detection: entityDetection,
+    // Speaker diarization - distinguish vet from client
+    speaker_labels: true,
+    // Key terms for veterinary vocabulary
+    keyterms_prompt: veterinaryKeyterms,
+    // Auto-punctuation and formatting
+    punctuate: true,
+    format_text: true,
   };
-
-  if (entityDetection) {
-    transcriptConfig.entity_detection = true;
-  }
 
   console.log('Starting AssemblyAI transcription');
 

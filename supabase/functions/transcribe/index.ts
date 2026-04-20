@@ -74,28 +74,55 @@ serve(async (req) => {
     console.log('Upload successful, URL:', upload_url)
 
     // Start transcription with medical-optimized settings
-    console.log('Starting transcription with entity detection enabled')
+    // Using Universal-3 Pro with Medical Mode for clinical-grade accuracy
+    // Medical Mode supports German and improves drug/procedure/condition recognition
+    console.log('Starting transcription with Medical Mode enabled')
+    
+    // Veterinary key terms for German practice
+    const veterinaryKeyterms = [
+      // Antibiotics (TAMG-relevant)
+      'Amoxicillin', 'Clavulansäure', 'Enrofloxacin', 'Doxycyclin', 'Marbofloxacin',
+      'Cefovecin', 'Amoxicillin-Clavulanat', 'Antibiotikum', 'Verschreibung',
+      // Vaccines
+      'Impfung', 'Impfstoff', 'Tollwut', 'Staupe', 'Parvovirose', 'Leptospirose',
+      'Leptospira', 'Bordetella', 'Canicola', 'Icterohaemorrhagiae',
+      // Common conditions
+      'Untersuchung', 'Anamnese', 'Diagnose', 'Prognose', 'Therapie',
+      'Symptom', 'Befund', 'Röntgen', 'Ultraschall', 'Blutbild',
+      // Medications
+      'Verschreibung', 'Rezept', 'Dosierung', 'Verabreichung', 'Narkose',
+      'Prämedikation', 'Analgetikum', 'Metamizol', 'Meloxicam', 'Carprofen',
+      // Procedures
+      'Wundbehandlung', 'Naht', 'Verband', 'Zahnreinigung', 'Kastration',
+      'Sterilisation', 'Operation', 'Eingriff',
+      // Practice terms
+      'Patientenakte', 'Krankenakte', 'Tierarzt', 'Tierärztin', 'Praxis',
+      'Klinik', 'Behandlung', 'Nachuntersuchung',
+      // Animal species
+      'Hund', 'Katze', 'Kaninchen', 'Meerschweinchen', 'Pferd', 'Vogel',
+      'Reptil', 'Nagetier', 'Heimtier'
+    ]
+    
     const transcriptionConfig = {
       audio_url: upload_url,
+      // Use Universal-3 Pro for best accuracy
+      speech_model: 'universal-3-pro',
+      // German language
       language_code: 'de',
-      // Use best model for medical accuracy
-      speech_model: 'best',
-      // Entity detection for drugs, conditions, dosages
+      // Medical Mode - clinical-grade accuracy for medical terminology
+      // Supports German, improves drug names, procedures, conditions, dosages
+      domain: 'medical-v1',
+      // Entity detection for structured data extraction
       entity_detection: true,
-      // Enable speaker diarization (vet vs client)
+      // Speaker diarization - distinguish vet from client
       speaker_labels: true,
-      // Auto-format and punctuate
+      // Key terms prompting for veterinary-specific vocabulary
+      keyterms_prompt: veterinaryKeyterms,
+      // Auto-punctuation and formatting
       punctuate: true,
       format_text: true,
-      // Custom vocabulary for veterinary terms (set in AssemblyAI dashboard)
-      // These improve recognition accuracy
-      word_boost: [
-        'Antibiotikum', 'Amoxicillin', 'Clavulansäure', 'Enrofloxacin',
-        'Doxycyclin', 'Impfung', 'Impfstoff', 'Tollwut', 'Staupe',
-        'Parvovirose', 'Untersuchung', 'Anamnese', 'Diagnose',
-        'Verschreibung', 'Dosierung', 'Patientenakte', 'Tierarzt'
-      ],
-      boost_param: 'high'
+      // Sentiment analysis for emotion detection
+      sentiment_analysis: true
     }
     console.log('Transcription config:', JSON.stringify(transcriptionConfig))
     
