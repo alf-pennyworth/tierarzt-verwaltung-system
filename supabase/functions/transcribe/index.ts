@@ -73,12 +73,29 @@ serve(async (req) => {
     const upload_url = uploadResult.upload_url
     console.log('Upload successful, URL:', upload_url)
 
-    // Start transcription
+    // Start transcription with medical-optimized settings
     console.log('Starting transcription with entity detection enabled')
     const transcriptionConfig = {
       audio_url: upload_url,
       language_code: 'de',
-      entity_detection: true
+      // Use best model for medical accuracy
+      speech_model: 'best',
+      // Entity detection for drugs, conditions, dosages
+      entity_detection: true,
+      // Enable speaker diarization (vet vs client)
+      speaker_labels: true,
+      // Auto-format and punctuate
+      punctuate: true,
+      format_text: true,
+      // Custom vocabulary for veterinary terms (set in AssemblyAI dashboard)
+      // These improve recognition accuracy
+      word_boost: [
+        'Antibiotikum', 'Amoxicillin', 'Clavulansäure', 'Enrofloxacin',
+        'Doxycyclin', 'Impfung', 'Impfstoff', 'Tollwut', 'Staupe',
+        'Parvovirose', 'Untersuchung', 'Anamnese', 'Diagnose',
+        'Verschreibung', 'Dosierung', 'Patientenakte', 'Tierarzt'
+      ],
+      boost_param: 'high'
     }
     console.log('Transcription config:', JSON.stringify(transcriptionConfig))
     
