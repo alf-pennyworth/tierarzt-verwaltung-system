@@ -266,7 +266,17 @@ async function transcribeWithAssemblyAI(
       return {
         id: transcriptId,
         text: transcript.text || '',
+        // Speaker diarization - who said what
+        utterances: transcript.utterances || [],
+        // Entity detection - drugs, conditions, procedures
         entities: transcript.entities || [],
+        // Sentiment analysis
+        sentiment: transcript.sentiment_analysis_results || [],
+        // Metadata
+        audio_duration: transcript.audio_duration,
+        confidence: transcript.confidence,
+        speaker_count: transcript.speaker_count || 0,
+        medical_mode: transcript.domain === 'medical-v1',
       };
     } else if (transcript.status === 'error') {
       throw new Error(`Transcription failed: ${transcript.error}`);

@@ -196,11 +196,36 @@ serve(async (req) => {
     }
 
     console.log('Returning transcription results to client')
+    
+    // Return comprehensive transcription results
+    const responseData = {
+      text: transcript.text,
+      // Speaker diarization - who said what
+      utterances: transcript.utterances || [],
+      // Entity detection - drugs, conditions, procedures
+      entities: transcript.entities || [],
+      // Sentiment analysis
+      sentiment: transcript.sentiment_analysis_results || [],
+      // Metadata
+      id: transcriptId,
+      audio_duration: transcript.audio_duration,
+      language: transcript.language_code || 'de',
+      confidence: transcript.confidence,
+      // Medical Mode applied?
+      medical_mode: transcript.domain === 'medical-v1',
+      // Speaker count
+      speaker_count: transcript.speaker_count || 0
+    }
+    
+    console.log('Response includes:', {
+      hasUtterances: responseData.utterances.length > 0,
+      hasEntities: responseData.entities.length > 0,
+      hasSentiment: responseData.sentiment.length > 0,
+      speakerCount: responseData.speaker_count
+    })
+    
     return new Response(
-      JSON.stringify({ 
-        text: transcript.text,
-        entities: transcript.entities || []
-      }),
+      JSON.stringify(responseData),
       { 
         headers: { 
           ...corsHeaders(req),
