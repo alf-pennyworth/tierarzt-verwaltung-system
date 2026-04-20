@@ -202,9 +202,9 @@ app.use('/api-keys/*', authMiddleware(), rateLimitMiddleware);
 app.use('/patients/*', authMiddleware(), rateLimitMiddleware);
 app.use('/treatments/*', authMiddleware(), rateLimitMiddleware);
 app.use('/tamg/*', authMiddleware(), rateLimitMiddleware);
-app.use('/transcribe/*', authMiddleware(), rateLimitMiddleware);
-app.use('/extract/*', authMiddleware(), rateLimitMiddleware);
-app.use('/soap/*', authMiddleware(), rateLimitMiddleware);
+app.use('/transcribe', authMiddleware());
+app.use('/extract', authMiddleware());
+app.use('/soap', authMiddleware());
 
 // ============================================
 // Routes

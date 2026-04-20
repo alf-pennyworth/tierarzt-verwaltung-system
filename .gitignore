@@ -22,4 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Environment files - NEVER commit these
 .env
+.env.*
+.env.local
+.env.*.local
+*.pem
+
+# Supabase local config
+.supabase/
