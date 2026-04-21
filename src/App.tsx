@@ -37,6 +37,7 @@ const OwnerDetail = lazy(() => import("./pages/OwnerDetail"));
 const TAMG = lazy(() => import("./pages/TAMG"));
 const Settings = lazy(() => import("./pages/Settings"));
 const GOAEVBillingPage = lazy(() => import("./pages/billing/GOAEVBillingPage"));
+const PatientTimelinePage = lazy(() => import("./pages/PatientTimelinePage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -337,6 +338,18 @@ const App = () => (
                 <WithNavigation showNav={true}>
                   <Suspense fallback={<LoadingSpinner />}>
                     <Settings />
+                  </Suspense>
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/patient/:id/timeline"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <PatientTimelinePage />
                   </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
