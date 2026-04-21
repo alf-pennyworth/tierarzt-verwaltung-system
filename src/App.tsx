@@ -38,6 +38,7 @@ const TAMG = lazy(() => import("./pages/TAMG"));
 const Settings = lazy(() => import("./pages/Settings"));
 const GOAEVBillingPage = lazy(() => import("./pages/billing/GOAEVBillingPage"));
 const PatientTimelinePage = lazy(() => import("./pages/PatientTimelinePage"));
+const CSVExportPage = lazy(() => import("./pages/CSVExportPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -338,6 +339,18 @@ const App = () => (
                 <WithNavigation showNav={true}>
                   <Suspense fallback={<LoadingSpinner />}>
                     <Settings />
+                  </Suspense>
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/export"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <CSVExportPage />
                   </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
