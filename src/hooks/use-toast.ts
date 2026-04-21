@@ -5,14 +5,27 @@ import type {
   ToastProps,
 } from "@/components/ui/toast"
 
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_LIMIT = 5
+const TOAST_REMOVE_DELAY = 5000000
+
+// Variant styles for non-destructive variants
+const variantStyles = {
+  success: { icon: '✓', borderClass: 'border-l-4 border-l-green-500' },
+  error: { icon: '✕', borderClass: 'border-l-4 border-l-red-500' },
+  warning: { icon: '⚠', borderClass: 'border-l-4 border-l-amber-500' },
+  info: { icon: 'ℹ', borderClass: 'border-l-4 border-l-blue-500' },
+}
+
+type ToastVariant = 'default' | 'destructive' | 'success' | 'warning' | 'info'
 
 type ToasterToast = ToastProps & {
   id: string
   title?: React.ReactNode
   description?: React.ReactNode
   action?: ToastActionElement
+  variant?: ToastVariant
+  groupId?: string
+  persistent?: boolean
 }
 
 const actionTypes = {
@@ -73,11 +86,21 @@ const addToRemoveQueue = (toastId: string) => {
 
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
-    case "ADD_TOAST":
+    case "ADD_TOAST": {
+      // Group deduplication: if same groupId exists, update instead of add
+      const existingIndex = action.toast.groupId
+        ? state.toasts.findIndex((t) => t.groupId === action.toast.groupId)
+        : -1
+      if (existingIndex >= 0 && action.toast.groupId) {
+        const newToasts = [...state.toasts]
+        newToasts[existingIndex] = { ...newToasts[existingIndex], ...action.toast }
+        return { ...state, toasts: newToasts }
+      }
       return {
         ...state,
         toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
       }
+    }
 
     case "UPDATE_TOAST":
       return {
@@ -96,14 +119,14 @@ export const reducer = (state: State, action: Action): State => {
         addToRemoveQueue(toastId)
       } else {
         state.toasts.forEach((toast) => {
-          addToRemoveQueue(toast.id)
+          if (!toast.persistent) addToRemoveQueue(toast.id)
         })
       }
 
       return {
         ...state,
         toasts: state.toasts.map((t) =>
-          t.id === toastId || toastId === undefined
+          (t.id === toastId || toastId === undefined) && !t.persistent
             ? {
                 ...t,
                 open: false,
@@ -147,7 +170,9 @@ function toast({ ...props }: Toast) {
       type: "UPDATE_TOAST",
       toast: { ...props, id },
     })
-  const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
+  const dismiss = () => {
+    if (!props.persistent) dispatch({ type: "DISMISS_TOAST", toastId: id })
+  }
 
   dispatch({
     type: "ADD_TOAST",
@@ -163,9 +188,31 @@ function toast({ ...props }: Toast) {
 
   return {
     id: id,
-    dismiss,
+    dismiss: () => dispatch({ type: "DISMISS_TOAST", toastId: id }),
     update,
   }
+}
+
+// Convenience helpers for variants
+function toastSuccess(props: Omit<Toast, "variant">) {
+  return toast({ ...props, variant: "success" })
+}
+
+function toastError(props: Omit<Toast, "variant">) {
+  return toast({ ...props, variant: "destructive" })
+}
+
+function toastWarning(props: Omit<Toast, "variant">) {
+  return toast({ ...props, variant: "warning" })
+}
+
+function toastInfo(props: Omit<Toast, "variant">) {
+  return toast({ ...props, variant: "info" })
+}
+
+// Persistent notification for important events like TAMG deadlines
+function toastPersistent(props: Omit<Toast, "persistent"> & { groupId?: string }) {
+  return toast({ ...props, persistent: true, variant: props.variant || "warning" })
 }
 
 function useToast() {
@@ -188,4 +235,4 @@ function useToast() {
   }
 }
 
-export { useToast, toast }
+export { useToast, toast, toastSuccess, toastError, toastWarning, toastInfo, toastPersistent }
