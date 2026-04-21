@@ -36,6 +36,7 @@ const Owners = lazy(() => import("./pages/Owners"));
 const OwnerDetail = lazy(() => import("./pages/OwnerDetail"));
 const TAMG = lazy(() => import("./pages/TAMG"));
 const Settings = lazy(() => import("./pages/Settings"));
+const GOAEVBillingPage = lazy(() => import("./pages/billing/GOAEVBillingPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -336,6 +337,18 @@ const App = () => (
                 <WithNavigation showNav={true}>
                   <Suspense fallback={<LoadingSpinner />}>
                     <Settings />
+                  </Suspense>
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/billing/goae-v"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <GOAEVBillingPage />
                   </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
