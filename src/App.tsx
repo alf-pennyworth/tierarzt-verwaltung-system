@@ -9,6 +9,8 @@ import Navigation from "./components/Navigation";
 import ModulesNavigation from "./components/ModulesNavigation";
 import LoadingSpinner from "./components/LoadingSpinner";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { CommandPalette } from "./components/CommandPalette";
+import { OfflineIndicator } from "./components/OfflineIndicator";
 
 // Eagerly loaded components (critical for initial render)
 import Auth from "./pages/Auth";
@@ -76,6 +78,8 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <CommandPalette />
+          <OfflineIndicator />
           <Routes>
           <Route path="/owner/*" element={
             <Suspense fallback={<LoadingSpinner />}>

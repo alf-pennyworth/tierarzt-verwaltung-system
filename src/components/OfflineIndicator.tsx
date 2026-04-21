@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Wifi, WifiOff, RefreshCw, CloudOff, CloudCheck } from "lucide-react";
+import { Wifi, WifiOff, RefreshCw, CloudOff, Cloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -124,7 +124,7 @@ export function OfflineIndicator() {
               : "Alle Daten sind auf dem neuesten Stand."}
           </p>
         </div>
-        <CloudCheck className="h-4 w-4 shrink-0 text-green-500" />
+        <Cloud className="h-4 w-4 shrink-0 text-green-500" />
         <Button
           variant="ghost"
           size="sm"
