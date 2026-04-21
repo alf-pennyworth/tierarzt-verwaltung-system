@@ -31,6 +31,7 @@ const ModulesNavigation = () => {
     };
   }, [isMobile]);
 
+  // Consistent with main Navigation - logical vet practice flow
   const navigationItems = [
     {
       name: isMobile ? "Dashboard" : "Dashboard",
@@ -38,14 +39,14 @@ const ModulesNavigation = () => {
       icon: LayoutDashboard,
     },
     {
+      name: isMobile ? "Patienten" : "Patienten",
+      href: "/patients",
+      icon: Users,
+    },
+    {
       name: isMobile ? "Module" : "Module",
       href: "/",
       icon: LayoutGrid,
-    },
-    {
-      name: isMobile ? "Mitarbeiter" : "Mitarbeiterverzeichnis",
-      href: "/employees",
-      icon: Users,
     },
     {
       name: isMobile ? "Profil" : "Profil",

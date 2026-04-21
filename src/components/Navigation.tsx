@@ -98,7 +98,7 @@ const Navigation = () => {
     }
   }, [isMenuOpen]);
 
-  // Mobile navigation items (rearranged as requested)
+  // Mobile navigation items - logical flow for vet practice
   const mobileNavigationItems = [
     {
       name: "Patienten",
@@ -106,9 +106,9 @@ const Navigation = () => {
       icon: ClipboardList,
     },
     {
-      name: "Mitarbeiter",
-      href: "/employees",
-      icon: Users,
+      name: "TAMG",
+      href: "/tamg",
+      icon: Pill,
     },
     {
       name: "Module",
@@ -116,73 +116,92 @@ const Navigation = () => {
       icon: LayoutGrid,
     },
     {
-      name: "Profil",
-      href: "/profile",
-      icon: UserCircle,
+      name: "Mehr",
+      href: "#menu",
+      icon: Menu,
+      isMenuTrigger: true,
     },
   ];
 
-  // Full navigation items for the burger menu
+  // Full navigation items for the burger menu - organized logically
   const fullNavigationItems = [
+    {
+      name: "Dashboard",
+      href: "/dashboard",
+      icon: LayoutDashboard,
+      category: "main",
+    },
     {
       name: "Patientenliste",
       href: "/patients",
       icon: ClipboardList,
+      category: "patients",
     },
     {
       name: "Besitzerverzeichnis", 
       href: "/owners",
       icon: Users,
+      category: "patients",
     },
     {
-      name: "Module",
-      href: "/",
-      icon: LayoutGrid,
-    },
-    {
-      name: "Mitarbeiterverzeichnis",
-      href: "/employees",
-      icon: Users,
-    },
-    {
-      name: "Bestandsverwaltung",
-      href: "/inventory",
-      icon: Truck,
+      name: "TAMG / Antibiotika",
+      href: "/tamg",
+      icon: Pill,
+      category: "compliance",
     },
     {
       name: "Terminplanung",
       href: "/appointments",
       icon: CalendarClock,
+      category: "operations",
+    },
+    {
+      name: "Bestandsverwaltung",
+      href: "/inventory",
+      icon: Truck,
+      category: "operations",
+    },
+    {
+      name: "Mitarbeiterverzeichnis",
+      href: "/employees",
+      icon: Users,
+      category: "practice",
     },
     {
       name: "Berichte",
       href: "/reports",
       icon: FileBarChart,
+      category: "practice",
     },
     {
       name: "Transkription",
       href: "/transcription",
       icon: FileAudio,
+      category: "tools",
     },
     {
       name: "Telemedizin",
       href: "/telemedizin",
       icon: Video,
+      category: "tools",
     },
     {
-      name: "Dashboard",
-      href: "/dashboard",
-      icon: LayoutDashboard,
+      name: "Module",
+      href: "/",
+      icon: LayoutGrid,
+      category: "main",
     },
     {
       name: "Profil",
       href: "/profile",
       icon: UserCircle,
+      category: "user",
     },
     {
       name: "Einstellungen",
       href: "/settings",
       icon: Settings,
+      category: "user",
     },
   ];
 
@@ -272,8 +291,8 @@ const Navigation = () => {
               <Button
                 key={item.name}
                 variant="ghost"
-                className="flex-col gap-1 h-auto py-2"
-                onClick={() => navigateAndCloseMenu(item.href)}
+                className={`flex-col gap-1 h-auto py-2 ${item.isMenuTrigger ? 'text-primary' : ''}`}
+                onClick={() => item.isMenuTrigger ? toggleMenu() : navigateAndCloseMenu(item.href)}
               >
                 <item.icon className="h-5 w-5" />
                 <span className="text-xs">{item.name}</span>
@@ -321,14 +340,18 @@ const Navigation = () => {
             </div>
           </Button>
           <div className="flex items-center gap-2">
-            {/* Display a few important navigation items directly in the top bar */}
+            {/* Desktop top navigation - organized by workflow */}
             <Button variant="ghost" className="gap-2" onClick={() => navigate("/patients")}>
               <ClipboardList className="h-5 w-5" />
-              Patientenliste
+              Patienten
             </Button>
-            <Button variant="ghost" className="gap-2" onClick={() => navigate("/employees")}>
-              <Users className="h-5 w-5" />
-              Mitarbeiter
+            <Button variant="ghost" className="gap-2" onClick={() => navigate("/tamg")}>
+              <Pill className="h-5 w-5" />
+              TAMG
+            </Button>
+            <Button variant="ghost" className="gap-2" onClick={() => navigate("/dashboard")}>
+              <LayoutDashboard className="h-5 w-5" />
+              Dashboard
             </Button>
             <Button variant="ghost" className="gap-2" onClick={() => navigate("/profile")}>
               <UserCircle className="h-5 w-5" />
