@@ -105,6 +105,25 @@ const PatientList = () => {
   const fetchPatients = async () => {
     setLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error("No authenticated user");
+        return;
+      }
+
+      // Get user's praxis_id from profiles
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("praxis_id")
+        .eq("id", user.id)
+        .single();
+
+      const praxisId = profile?.praxis_id;
+      if (!praxisId) {
+        console.error("No praxis_id found for user");
+        return;
+      }
+
       const { data, error } = await supabase
         .from("patient")
         .select(`
@@ -119,6 +138,7 @@ const PatientList = () => {
             name
           )
         `)
+        .eq("praxis_id", praxisId)
         .is("deleted_at", null);
 
       if (error) {
@@ -369,7 +389,7 @@ const PatientList = () => {
                     <TableRow
                       key={patient.id}
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => navigate(`/patients/${patient.id}`)}
+                      onClick={() => navigate(`/patient/${patient.id}`)}
                     >
                       <TableCell className="whitespace-nowrap">{patient.name}</TableCell>
                       <TableCell className="whitespace-nowrap">
