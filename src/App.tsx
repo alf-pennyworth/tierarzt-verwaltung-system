@@ -40,6 +40,7 @@ const GOAEVBillingPage = lazy(() => import("./pages/billing/GOAEVBillingPage"));
 const PatientTimelinePage = lazy(() => import("./pages/PatientTimelinePage"));
 const CSVExportPage = lazy(() => import("./pages/CSVExportPage"));
 const DrugInteractionChecker = lazy(() => import("./pages/DrugInteractionChecker"));
+const DrugDatabasePage = lazy(() => import("./pages/DrugDatabasePage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -340,6 +341,18 @@ const App = () => (
                 <WithNavigation showNav={true}>
                   <Suspense fallback={<LoadingSpinner />}>
                     <Settings />
+                  </Suspense>
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/drug-database"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <DrugDatabasePage />
                   </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
