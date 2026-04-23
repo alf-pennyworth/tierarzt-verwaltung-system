@@ -41,6 +41,8 @@ const PatientTimelinePage = lazy(() => import("./pages/PatientTimelinePage"));
 const CSVExportPage = lazy(() => import("./pages/CSVExportPage"));
 const DrugInteractionChecker = lazy(() => import("./pages/DrugInteractionChecker"));
 const DrugDatabasePage = lazy(() => import("./pages/DrugDatabasePage"));
+const DrugPricingPage = lazy(() => import("./pages/DrugPricingPage"));
+const DosageCalculatorPage = lazy(() => import("./pages/DosageCalculatorPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -353,6 +355,30 @@ const App = () => (
                 <WithNavigation showNav={true}>
                   <Suspense fallback={<LoadingSpinner />}>
                     <DrugDatabasePage />
+                  </Suspense>
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/drug-pricing"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <DrugPricingPage />
+                  </Suspense>
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dosage-calculator"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <DosageCalculatorPage />
                   </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
