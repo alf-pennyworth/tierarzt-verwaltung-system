@@ -150,6 +150,24 @@ const Navigation = () => {
       category: "compliance",
     },
     {
+      name: "Arzneimittel-Datenbank",
+      href: "/drug-database",
+      icon: Pill,
+      category: "compliance",
+    },
+    {
+      name: "Dosierungsrechner",
+      href: "/dosage-calculator",
+      icon: Stethoscope,
+      category: "compliance",
+    },
+    {
+      name: "Arzneimittelpreise",
+      href: "/drug-pricing",
+      icon: Pill,
+      category: "compliance",
+    },
+    {
       name: "Terminplanung",
       href: "/appointments",
       icon: CalendarClock,
