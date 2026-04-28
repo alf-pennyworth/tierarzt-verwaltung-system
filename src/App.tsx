@@ -15,6 +15,7 @@ import { OfflineIndicator } from "./components/OfflineIndicator";
 // Eagerly loaded components (critical for initial render)
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import ApiDashboard from "./pages/ApiDashboard";
 
 // Lazy loaded page components
 const Index = lazy(() => import("./pages/Index"));
@@ -343,6 +344,18 @@ const App = () => (
                 <WithNavigation showNav={true}>
                   <Suspense fallback={<LoadingSpinner />}>
                     <Settings />
+                  </Suspense>
+                </WithNavigation>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/api-dashboard"
+            element={
+              <ProtectedRoute>
+                <WithNavigation showNav={true}>
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <ApiDashboard />
                   </Suspense>
                 </WithNavigation>
               </ProtectedRoute>
